@@ -8,13 +8,7 @@ After compile with "make" command, the test program can be run as:
 ./bin/testtriple
 ```
 
-Here we show how the closed image tracks is connected: 
+Here we show how the closed image tracks is connected:
 
-```HTML
-<table>
-  <tr>
-    <td><img src="doc/connected_track_eg.gif" width=270 height=480></td>
-    <td><img src="doc/connected_track_eg2.gif" width=270 height=480></td>
-  </tr>
- </table>
-```
+<img align="right" src="./doc/connected_track_eg.gif" width="400" height="400"><img align="left" src="./doc/connected_track_eg2.gif" width="400" height="400"> 
+

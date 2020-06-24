@@ -10,5 +10,5 @@ After compile with "make" command, the test program can be run as:
 
 Here we show how the closed image tracks is connected:
 
-<img align="right" src="./doc/connected_track_eg.gif" width="400" height="400"><img align="left" src="./doc/connected_track_eg2.gif" width="400" height="400"> 
+<img align="right" src="./doc/connected_track_eg.gif" width="350" height="350"><img align="left" src="./doc/connected_track_eg2.gif" width="350" height="350"> 
 

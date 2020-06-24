@@ -12,4 +12,4 @@ After compile with "make" command, the test program can be run as:
 
 Here we show how the closed image tracks is connected:
 
-![connected_track_eg](/Users/anything/THU/astro/softwares/gravlens/triplelens/doc/connected_track_eg.gif)
+![connected_track_eg](./doc/connected_track_eg.gif)

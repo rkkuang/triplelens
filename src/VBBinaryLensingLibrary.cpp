@@ -337,6 +337,106 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 }
 
 
+// add on 2020 Feb 04
+void VBBinaryLensing::solv_lens_equation(double zrxy[], double mlens[], double zlens[], double xs, double ys, int NLENS){
+	int DEGREE = NLENS*NLENS + 1;
+    complex zr[DEGREE];
+    // double zrxy[DEGREE*2];
+    complex coefficients[DEGREE + 1];
+
+    complex Zlens[NLENS];
+    int i;
+    for (i=0; i<NLENS; i++){
+    	Zlens[i] = complex(zlens[i], zlens[i+NLENS]);
+    }
+    polynomialCoefficients(mlens, Zlens, xs, ys, coefficients, NLENS, DEGREE);
+    cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+
+    for (i=0; i<DEGREE;i++){
+    	zrxy[i] = zr[i].re;
+    	zrxy[i+DEGREE] = zr[i].im;
+    }
+    // return zrxy;
+}
+
+
+//output in two files the triple critical curves and caustics
+ void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
+ // void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
+{
+    // VBBinaryLensing VBBL;
+    // double allxys[4*NPS+2];
+    complex Zlens[NLENS];
+    int i;
+    for (i=0; i<NLENS; i++){
+    	Zlens[i] = complex(zlens[i], zlens[i+NLENS]);
+    }
+
+    int ncurves = 0;
+    int ncritical = 0;
+    _sols *criticalCurves;
+    // FILE *fcritical, *fcaustics;
+
+    criticalCurves = PlotCritTriple(mlens, Zlens, NPS,NLENS);
+    // fcritical = fopen("critical_curves.dat", "w");
+    // fcaustics = fopen("caustics.dat", "w");
+
+    // check how many closed critical curves we have
+    // first halfs are critical curves
+    ncritical = criticalCurves->length / 2; // number of closed critical curves
+    // allxys[0] = ncritical;
+#ifdef VERBOSE
+    printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
+#endif
+
+    // write out the critical curves and caustics separately
+    // allxys:
+    // num_critical_points
+    // then critx_i, crity_i
+    // numb_caustics_points
+    //then causticsx_i, causticsy_i
+    // [2, crx1,cry1,crx2,cry2, 1, cax1, cay1]
+ //idx [0, 1,   2,   3,   4,    5, 6,    7]
+
+
+    ncurves = 0;
+    int count_critical = 0;
+    int count_caustic = 0;
+    for (_curve *c = criticalCurves->first; c; c = c->next) {
+        int npoints = 0;
+
+        ncurves++;
+
+        // second half, caustics
+        if (ncurves > ncritical) {      // second halfs are caustics
+            for (_point *p = c->first; p; p = p->next) {
+                // fprintf(fcaustics, "%.10lf %.10lf\n", p->x1, p->x2);
+
+                npoints++;
+
+                count_caustic ++;
+                allxys[2*count_critical+1 + 2*count_caustic-1] = p->x1;
+                allxys[2*count_critical+1 + 2*count_caustic] = p->x2;
+                // allxys[npoints] = p->x1; # this is a bug not commeted
+            }
+            //      printf("critical curve #%d  number of points %d\n", ncurves-ncritical, npoints);
+        } else {
+        	// first half, critical curves
+            for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
+                // fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
+            count_critical ++;
+            // fprintf(stderr, "I am inside outputCriticalTriple_list%f\n", count_critical);
+            allxys[count_critical*2-1] = p->x1;
+            allxys[count_critical*2] = p->x2;
+            }
+        }
+
+    }
+    allxys[0] = count_critical;
+    allxys[2*count_critical+1] = count_caustic;
+    // fclose(fcritical);  fclose(fcaustics);
+}
+
 void VBBinaryLensing::PrintCau(double a, double q) {
 	_sols *CriticalCurves;
 	_curve *scancurve;

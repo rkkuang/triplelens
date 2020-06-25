@@ -79,6 +79,8 @@ public:
 	int minannuli, nannuli, NPS;
 	double y_1, y_2, av, therr;
 
+	void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int NLENS);
+	void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
 	// Critical curves and caustic calculation
 	_sols *PlotCrit(double a, double q);
 	_sols *PlotCritTriple(double m[], complex z[], int NPS, int nlens);

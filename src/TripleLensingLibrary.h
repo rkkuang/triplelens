@@ -30,6 +30,8 @@ public:
     double TripleMag(double mlens[], complex zlens[], double xsCenter, double ysCenter, double rs);
     double TriplePS(double mlens[], complex zlens[], double xsCenter, double ysCenter);
     void TripleLkvAdap(double mlens[], double zlens[], double rs, _curve *lightkv, int np0, int MAXNPS, double errTol, double t_start, double t_end, double alpha, double tE, double t0 , double u0, int np, double timerrTol);
+    // double Zlens[2 * NLENS] = { zlens[0].re, zlens[0].im, zlens[1].re, zlens[1].im, zlens[2].re, zlens[2].im };
+    double tripleFS2python(double mlens[], double zlens[], double xsCenter, double ysCenter, double rs);//core
 };
 
 class _linkedarray {

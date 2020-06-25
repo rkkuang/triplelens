@@ -21,6 +21,20 @@ double TripleLensing::TripleMag(double mlens[], complex zlens[], double xsCenter
     return tripleFS_v2_savehalf_quadtest(mlens, zlens, xsCenter, ysCenter, rs, nphi, &finalnphi, secnum_adj, basenum, &quad_err, quaderr_Tol);
 }
 
+double TripleLensing::tripleFS2python(double mlens[], double Zlens[], double xsCenter, double ysCenter, double rs) {
+    // double Zlens[2 * NLENS] = { zlens[0].re, zlens[0].im, zlens[1].re, zlens[1].im, zlens[2].re, zlens[2].im };
+    complex zlens[NLENS];
+    for (int i = 0; i < NLENS ; i++) {
+        zlens[i] = complex( Zlens[i * 2], Zlens[i * 2 + 1] );
+    }
+    int finalnphi;
+    double quad_err, mu;
+    mu = tripleFS_v2_savehalf_quadtest(mlens, zlens, xsCenter, ysCenter, rs, nphi, &finalnphi, secnum, basenum, &quad_err, quaderr_Tol);
+    return mu;
+    // return log10(mu - 1);
+}
+
+
 double TripleLensing::TriplePS( double mlens[], complex zlens[], double xsCenter, double ysCenter) {
     return triplePS(mlens, zlens, xsCenter, ysCenter, &nimages);
 }

@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: TripleLensing
+Version: 1.0.1
+Summary: Python wrapper of the TripleLensing code for             computing microlensing light curves of triple lens system.
+Home-page: https://github.com/rkkuang/triplelens
+Author: Renkun Kuang
+Author-email: renkunkuang@gmail.com
+License: BSD 3-Clause
+Description: ...
+Platform: UNKNOWN

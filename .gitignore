@@ -1,11 +1,11 @@
 # Ignore the build and data dirs
-build/**
-data/**
-
+#build/*
+data/*
 # Ignore any executables
-bin/**
+#bin/*
 
 # Ignore Mac specific files
 .DS_Store
 
 *.o
+*.zip

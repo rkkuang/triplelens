@@ -17,7 +17,6 @@
 // GNU Lesser General Public License applies to all parts of this code.
 // Please read the separate LICENSE.txt file for more details.
 
-
 #ifndef __binlens
 #define __binlens
 #define __unmanaged
@@ -51,7 +50,8 @@ namespace VBBinaryLensingLibrary {
 public ref class VBBinaryLensing
 #else
 class VBBinaryLensing
-#endif{
+#endif 
+	{
 	int *ndatasat;
 	double **tsat, ***possat;
 	// double Mag0, corrquad, corrquad2, safedist;

@@ -6,7 +6,7 @@ This method is based on the image track connecting method, which is different fr
 
 After compile with "make" command, the test program can be run as:
 
-```
+```shell
 ./bin/testtriple
 ```
 
@@ -53,7 +53,7 @@ Here we show how the closed image tracks are connected:
 
 first run:
 
-```
+```shell
 sudo python3 setup.py install
 ```
 
@@ -61,7 +61,7 @@ to build the python module "TripleLensing"
 
 then, run the following:
 
-```
+```python
 #test/testpymodule.py
 import TripleLensing
 TRIL = TripleLensing.TripleLensing()
@@ -85,8 +85,19 @@ print("finite source magnification: ", mu)
 
 the output will be:
 
-```
+```shell
 finite source magnification:  16.98207968801614
 ```
 
+We also offer an interface to visualize the lens system configuration and critical curves and caustics:
 
+```python
+#simply call:
+from utils import *
+plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs)
+plt.show()
+```
+
+The resultant image is as follows:
+
+![](./doc/critcaus.png)

@@ -32,6 +32,10 @@ public:
     void TripleLkvAdap(double mlens[], double zlens[], double rs, _curve *lightkv, int np0, int MAXNPS, double errTol, double t_start, double t_end, double alpha, double tE, double t0 , double u0, int np, double timerrTol);
     // double Zlens[2 * NLENS] = { zlens[0].re, zlens[0].im, zlens[1].re, zlens[1].im, zlens[2].re, zlens[2].im };
     double tripleFS2python(double mlens[], double zlens[], double xsCenter, double ysCenter, double rs);//core
+
+    void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int nlens);
+    void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
+
 };
 
 class _linkedarray {

@@ -17,3 +17,9 @@ rs = 0.005
 #compute the magnification:
 mu = TRIL.tripleFS2python(mlens, zlens, xsCenter, ysCenter, rs)
 print("finite source magnification: ", mu)
+
+
+#plot lens system topology, critical curves and caustics
+from utils import *
+plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs)
+plt.show()

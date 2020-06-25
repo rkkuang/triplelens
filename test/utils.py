@@ -2,14 +2,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits import axes_grid1
 import matplotlib
+import matplotlib as mpl
+import sys
+
+
+import TripleLensing
+TRIL = TripleLensing.TripleLensing()
+
+NLENS = 3
+DEGREE = NLENS**2 + 1
+import math
+M_PI = math.pi
+EPS = 1.0e-5
+
 
 VERBOSE = False
+verbose = False
 
-font = {'family' : 'serif',
-        # 'color'  : 'darkred',
-        'weight' : 'normal',
-        'size'   : 16,
-        }
+
+font = {'family': 'Times New Roman',
+    'color':  'k',
+    'weight': 'normal',
+    'size': 17,
+    }
+legend_tick_size = 17
+
+font2 = {'family': 'Times New Roman',
+    'weight': 'normal',
+    'size': 20,
+    }
 
 def read_lens_system_triple(fileName):
     # ../data/lens_system_triple.dat
@@ -356,657 +377,340 @@ def plotcritcaus():
     # plt.ylim(-1.5,1.5)
     plt.show()
 
-def tracks():
-    print("Tracks function")
-    # fig = plt.figure()
-    # plt.clf()
-    # ax = fig.add_subplot(111)      
-    fig, ax = plt.subplots(figsize=(12,7))
-    title="Critical lines (blue), caustics (red)\n source and lens (black), images (green) of triple lenses system\n yellow are the images of source centre"
-    plt.suptitle(title)
-    x, y = readFile("./data/caustics.dat", 0, 1, expected_elem_each_row=2)
-    ax.plot(x, y, 'o', color='red', markersize=1)
-    # plt.show()
-    # input()
-
-    x, y = readFile("./data/critical_curves.dat", 0, 1, expected_elem_each_row=2)
-    ax.plot(x, y, 'o', color='blue', markersize=1)
-
-    # x, y = readFile("images.dat", 0, 1)
-    # # plt.plot(x, y, color='green', markersize=1)
-    # plt.plot(x, y, '+', color='green', markersize=1 )
+#python interface using TripleLensing module 
 
 
+# def plot_critcaus_srcimgs_v3(mlens, z, xsCenter, ysCenter, rs, NLENS,nphi=2000, NPS=1000,secnum = 24, basenum = 50, scale = 10, pltfalseimg = False):
+#     # non-uniform phis
+#     critical , caustics = get_crit_caus(mlens, z, NLENS, NPS = NPS)
+#     causticsx = np.array([xy[0]for xy in caustics])
+#     causticsy = np.array([xy[1]for xy in caustics])
+#     Phis = getphis_v3(mlens, z, xsCenter, ysCenter, rs, nphi, causticsx, causticsy,secnum=secnum, basenum = basenum, scale = scale)
+#     Phis = Phis[0]
+#     print("uniphi in image plane, len PHI:", len(Phis))
+#     imgXS, imgYS, XS, YS, falseimgXS, falseimgYS = get_allimgs_v2(mlens, z, xsCenter, ysCenter, rs, NLENS, Phis)
+#     fig, ax = plt.subplots(figsize=(6,6))
 
-    # f = open("images.dat", "r")
-    f = open("./data/lens_system.dat", "r")
+#     # critical , caustics = get_crit_caus(mlens, z, NLENS, NPS = NPS)
+#     ax.plot([xy[0]for xy in critical], [xy[1]for xy in critical], 'o', color='blue', markersize=0.5)
+#     ax.plot([xy[0]for xy in z], [xy[1]for xy in z], 'x', color='k', markersize=5)
+#     # ax.plot([xy[0]for xy in caustics], [xy[1]for xy in caustics], 'o', color='red', markersize=1)
+#     ax.plot(causticsx, causticsy, 'o', color='red', markersize=1)
+#     ax.plot(XS, YS, '.', color="orange" , markersize=1)
+#     ax.plot(imgXS, imgYS, '.', color="green", markersize=1)
+#     ax.text(0.8,1,"rs:{:.0e}\nnphi:{}".format(rs,len(Phis)),fontdict = font)
+#     for xy,m,i in zip(z, mlens, range(NLENS)):
+#         ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i,m,fontdict = font))
 
-    #read in the source information
-    full_line = f.readline()
-    f.close()
-    line=full_line.split()
+def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True):
+    # non-uniform phis
+    z = [ [zlens[0], zlens[1]], [zlens[2], zlens[3]], [zlens[4], zlens[5]] ]
+    nlens = len(mlens)
+    fig, ax = plt.subplots(figsize=(8,8))
+    # plt.subplots_adjust(top = 0.9, bottom = 0.1, right = 0.8, left = 0.2, hspace = 0, wspace = 0)
+    ax.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
 
-    xs=np.float(line[0])
-    ys=np.float(line[1])
-    rs=np.float(line[2])
-    print("xs, ys, rs in py", xs,ys,rs)
+    critical , caustics = get_crit_caus(mlens, z, nlens, NPS = NPS)
+    causticsx = np.array([xy[0]for xy in caustics])
+    causticsy = np.array([xy[1]for xy in caustics])
+    criticalx = [xy[0]for xy in critical]
+    criticaly = [xy[1]for xy in critical]
+    ax.plot(causticsx, causticsy, '-', color='red', markersize=1)
+    ax.plot(criticalx, criticaly, '--', color='r', markersize=1)
+
+    Phis = getphis_v3(mlens, z, xsCenter, ysCenter, rs, nphi, causticsx, causticsy,secnum=secnum, basenum = basenum, scale = scale)
+    Phis = Phis[0]
+    # print("uniphi in image plane, len PHI:", len(Phis))
+    imgXS, imgYS, XS, YS, falseimgXS, falseimgYS = get_allimgs_v2(mlens, z, xsCenter, ysCenter, rs, nlens, Phis)
+
+    ax.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=5)
+    ax.plot(XS, YS, '.', color="k" , markersize=1)
+    ax.plot(imgXS, imgYS, '.', color='cyan', markersize=1)
+    if pltfalseimg:
+        ax.plot(falseimgXS, falseimgYS, '.', color='b', markersize=1)
+
+    for xy,m,i in zip(z, mlens, range(nlens)):
+        ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m,fontdict = font))
+    ax.annotate('({:.1e}, {:.1e})'.format(xsCenter,ysCenter), xy=(0.4, 0.9), xycoords='axes fraction', fontsize=17,
+                horizontalalignment='right', verticalalignment='bottom')
+    plt.axis('equal')
+    tit = """
+    The three plus signs: the lens positions; The black circle: finite source
+    The red solid and dashed curve: the caustics and critical curves.
+    The cyan curves: true image trajectories; the blue curves: false image trajectories
+    """
+    plt.suptitle(tit, fontdict = font2)
+
+def get_crit_caus(mlens, z, NLENS, NPS = 200):
+    zlens = [i[0] for i in z] + [i[1] for i in z]
+    resxy = TRIL.outputCriticalTriple_list(mlens, zlens, NLENS, NPS)
+    # critcaus_xy.sort()
+    # print(critcaus_xy[-2:]) # NPS = 200, 1200, 1200
+
+    #    // allxys:
+    #    // num_critical_points
+    #    // then critx_i, crity_i
+    #    // numb_caustics_points
+    #    //then causticsx_i, causticsy_i
+    #    // [2, crx1,cry1,crx2,cry2, 1, cax1, cay1]
+    # //idx [0, 1,   2,   3,   4,    5, 6,    7]
+
+    # print("len resxy", len(resxy))
+    # print(resxy[0], max(resxy[1:]))
+
+    critical = []
+    caustics = []
+    numcrit = int(resxy[0])
+    for i in range(numcrit):
+        critical.append( [ resxy[2*i+1], resxy[2*i+2] ] )
+    offset = 2*numcrit + 1
+    numcaus = int( resxy[offset] )
+    for i in range(numcaus):
+        caustics.append([resxy[offset+2*i+1],resxy[offset+2*i+2]])
+    return critical, caustics
+
+
+def sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS):
+    zlens = [i[0] for i in z] + [i[1] for i in z]
     
-    nphi=150
-    # phi=arange(0.0, 2*pi, 2.0*pi/(nphi-1))
-    phi=np.linspace(0.0, 2*np.pi, nphi)
-    x=xs+rs*np.cos(phi)
-    y=ys+rs*np.sin(phi)
-
-    ax.plot(x, y)
-    plt.text(xs,ys,"src")
-
-    lensx, lensy = readFile("./data/lens_system.dat", 1, 2, expected_elem_each_row=3)
-    lensm, _ = readFile("./data/lens_system.dat", 0, 2, expected_elem_each_row=3)
-    # print(lensx, lensy)
-    for i in range(3):
-        plt.plot(lensx[1+i], lensy[1+i], 'o', color='k', markersize=5*lensm[i+1])
-        plt.text(lensx[1+i], lensy[1+i],"lens{}".format(i+1))
+    resxy = TRIL.solv_lens_equation(mlens, zlens, xsCenter, ysCenter, NLENS)
+    # print(res)
+    # res = [ [0]*2 ] * DEGREE # do not write like this, it will shallow copy
+    res = [ [0, 0] for i in range(DEGREE)]
+    # print(resxy)
+    for i in range(DEGREE):
+        # print(i, resxy[i], resxy[i+DEGREE])
+        res[i][0] = resxy[i]
+        res[i][1] = resxy[i+DEGREE]
+        # print(res[i])
+    # print(res)
+    return res
 
 
-    try:
-        f = open("./data/images.dat", "r")
-        #total image tracks
-        _ = f.readline()
-        full_line = f.readline()
-        # print("full_line:",full_line)
-        line=full_line.split()
-        totalTracks=np.int(line[0])
-
-        print("total number of tracks: ", totalTracks)
-
-        #read image each image track
-        ntrack=0
-
-        while (ntrack<totalTracks):
-            full_line = f.readline()
-            # print("full_line:",full_line)
-            line=full_line.split()
-            number_of_lines=np.int(line[0])
-            #  fileImage = fopen("images.dat", "w");
-            # fprintf(fileImage, "%f %f %f\n", xsCenter, ysCenter, rs);
-            # fprintf(fileImage, "%d\n", imageTracks->length);
-
-            # for(_curve *c=imageTracks->first;c;c=c->next) { //curves
-            #   fprintf(fileImage, "%d\n", c->length);
-            #   for(_point *p=c->first;p;p=p->next) { //point
-            #     fprintf(fileImage, "%f %f %f %f \n", p->x1, p->x2, p->phi, p->mu);
-            #   }
-            # }       
-            i=0
-            x0=[]
-            y0=[]
-            while (i<number_of_lines):
-                full_line = f.readline()
-                # print("full_line:",full_line)
-                line=full_line.split()    
-                
-                x = np.float(line[0])
-                y = np.float(line[1])
-                
-                x0.append(x)
-                y0.append(y)
-                i += 1
-                
-            # plt.plot(x0, y0, color='magenta')
-            ax.plot(x0, y0, '+', color='green', markersize=3)
-            ntrack +=1
-        f.close()
-    except:
-        print("plot pureImgPoints.dat")
-
-        xc, yc = readFile("./data/pureImgPoints_centre.dat", 0, 1, expected_elem_each_row=2)
-        ax.plot(xc, yc, 'x', color='y', markersize=3)
-        print("src centre image number: ", len(xc))
-
-        x, y = readFile("./data/pureImgPoints.dat", 0, 1, expected_elem_each_row=2)
-        ax.plot(x, y, '+', color='green', markersize=3)
-
-        plt.figure()
-        x = np.array(x)
-        y = np.array(y)
-        Clusters = cluster(x,y)
-        dimback = 0
-        idx = 0
-        for cl in Clusters:
-            cl = list(set(cl))
-            print("number of points in track_{}: {}".format(idx,len(cl)))
-            dimback += len(cl)
-            tempx = x[np.array(cl)]
-            tempy = y[np.array(cl)]
-            plt.scatter(tempx, tempy,s=0.2)
-            plt.text(tempx[0],tempy[0],"track_{}".format(idx))
-            idx+=1
-        print("dimback: ",dimback)
-        plt.suptitle("Clustered image tracks")
-
-
-
-    plt.grid(False)
-    plt.xlabel('x')
-    plt.ylabel('y')
-
-    scale = 1e6
-    Totalarea = areaFunc(x , y, Clusters, xc, yc, scale = 1e6)
-
-    Mag = Totalarea/(np.pi* (rs*scale)**2 )
-    print("Mag: {}".format(Mag))
-
-
-    try:
-        pxs, full_line, head = plt_lightkv()
-        ax.plot(pxs, head[3]*pxs+head[4], 'k-')
-
-        # ax2 = fig.add_axes([.54, .44, .4, .4], aspect=1)
-        # ax2.plot(pxs, full_line, 'k-')
-        # ax2.set_xlim(0,1000)
-        # # ax2.set_ylim(-1,1)
-
-        # plt.figure()
-        ax2 = fig.add_axes([.58, .5, .4, .4], aspect=1,frameon=False)
-        ax2.plot(pxs, full_line, 'k-')
-        # ax2.set_xlim(0,1000)
-        # ax2.set_ylim(-1,1)
-        ax2.set_aspect(1./ax2.get_data_ratio())
-
-        
-        
-        
-    except:
-        pass  
-    
-    plt.show()
-
-def cluster(x,y):
-
-    thresholdvalue = 0.01
-
-    
-
-    x = np.array(x) 
-    y = np.array(y) 
-    dim = x.shape[0] #3676
-    print("dim", dim)
-
-    dismatrix = np.ones((dim,dim))*1e2
-    for i in range(dim):
-        for j in range(i):
-                dismatrix[i,j] = ( (x[i]-x[j])**2 + (y[i]-y[j])**2 )**0.5
-    for j in range(dim):
-        dismatrix[0:j, j] = dismatrix[ j, 0:j ]
-
-    dismatrix_bak = np.copy(dismatrix)
-
-    Clusters = [] # save index which belongs to a cluster
-    na_mark = np.ones(dim).astype(np.int)
-
-    Clusters.append([])
-    clusternum = 0
-    processidx = 0
-    na_mark[0] = 0
-    Clusters[0].append(0)
-    threshold_max = []
-
-    checked = [0]
-
-    thresholdvalue = np.mean(dismatrix.min(axis=0))*3
-    if VERBOSE:
-        print("thresholdvalue", thresholdvalue)
-
-    threshold = [thresholdvalue]
-
-    while np.sum(na_mark)>0:
-        mindis = dismatrix[:,processidx].min()
-        closestidx = np.where(dismatrix[:,processidx]==mindis)[0][0]
-        checked.append(processidx)
-        if closestidx in checked:
-            na_mark[closestidx] = 0
-            dismatrix[closestidx, processidx] = 1e2
-            dismatrix[processidx,closestidx] = 1e2
-            continue
-
-        if  na_mark[closestidx] == 0:
-            dismatrix[closestidx, processidx] = 1e2
-            dismatrix[processidx,closestidx] = 1e2
-
-            threshold.append(mindis)
-        else:
-            if ( (mindis <= max(threshold)) or ( min(dismatrix[np.array(Clusters[clusternum]),closestidx]) < max(threshold) ) ):
-                dismatrix[closestidx, processidx] = 1e2
-                dismatrix[processidx,closestidx] = 1e2
-                Clusters[clusternum].append(closestidx)
-                threshold.append(mindis)
-            else:
-                # print("starting a new image track")
-                Clusters.append([])
-                clusternum += 1
-                Clusters[clusternum].append(closestidx)
-                threshold_max.append(  2 * max(threshold))
-                threshold = [thresholdvalue]
-        processidx = closestidx
-        na_mark[closestidx] = 0
-
-    lenCluster = [len(i) for i in Clusters]
-    lensortidx = sorted(range(len(lenCluster)), key=lambda k: lenCluster[k])
-    threshold_max.append(  2 * max(threshold))
-    # if len(threshold_max)<len(lenCluster):
-        # threshold_max.append(threshold_max[-1])
-    if VERBOSE:
-        print("threshold_max: ",threshold_max)
-        print("len(Clusters): before loop ", len(Clusters))
-    smallclusteridx = None
-    mark = 0
-    currentlen = len(lensortidx)
-    i=0
-    step = len(threshold_max)
-    while i < step:
-        smallclusteridx = lensortidx[mark]
-        if VERBOSE:
-            print('\nstep:{}, lenCluster:{}'.format(i, lenCluster))
-            print("lensortidx, smallclusteridx: ",lensortidx, smallclusteridx)
-        if mark == len(lensortidx)-1:
-            break
-
-        for pnt in Clusters[smallclusteridx]:
-            mindis = 1e2
-            mindisindx = None
-            for largeclusteridx in lensortidx[mark:]:
-                if largeclusteridx != smallclusteridx:
-                    tempmin = min(dismatrix_bak[np.array(Clusters[largeclusteridx]), pnt ])
-                    if mindis > tempmin:
-                        mindis = tempmin
-                        mindisindx = largeclusteridx
-            # if a image track contains too little points, e.g. just 1, it must be merged to other track
-            # if mindis < threshold_max[mindisindx] or lenCluster[smallclusteridx]<=10:
-            if mindis < threshold_max[mindisindx] or ((lenCluster[smallclusteridx]/lenCluster[lensortidx[-1]]<=0.6) and len(lenCluster)>4):
-                largeclusteridx = mindisindx
-                Clusters[largeclusteridx]+=Clusters[smallclusteridx]
-                if VERBOSE:
-                    print("merging smallcluster{} to largecluster{}: ", smallclusteridx, largeclusteridx)
-                del Clusters[smallclusteridx]
-                del threshold_max[smallclusteridx]
-                # del lenCluster[smallclusteridx]
-                lenCluster = [len(i) for i in Clusters]
-                lensortidx = sorted(range(len(lenCluster)), key=lambda k: lenCluster[k])
-                break
-        
-        if currentlen == len(lensortidx):
-            # no change for this image, go to the next one
-            mark += 1
-            if VERBOSE:
-                print("mark+=1, mark=", mark)
-        else:
-            currentlen = len(lenCluster)
-        i+=1
-    
-    #drop tracks which only contains little point
-
-    # NLENS = 3
-    # print(lenCluster)
-    # if not (len(Clusters) - NLENS - 1)%2 == 0:
-    #     Clusters[lensortidx[1]]+=Clusters[lensortidx[0]]
-    #     del Clusters[lensortidx[0]]
-    return Clusters
-
-
-
-def areaFunc(x , y, Clusters, xc, yc, scale=1e6):
-    # x, y: source edge points' images
-    # Cluster: individual image Tracks
-    # xc, yc: source center point's images
-    lenCluster = len(Clusters)
-    lenCentreImgs = len(xc)
-
-    # compute center of each track
-
-    trackcenters = []
-    xsyslist = []
-    for track in Clusters:
-        # print(track)
-        # print(type(track))
-        # input()
-        # track = list(set(track))
-        xsyslist.append([ x[np.array(track)], y[np.array(track)] ] )
-        trackcenters.append([  np.mean(xsyslist[-1][0]) , np.mean(xsyslist[-1][1]) ])
-
-    xcyc_which_track = []
-    for cx,cy in zip(xc,yc):
-        tempdis = []
-        for trackcxy in trackcenters:
-            tempdis.append( (cx-trackcxy[0])**2+(cy-trackcxy[1])**2 )
-        sortdis = sorted(range(len(tempdis)), key=lambda k: tempdis[k])
-        xcyc_which_track.append(sortdis[0])
-        print("center({},{}), imageTracks_{}".format(cx,cy,sortdis[0]))
-    # which means [xc[i], yc[i]] corresponding to xcyc_which_track[i] track
-    # and if you want to plot the center of track i, just try! to plot xc[i],yc[i]
-
-    if lenCluster == lenCentreImgs:
-        print("lenCluster == lenCentreImgs")
+def getphis_v3(mlens, z, xsCenter, ysCenter, rs, nphi, causticsx, causticsy,secnum = 24, basenum = 50, scale = 10, psf = [0.7,1,0.7]):
+    # get phis non-uniformly 
+    distype = None # away, almost, crossing
+    dis = (causticsx - xsCenter)**2 + (causticsy - ysCenter)**2
+    mindis = np.min(dis)
+    mindixidx = np.argmin(dis)
+    if mindis >= 4*rs**2:
+        if VERBOSE or verbose:
+            print("away from caustics")
+        distype = "away"
+        nphi = max(nphi, 32)
+        mindis_ang = myatan(causticsx[mindixidx] - xsCenter, causticsy[mindixidx] - ysCenter)
+        phi0 = mindis_ang+M_PI
+        PHI = np.linspace(phi0,2.0*M_PI+phi0,nphi,endpoint = True)
+        return PHI, distype, phi0, nphi
+    elif mindis >= rs**2:
+        if VERBOSE or verbose:
+            print("almost caustic crossing")
+        distype = "almost"
+        # nphi = max(nphi, 256)
+        nphi = max(nphi, 32)
+        qnphi = int(nphi/4+0.5)
+        scale = 1
+        mindis_ang = myatan(causticsx[mindixidx] - xsCenter, causticsy[mindixidx] - ysCenter)
+        PHI1 = np.linspace(mindis_ang-M_PI,mindis_ang - M_PI/3,scale*qnphi,endpoint = False)
+        PHI2 = np.linspace(mindis_ang-M_PI/3,mindis_ang + M_PI/3,4*scale*qnphi,endpoint = False)
+        # PHI3 = np.linspace(mindis_ang+M_PI/3,mindis_ang + M_PI,scale*qnphi,endpoint = False)
+        PHI3 = np.linspace(mindis_ang+M_PI/3,mindis_ang + M_PI,scale*qnphi,endpoint = True) # must be true!!!!
+        return np.concatenate([PHI1, PHI2, PHI3]), distype, mindis_ang, qnphi
     else:
-        print("lenCluster != lenCentreImgs")
+        if VERBOSE or verbose:
+            print("caustic crossing")
+        # basenum = 50
+        distype = "crossing"
 
-    Totalarea = 0
+        PHI = np.linspace(0,2.0*M_PI,secnum,endpoint = False)
+        # print("PHI, ",PHI/np.pi*180)
+        XS = xsCenter + rs*np.cos(PHI)
+        YS = ysCenter + rs*np.sin(PHI)
+        mus = []
+        for xs, ys in zip(XS, YS):
+            mus.append( muPoint(mlens, z, xs, ys, NLENS))
+        npmus = np.array(mus)
 
-    for i in range( lenCentreImgs ):
-        trackidx = xcyc_which_track[i]
-        data = xsyslist[trackidx]
-        try:
-            elliparas = fitellpise(data, plot=True, scale = scale)
-            if not np.isnan(elliparas[1]):
-                area = np.pi*elliparas[1]*elliparas[2]
+        # maxmuidx = np.argmax(npmus)
+        # maxmuidx = np.argmin(npmus)
+        ratiomin = 1
+        maxmuidx = (ratiomin * np.argmin(npmus) + (1-ratiomin)*np.argmax(npmus) ).astype(np.int)
+        if VERBOSE:
+            print("maxmuidx, ",maxmuidx)
+
+        # psf = np.array([0.7, 1, 0.7])*0.2
+        npmus = np.convolve(npmus/np.min(npmus),psf, 'same')        # 卷积
+
+        npmus = npmus.astype(np.int)+1
+
+        # print("len npmus: ",len(npmus), npmus)
+        # input()
+
+        # npmus = (npmus/np.min(npmus)).astype(np.int)
+        # npmus = np.convolve(npmus,[1,1,1], 'same').astype(np.int)
+        # print("len npmus: ",len(npmus), npmus)
+        # input()
+
+        # dphi = 2*M_PI/secnum
+        # PHIfrom = PHI - dphi/2
+        # PHIto = PHI + dphi/2
+        # PHI1 = np.array([])
+        # for i in range(1, secnum):
+        #         PHI2 = np.linspace(PHIfrom[i],PHIto[i], npmus[i]*basenum,endpoint = False)
+        #         PHI1 = np.concatenate([PHI1, PHI2])
+        # PHI2 = np.linspace(PHIto[-1],PHIto[-1]+dphi, npmus[0]*basenum,endpoint = True)
+        # PHI1 = np.concatenate([PHI1, PHI2])
+        # # print("len PHI1: ",len(PHI1), PHI1/np.pi*180)
+        # # input()
+        # # PHI1.sort()
+        # return PHI1, distype, npmus, secnum, PHI,  basenum
+
+        secnumlist = list(range(maxmuidx, secnum))+list(range(maxmuidx))
+        # print("secnumlist: ",secnumlist)
+        offset = (list(range(secnum))<maxmuidx)*2*M_PI
+        # print("offset, ", offset)
+
+
+        dphi = 2*M_PI/secnum/2
+        for i in secnumlist:
+            # offset = 0
+            # if i<maxmuidx:
+            #     offset = 2*M_PI
+            if i == secnumlist[0]:
+                # PHI1 = np.linspace(offset[i]+2*M_PI*i/secnum,offset[i]+2*M_PI*(i+1)/secnum, npmus[i]*basenum,endpoint = False)
+                PHI1 = np.linspace(offset[i]+PHI[i]-dphi,offset[i]+PHI[i]+dphi, npmus[i]*basenum,endpoint = False)
+            elif i==secnumlist[-1]:
+                PHI2 = np.linspace(offset[i]+PHI[i]-dphi,offset[i]+PHI[i]+dphi, npmus[i]*basenum,endpoint = True)
+                # PHI2 = np.linspace(offset[i]+2*M_PI*i/secnum,offset[i]+2*M_PI*(i+1)/secnum, npmus[i]*basenum,endpoint = True)
+                PHI1 = np.concatenate([PHI1, PHI2])
             else:
-                area = 0
-            # print("area: ",area)
-            Totalarea += area
-        except:
-            # we need to use other way to compute the area rather than ellipse fitting
-            print("we need to use other way to compute the area rather than ellipse fitting for track_{}".format(trackidx))
+                # PHI2 = np.linspace(offset[i]+2*M_PI*i/secnum,offset[i]+2*M_PI*(i+1)/secnum, npmus[i]*basenum,endpoint = False)
+                PHI2 = np.linspace(offset[i]+PHI[i]-dphi,offset[i]+PHI[i]+dphi, npmus[i]*basenum,endpoint = False)
+                PHI1 = np.concatenate([PHI1, PHI2])
+        if VERBOSE:
+            print("len PHI1: ",len(PHI1))
+        # for phi in PHI1:
+        #     print(phi/np.pi*180)
+        # input()
+        PHI1 -= 2*M_PI
+        #add on 2020.03.15
+        if PHI1[0]+2*M_PI > PHI1[-1]:
+            # PHI1 = np.concatenate([PHI1, np.array([PHI1[0]+2*M_PI])])
+            PHI1 = np.concatenate([PHI1[:-1], np.linspace(PHI1[-1], PHI1[0]+2*M_PI, 4, endpoint=True )])
+        return PHI1, distype, npmus, secnum, PHI, ratiomin, basenum
 
-        # Totalarea += area
+def get_allimgs_v2(mlens, z, xsCenter, ysCenter, rs, NLENS, Phis):
+    # for non-uniform phis
+    # allimgs = []
+    XS = []
+    YS = []
+    imgXS = []
+    imgYS = []
+    falseimgXS = []
+    falseimgYS = []
+    # nphi = 1000
+    # phi0 = 1.5
+    # dphi = 2*math.pi/(nphi-1)
+    # phi = phi0 - dphi
+    for phi in Phis:
+        # phi += dphi
+        xs = xsCenter + rs*math.cos(phi)
+        ys = ysCenter + rs*math.sin(phi)
+        XS.append(xs)
+        YS.append(ys)
+        res = sol_len_equ_cpp(mlens, z, xs, ys, NLENS)
+        for i in range(DEGREE):
+            flag = trueSolution(mlens, z, xs, ys, res[i], cal_ang = False)
+            if flag[0]:
+                # allimgs.append(res[i])
+                imgXS.append(res[i][0])
+                imgYS.append(res[i][1])
+            else:
+                falseimgXS.append(res[i][0])
+                falseimgYS.append(res[i][1])
+    # for res in allimgs:
+    #     imgXS.append(res[0])
+    #     imgYS.append(res[1])   
+    return imgXS, imgYS, XS, YS, falseimgXS, falseimgYS
 
-    return Totalarea
-
-
-
-
-
-
-
-def fitellpise(data, plot=False, scale = 1e6):
-    '''
-        Args
-        ----
-        data (list:list:float): list of two lists containing the x and y data of the
-            ellipse. of the form [[x1, x2, ..., xi],[y1, y2, ..., yi]]
-        Returns
-        ------
-        coef (list): list of the coefficients describing an ellipse
-           [a,b,c,d,f,g] corresponding to ax**2+2bxy+cy**2+2dx+2fy+g
-    '''
-    # import ellipses as el
-    # # import numpy as np
-    # # import matplotlib.pyplot as plt
-    # from matplotlib.patches import Ellipse
-
-    # data = el.make_test_ellipse()
-
-    lsqe = el.LSqEllipse()
-    # print("type(data): ", type(data))
-    # print(len(data))
-    
-    data = [scale*i.astype(np.float64) for i in data]
-
-    # data = [list(i) for i in data]
-    # print("\n\n\ndata[0]: ", data[0])
-    # print("\n\n\ndata[1]: ", data[1])
-    lsqe.fit(data)
-
-    center, width, height, phi = lsqe.parameters()
-
-    center = [i/scale for i in center]
-    width /= scale
-    height /= scale
-    # phi /= scale
-
-    # print(center, width, height, phi)
-
-    data = [i/scale for i in data]
-
-    if plot:        
-        ax = plt.gca()
-        plt.scatter(data[0], data[1],c='r',s=0.5)
-        ellipse = Ellipse(xy=center, width=2*width, height=2*height, angle=np.rad2deg(phi),
-                       edgecolor='b', fc='None', lw=0.5, label='Fit', zorder = 2)
-        ax.add_patch(ellipse)
-    return lsqe.parameters()
-
-
-def all_tracks():
-    fig = plt.figure()
-    plt.clf()
-    plt.subplot(111)      
-    x, y = readFile("caustics.dat", 0, 1, expected_elem_each_row=2)
-    plt.plot(x, y, 'o', color='red', markersize=1)
-    # plt.subplot(132)
-    x, y = readFile("critical_curves.dat", 0, 1, expected_elem_each_row=2)
-    plt.plot(x, y, 'o', color='blue', markersize=1)
-    # plt.subplot(133)
-    # x, y = readFile("allimages.dat", 0, 1)
-    x, y = readFile("images.dat", 0, 1)
-    plt.plot(x, y, '+', color='black', markersize=1 )
-
-    #   # plot lenses:
-  # fileImage1 = fopen("lens_system.dat", "w");
-  # fprintf(fileImage1, "%f %f %f\n", xsCenter, ysCenter, rs);
-  # // fprintf(fileImage1, "%f %f %f\n", mlens[0], mlens[1], mlens[2]);
-  # // fprintf(fileImage1, "%f %f %f\n", (zlens[0].re), (zlens[1].re), zlens[2].re);
-  # // fprintf(fileImage1, "%f %f %f\n", (zlens[0].im), (zlens[1].im), (zlens[2].im));
-  # for (int i=0; i<3; i++){
-  # fprintf(fileImage1, "%f %f %f\n", mlens[i], zlens[i].re, zlens[i].im);
-  # }
-    lesnx, lensy = readFile("lens_system.dat", 1, 2, expected_elem_each_row=3)
-    print(lesnx, lensy)
-    plt.plot(lesnx[1:], lensy[1:], 'o', color='k', markersize=3)
-
-
-#    x, y = readFile("test2.dat", 0, 1)
-#    ax.plot(x, y, '+', color='cyan', markersize=1 )
-   
-    plt.grid(False)
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.show()
-
-
-def cluster_bak(x,y):
-    thresholdvalue = 0.02
-    threshold = [thresholdvalue]
-
-    x = np.array(x) 
-    y = np.array(y) 
-    dim = x.shape[0] #3676
-    print("dim", dim)
-
-    dismatrix = np.ones((dim,dim))*1e2
-    for i in range(dim):
-        for j in range(i):
-                dismatrix[i,j] = ( (x[i]-x[j])**2 + (y[i]-y[j])**2 )**0.5
-    for j in range(dim):
-        dismatrix[0:j, j] = dismatrix[ j, 0:j ]
-
-    dismatrix_bak = np.copy(dismatrix)
-    # dismatrix = np.ones((dim,dim))*1e2
-    # for i in range(dim):
-    #     for j in range(i):
-    #         dismatrix[i,j] = ( (x[i]-x[j])**2 + (y[i]-y[j])**2 )**0.5
-    # plt.figure()
-    # plt.imshow(dismatrix)
-    # plt.colorbar()
-    Clusters = [] # save index which belongs to a cluster
-    # na = np.linspace(0, dim, dim, endpoint=False).astype(np.int)
-    # na_cut = np.linspace(0, dim, dim, endpoint=False).astype(np.int)
-
-    # na = [i for i in range(dim)]
-    na_mark = np.ones(dim).astype(np.int)
-
-    # markmindis = dismatrix[:,0].min()
-    # markmindis = 10e3
-
-    Clusters.append([])
-    clusternum = 0
-    processidx = 0
-    na_mark[0] = 0
-    Clusters[0].append(0)
-    threshold_max = []
-
-    checked = [0]
-    while np.sum(na_mark)>0:
-        # print("sum na_mark:", np.sum(na_mark))
-        mindis = dismatrix[:,processidx].min()
-        closestidx = np.where(dismatrix[:,processidx]==mindis)[0][0]
-        checked.append(processidx)
-        if closestidx in checked:
-            na_mark[closestidx] = 0
-            dismatrix[closestidx, processidx] = 1e2
-            dismatrix[processidx,closestidx] = 1e2
-            continue
-
-        if  na_mark[closestidx] == 0:
-            # Clusters[clusternum].append(processidx)
-            dismatrix[closestidx, processidx] = 1e2
-            dismatrix[processidx,closestidx] = 1e2
-            # processidx = closestidx
-
-            threshold.append(mindis)
+def myatan(x,y):
+    # print("inside myatan, x, y=",x,y)
+    # let angle to be 0~2*M_PI
+    if x >= 0 and y == 0:
+        return 0
+    if x == 0 and y > 0:
+        return M_PI/2
+    if x == 0 and y < 0:
+        return 3*M_PI/2
+    if y == 0 and x < 0:
+        return M_PI
+    ang = np.arctan(y/x)
+    if ang > 0:
+        if y > 0:
+            return ang
         else:
-            if ( (mindis < max(threshold)) or ( min(dismatrix[np.array(Clusters[clusternum]),closestidx]) < max(threshold) ) ):
-                dismatrix[closestidx, processidx] = 1e2
-                dismatrix[processidx,closestidx] = 1e2
-                Clusters[clusternum].append(closestidx)
-                # processidx = closestidx
-                threshold.append(mindis)
-            else:
-                # print("starting a new track, mindis = ",mindis)
-                # input()
-                # lenCluster.append(len(Clusters[clusternum]))
-                Clusters.append([])
-                clusternum += 1
-                Clusters[clusternum].append(closestidx)
-                # print("max(threshold): ",max(threshold))
-                threshold_max.append(  2 * max(threshold))
-                threshold = [thresholdvalue]
-                # processidx = closestidx
+            return M_PI + ang
+    else:
+        if y < 0:
+            return 2*M_PI + ang
+        else:
+            return M_PI + ang
 
-        processidx = closestidx
-        na_mark[closestidx] = 0
+def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
+    # z = [x, y]
+    zlens = []
+    for i in range(len(zlens_list)):
+        zlens.append( complex(zlens_list[i][0], zlens_list[i][1]) )
+    z = complex(z[0], z[1])
 
-    lenCluster = [len(i) for i in Clusters]
-    lensortidx = sorted(range(len(lenCluster)), key=lambda k: lenCluster[k])
-    if len(threshold_max)<len(lenCluster):
-        threshold_max.append(threshold_max[-1])
-    print("threshold_max: ",threshold_max)
-    print("len(Clusters): before loop ", len(Clusters))
-    # print("Clusters[-1]",Clusters[-1])
-    smallclusteridx = None
-    mark = 0
-    currentlen = len(lensortidx)
-    # for i in range(len(threshold_max)):
-    i=0
-    step = len(threshold_max)
-    while i < step:
-    # while min(lenCluster)<lenCluster[lensortidx[cut]]:
-        # for smallclusteridx in lensortidx[:-4]:
-        print('\nstep:{}, lenCluster:{}'.format(i, lenCluster))
+    flag = 0
+    Jxx = 1.0
+    Jyy = 0.0
+    Jxy = 0.0
+    sum2 = 0.0
+    sq = 0.0
+    TINY = 1.0e-20
+    # // mark imaginary soltion;
+    lambda1, lambda2, thetaJ = 0,0,0
+    mu = -1.0e10
+    zs = complex(xs, ys)
 
-        smallclusteridx = lensortidx[mark]
-        print("lensortidx, smallclusteridx: ",lensortidx, smallclusteridx)
-        if mark == len(lensortidx)-1:
-            break
-
-        # mergeflag = False
-        for pnt in Clusters[smallclusteridx]:
-            mindis = 1e2
-            # for largeclusteridx in lensortidx[cut:]:
-            mindisindx = None
-            for largeclusteridx in lensortidx[mark:]:
-                if largeclusteridx != smallclusteridx:
-                    tempmin = min(dismatrix_bak[np.array(Clusters[largeclusteridx]), pnt ])
-                    if mindis > tempmin:
-                        mindis = tempmin
-                        mindisindx = largeclusteridx
-            if mindis < threshold_max[mindisindx]:
-                largeclusteridx = mindisindx
-                # mergeflag = True
-                Clusters[largeclusteridx]+=Clusters[smallclusteridx]
-                print("merging smallcluster{} to largecluster{}: ", smallclusteridx, largeclusteridx)
-                # print("len(Clusters): before del ", len(Clusters))
-                del Clusters[smallclusteridx]
-                # print("len(Clusters): after del ", len(Clusters))
-                del threshold_max[smallclusteridx]
-                # lenCluster[largeclusteridx]+=lenCluster[smallclusteridx]
-                del lenCluster[smallclusteridx]
-                lenCluster = [len(i) for i in Clusters]
-                lensortidx = sorted(range(len(lenCluster)), key=lambda k: lenCluster[k])
-                break
+    # dzs = zs - ( z - mlens[0] / conj(z - zlens[0]) - mlens[1] / conj(z - zlens[1]) - mlens[2] / conj(z - zlens[2]) )
+    dzs = zs - z
+    for i in range(len(mlens)):
+        dzs += (mlens[i] / conj(z - zlens[i]))
+    # // check the difference between zs(real source position) and the position computed from lens equation using solved image position z
+    if abs(dzs) < EPS:
+        flag = 1
+        x = z.real
+        y = z.imag
+        for i in range(NLENS):
+            dx = x - zlens[i].real
+            dy = y - zlens[i].imag
+            r2_1 = dx * dx + dy * dy + TINY#; // avoid zero in the denominator
+            Jxx += mlens[i] * (dx * dx - dy * dy) / (r2_1 * r2_1)
+            Jxy += 2.0 * mlens[i] * dx * dy / (r2_1 * r2_1)
         
-        if currentlen == len(lensortidx):
-            # no change for this image, go to the next one
-            mark += 1
-            print("mark+=1, mark=", mark)
-        else:
-            currentlen = len(lenCluster)
+        # //analytical results for the other components of the Jacobian
+        Jyy = 2.0 - Jxx;
+        Jyx = Jxy;
+        mu = 1.0 / (Jxx * Jyy - Jxy * Jyx);
+        # print("mu", mu)
 
-        i+=1
-        # Clusters.append([])
-        # clusternum = 0
-        # Clusters[0].append(0)
-        # for j in range(dim-1):
-        #     mindis = dismatrix[:,j].min()
-        #     print("mindis: ", mindis)
-        #     closestidx = np.where(dismatrix[:,j]==mindis)[0][0]
-        #     # if (mindis < threshold*markmindis) and (closestidx not in Clusters[clusternum]):
-        #     if ( (mindis < max(threshold)) or ( min(dismatrix[np.array(Clusters[clusternum]),closestidx]) < max(threshold) ) ):
-        #         if closestidx not in Clusters[clusternum] :
-        #             Clusters[clusternum].append(closestidx)
-        #             threshold.append(mindis)
-        #     else:
-        #         print("starting a new track, mindis = ",mindis)
-        #         input()
-        #         Clusters.append([])
-        #         clusternum += 1
-        #         Clusters[clusternum].append(closestidx)
-        #         # markmindis = 10e3
-        #         threshold = [thresholdvalue]
-        #         # threshold.append(mindis)
-        # print("clusternum: ",clusternum)
-        # return Clusters
+        if cal_ang:
+            sum2 = (Jxx + Jyy) / 2.0;
+            sq = math.sqrt(sum2 * sum2 - 1.0 / mu);
+
+            lambda1 = sum2 + sq;
+            lambda2 = sum2 - sq;
+            # lambda1 * lambda2 = 1/mu
+
+            thetaJ = 0.5 * math.atan(2.0 * Jxy / (Jyy - Jxx + TINY))#// avoid zero in the denomintor
+            if (thetaJ < 0.0):
+                thetaJ += math.pi / 2.0
+    # print([flag, mu, lambda1, lambda2, thetaJ])
+    return [flag, mu, lambda1, lambda2, thetaJ]
 
 
-        # na_cut = list(na_cut)
-        # clusternum = 0
-        # Clusters.append([])
-        # markmindis = dismatrix[:,0].min()
-        # while(len(na_cut)>0):
-        #     processidx = na_cut[0]
-        #     del na_cut[0]
-        #     Clusters[clusternum].append(processidx)
-        #     mindis = dismatrix[:,processidx].min()
-        #     closestidx = np.where(dismatrix[:,processidx]==mindis)[0][0]
-        #     if mindis < 2*markmindis:
-        #         Clusters[clusternum].append(closestidx)
-        #         del na_cut[]
-    return Clusters
-
-  
-def ogle():
-    fig = plt.figure()
-    plt.clf()
-    ax = fig.add_subplot(111)      
-
-    import numpy as np
-    import pandas as pd
-    event='ogle-2008-blg-270.dat'
-    event='ogle-2012-blg-0207.dat'    
-    event='ogle-2012-blg-0442.dat'    
-
-    df = pd.read_table(event, delim_whitespace=True, header=None)     
-
-
-    x=df[0]
-    x=x-2450000
-    y=df[1]
-    yerr=df[2]
-
-    xmin=np.min(x)
-    xmax=np.max(x)
-
-    ymin=np.min(y)
-    ymax=np.max(y)
-
-    ax.set_xlim([xmin, xmax])
-    ax.set_ylim([ymax+0.1*(ymax-ymin), ymin-0.1*(ymax-ymin)])
-    errorbar(x, y, yerr, marker='o', mfc='red', mec='green', ms=4, mew=4)
+def conj(z):
+    return complex(z.real, -z.imag)

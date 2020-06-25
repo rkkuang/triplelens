@@ -58,6 +58,29 @@ PYBIND11_MODULE(TripleLensing, m) {
             },
             R"mydelimiter(
             outputCriticalTriple_list
+            )mydelimiter")
+        .def("solv_lens_equation", 
+            [](TripleLensing &self, std::vector<double> mlens, std::vector<double> zlens,
+                                      double xs, double ys, int nlens )
+            {
+                std::vector<double> zrxy( (nlens*nlens+1)*2 );
+                self.solv_lens_equation(zrxy.data(), mlens.data(), zlens.data(),xs,ys,nlens
+                        );
+                return zrxy;
+            },
+            R"mydelimiter(
+            solv_lens_equation
+            )mydelimiter")
+        .def("outputCriticalTriple_list", 
+            [](TripleLensing &self, std::vector<double> mlens, std::vector<double> zlens, int nlens, int NPS )
+            {
+                std::vector<double> allxys(NPS*40);
+                // std::vector<double> allxys(NPS*4+2);
+                self.outputCriticalTriple_list(allxys.data(), mlens.data(), zlens.data(),nlens,NPS);
+                return allxys;
+            },
+            R"mydelimiter(
+            outputCriticalTriple_list
             )mydelimiter");
 
 //     py::class_<_theta>(m, "_theta")

@@ -28,19 +28,9 @@ Here we show how the closed image tracks are connected:
 
 
 
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
+```
 
 ### python interface
 

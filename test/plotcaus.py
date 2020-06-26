@@ -81,7 +81,7 @@ ax.plot(sx, sy, 'k')
 plt.axis('equal')
 # 
 # 
-ax.annotate('({}, {})'.format(xsCenter,ysCenter), xy=(0.2, 0.9), xycoords='axes fraction', fontsize=17,
+ax.annotate('(${}$, ${}$)'.format(xsCenter,ysCenter), xy=(0.2, 0.9), xycoords='axes fraction', fontsize=17,
                 horizontalalignment='right', verticalalignment='bottom')
 # if input("save or not? [y/n]") == "y":
 
@@ -90,10 +90,10 @@ ax.annotate('({}, {})'.format(xsCenter,ysCenter), xy=(0.2, 0.9), xycoords='axes 
 #                     height="32%", # height : 1 inch
 #                     loc=1) #1 top right, 
 # inset_axes.plot(cx, cy, '-', color='red', markersize=1)
+# inset_axes.plot(x, y, '--', color='r', markersize=1)
 # inset_axes.plot(sx, sy, 'k')
 # inset_axes.plot(xpureImg, ypureImg, '.', color='cyan', markersize=1)
 # inset_axes.plot(xfalseimg, yfalseimg, '.', color='b', markersize=1)
-# inset_axes.plot(cx, cy, '-', color='red', markersize=1)
 # inset_axes.tick_params(axis='both', labelsize = 12, direction="in")
 # inset_axes.set_xlim(-0.06,0.04)
 # inset_axes.set_ylim(-0.05,0.05)

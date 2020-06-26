@@ -4,7 +4,7 @@ from mpl_toolkits import axes_grid1
 import matplotlib
 import matplotlib as mpl
 import sys
-
+from mpl_toolkits.axes_grid.inset_locator import inset_axes as iax
 
 import TripleLensing
 TRIL = TripleLensing.TripleLensing()
@@ -402,7 +402,7 @@ def plotcritcaus():
 #     for xy,m,i in zip(z, mlens, range(NLENS)):
 #         ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i,m,fontdict = font))
 
-def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True):
+def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.5, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%"):
     # non-uniform phis
     z = [ [zlens[0], zlens[1]], [zlens[2], zlens[3]], [zlens[4], zlens[5]] ]
     nlens = len(mlens)
@@ -425,21 +425,45 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
 
     ax.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=5)
     ax.plot(XS, YS, '.', color="k" , markersize=1)
-    ax.plot(imgXS, imgYS, '.', color='cyan', markersize=1)
+    ax.plot(imgXS, imgYS, '.', color='magenta', markersize=1)
+    # ax.plot(imgXS, imgYS, '.', color='cyan', markersize=1)
     if pltfalseimg:
         ax.plot(falseimgXS, falseimgYS, '.', color='b', markersize=1)
 
-    for xy,m,i in zip(z, mlens, range(nlens)):
-        ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m,fontdict = font))
-    ax.annotate('({:.1e}, {:.1e})'.format(xsCenter,ysCenter), xy=(0.4, 0.9), xycoords='axes fraction', fontsize=17,
+    if srctext:
+        for xy,m,i in zip(z, mlens, range(nlens)):
+            ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m,fontdict = font))
+    ax.annotate('(${:.1e}$, ${:.1e}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,
                 horizontalalignment='right', verticalalignment='bottom')
     plt.axis('equal')
+    # plt.xlim(-1.1,1.6)
+    # plt.ylim(-1.3,1.4)
     tit = """
     The three plus signs: the lens positions; The black circle: finite source
     The red solid and dashed curve: the caustics and critical curves.
     The cyan curves: true image trajectories; the blue curves: false image trajectories
     """
-    plt.suptitle(tit, fontdict = font2)
+    if inst:
+        inset_axes = iax(ax,
+                            width=wh, # width = 30% of parent_bbox
+                            height=wh, # height : 1 inch
+                            loc=1) #1 top right, 
+        inset_axes.plot(criticalx, criticaly, '--', color='red', markersize=1)
+        inset_axes.plot(causticsx, causticsy, '-', color='red', markersize=1)
+        inset_axes.plot(XS, YS, 'k')
+        inset_axes.plot(imgXS, imgYS, '.', color='magenta', markersize=1)
+        inset_axes.plot(falseimgXS, falseimgYS, '.', color='b', markersize=1)
+        inset_axes.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=5)
+        inset_axes.tick_params(axis='both', labelsize = 12, direction="in")
+        # inset_axes.set_xlim(-0.06,0.04)
+        # inset_axes.set_ylim(-0.05,0.05)
+        inset_axes.set_xlim(xylim[0],xylim[1])
+        inset_axes.set_ylim(xylim[2],xylim[3])
+
+    if title:
+        plt.suptitle(tit, fontdict = font2)
+    if 0:
+        plt.savefig("./data/topo_{}_{}_rs{}.png".format(xsCenter,ysCenter,rs), dpi=300)
 
 def get_crit_caus(mlens, z, NLENS, NPS = 200):
     zlens = [i[0] for i in z] + [i[1] for i in z]
@@ -710,7 +734,16 @@ def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
                 thetaJ += math.pi / 2.0
     # print([flag, mu, lambda1, lambda2, thetaJ])
     return [flag, mu, lambda1, lambda2, thetaJ]
-
+def muPoint(mlens, z, xsCenter, ysCenter, NLENS):
+    res = sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS)
+    mu = 0
+    for i in range(DEGREE):
+        flag = trueSolution(mlens, z, xsCenter, ysCenter, res[i], cal_ang = False)
+        # mu = 0 #居然放在这里了，bug！
+        if flag[0]:
+            # print(flag)
+            mu += abs(flag[1])
+    return mu
 
 def conj(z):
     return complex(z.real, -z.imag)

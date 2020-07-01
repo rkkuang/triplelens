@@ -402,7 +402,7 @@ def plotcritcaus():
 #     for xy,m,i in zip(z, mlens, range(NLENS)):
 #         ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i,m,fontdict = font))
 
-def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.5, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%"):
+def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.5, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%", sci=True):
     # non-uniform phis
     z = [ [zlens[0], zlens[1]], [zlens[2], zlens[3]], [zlens[4], zlens[5]] ]
     nlens = len(mlens)
@@ -433,8 +433,12 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
     if srctext:
         for xy,m,i in zip(z, mlens, range(nlens)):
             ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m,fontdict = font))
-    ax.annotate('(${:.1e}$, ${:.1e}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,
-                horizontalalignment='right', verticalalignment='bottom')
+    if sci:
+        ax.annotate('(${:.1e}$, ${:.1e}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,horizontalalignment='right', verticalalignment='bottom')
+    else:
+        ax.annotate('(${}$, ${}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,horizontalalignment='right', verticalalignment='bottom')
+    ax.set_xlabel(r"$x(\theta_E)$", fontdict = font)
+    ax.set_ylabel(r"$y(\theta_E)$", fontdict = font)
     plt.axis('equal')
     # plt.xlim(-1.1,1.6)
     # plt.ylim(-1.3,1.4)
@@ -464,6 +468,29 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
         plt.suptitle(tit, fontdict = font2)
     if 0:
         plt.savefig("./data/topo_{}_{}_rs{}.png".format(xsCenter,ysCenter,rs), dpi=300)
+
+
+def pltlkv(ts, mus, params):
+    fig = plt.subplots(figsize=(13,7), dpi=100)
+    main = plt.subplot()
+    main.plot(ts, np.log10( mus ), color="r",linewidth = 2)
+    main.set_ylabel(r"log($\mu$)", fontdict=font)
+    main.set_xlabel('HJD - 2450000', fontdict=font)
+    main.tick_params(axis='both', labelsize = legend_tick_size, direction = "in")    
+    msg = r"""
+        $t_0$ = {}
+        $u_0$ = {}
+        $t_E$ = {} d
+        $s_2$ = {}
+        $q_2$ = {}
+        $s_3$ = {}
+        $q_3$ = {}
+        $\alpha$ = {}
+        $\psi$ = {}
+        $\rho$ = {:.1e}
+        """.format(params[0], params[1], params[2] ,params[3],params[4],params[6], params[7],params[5],params[8],params[9])
+    # print("msg", msg) t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs
+    main.text(0.0, 0.4, msg, transform=main.transAxes, fontdict = font)
 
 def get_crit_caus(mlens, z, NLENS, NPS = 200):
     zlens = [i[0] for i in z] + [i[1] for i in z]

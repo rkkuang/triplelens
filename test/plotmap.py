@@ -28,6 +28,7 @@ xsCenter, ysCenter = lens_params["xsCenter"], lens_params["ysCenter"]
 Xs0, Ys0 , mags0 = read_cppmap(datapath+"magmap0.05.dat")
 
 mapraysht = np.load(datapath+"rayshtmap_5e-2_128_raynum2e4.dat")
+# mapraysht = np.load(datapath+"rayshtmap_5e-2_128_raynum5e4.dat")
 
 Imgsize = 128
 mags0 = mags0.reshape(Imgsize, Imgsize)
@@ -43,13 +44,15 @@ cmap1 = 'seismic'
 
 fig = plt.subplots(figsize=(16,8), dpi=100)
 gs = gridspec.GridSpec(1,2)
-plt.subplots_adjust(top = 0.95, bottom = 0.1, right = 0.9, left = 0.05, hspace = 0, wspace = 0.2)
+plt.subplots_adjust(top = 0.95, bottom = 0.1, right = 0.9, left = 0.1, hspace = 0, wspace = 0.2)
 
 
 main = plt.subplot(gs[0])
 # ax.yaxis.set_minor_locator(AutoMinorLocator(4))
 # ax.xaxis.set_minor_locator(AutoMinorLocator(4))
 main.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
+main.set_xlabel(r"$x(\theta_E)$", fontdict = font)
+main.set_ylabel(r"$y(\theta_E)$", fontdict = font)
 
 mapfig = main.imshow(mags0.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
 # mapfig = plt.imshow(mapraysht.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
@@ -62,7 +65,8 @@ secnd = plt.subplot(gs[1])
 # ax.yaxis.set_minor_locator(AutoMinorLocator(4))
 # ax.xaxis.set_minor_locator(AutoMinorLocator(4))
 secnd.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
-
+secnd.set_xlabel(r"$x(\theta_E)$", fontdict = font)
+# ax.set_ylabel(r"$y(\theta_E)$", fontdict = font)
 # mapfig = secnd.imshow(mapraysht.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
 mapfig = secnd.imshow(resmap.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
 

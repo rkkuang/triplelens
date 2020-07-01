@@ -81,7 +81,37 @@ PYBIND11_MODULE(TripleLensing, m) {
             },
             R"mydelimiter(
             outputCriticalTriple_list
-            )mydelimiter");
+            )mydelimiter")
+        .def("TriLightCurve", 
+            [](TripleLensing &self, std::vector<double> params,
+                                       std::vector<double> y1s, std::vector<double> y2s)
+            {
+                std::vector<double> mags(y1s.size());
+                self.TriLightCurve(params.data(), mags.data(), 
+                        y1s.data(), y2s.data(), y1s.size());
+                return mags;
+            },
+            R"mydelimiter(
+            Static binary lens light curve for a given set of parameters.
+            Uses the TripleMag function.
+
+            Parameters
+            ----------
+            params : list[float]
+                List of parameters [t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs]
+            times : list[float] 
+                Array of times at which the magnification is calculated.
+            y1 : list[float]
+                x-position of the source in the source plane.
+            y2 : list[float]
+                y-position of the source in the source plane.
+
+            Returns
+            -------
+            mags: list[float] 
+                Magnification array.
+            )mydelimiter")
+        ;
 
 //     py::class_<_theta>(m, "_theta")
 //         .def(py::init<double>()); //constructor 

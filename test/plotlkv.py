@@ -68,7 +68,7 @@ msg = r"""
     $\alpha$ = {}
     $\psi$ = {}
     """.format(lens_params["t0"], lens_params["u0"], lens_params["tE"] ,lens_params["s2"],lens_params["q2"],lens_params["s3"], lens_params["q3"],lens_params["alpha"],lens_params["psi"])
-# print("msg", msg)
+# print("msg", msg) t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs
 main.text(0.0, 0.5, msg, transform=main.transAxes, fontdict = font)
 
 
@@ -112,7 +112,8 @@ draw_circle(ax, Xs1[0], Ys1[0], 0.05, color =colors[2])
 draw_circle(ax, Xs1[0], Ys1[0], 0.01, color =colors[3])
 # draw_circle(ax, Xs1[0], Ys1[0], 2.2e-4, color =colors[4])
 ax.scatter(Xs1[0], Ys1[0], color=colors[0], s = 0.5)
-
+ax.set_xlabel(r"$x(\theta_E)$", fontdict = font)
+ax.set_ylabel(r"$y(\theta_E)$", fontdict = font)
 
 
 

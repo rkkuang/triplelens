@@ -11,87 +11,87 @@ namespace py = pybind11;
 
 
 TripleLensing TRIL;
-// // Declaration of an instance to VBBinaryLensing class. 
+// // Declaration of an instance to VBBinaryLensing class.
 // VBBinaryLensing VBBL;
 
 PYBIND11_MODULE(TripleLensing, m) {
     py::options options;
     options.disable_function_signatures();
     py::class_<TripleLensing>(m, "TripleLensing")
-        .def(py::init())
-        // Settings
-        // .def("LoadESPLTable", &VBBinaryLensing::LoadESPLTable,
-            // """Loads a pre calculated binary table for extended source calculation.""")
-        .def_readwrite("secnum", &TripleLensing::secnum,
-                "divide source boundary into how many parts.")
-        .def_readwrite("basenum", &TripleLensing::basenum,
-                "how many points in each part.")
-        .def_readwrite("nphi", &TripleLensing::nphi,
-                "how many points to start.")
-        .def_readwrite("quaderr_Tol", &TripleLensing::quaderr_Tol,
-                "Tolerance of quadrupole test.")
-        // Maginfication calculations
-        // .def("tripleFS2python", &TripleLensing::tripleFS2python,
-        //     py::return_value_policy::reference,
-        //     R"mydelimiter(
-        //     Extended Source Point Lens magnification calculation.
+    .def(py::init())
+    // Settings
+    // .def("LoadESPLTable", &VBBinaryLensing::LoadESPLTable,
+    // """Loads a pre calculated binary table for extended source calculation.""")
+    .def_readwrite("secnum", &TripleLensing::secnum,
+                   "divide source boundary into how many parts.")
+    .def_readwrite("basenum", &TripleLensing::basenum,
+                   "how many points in each part.")
+    .def_readwrite("nphi", &TripleLensing::nphi,
+                   "how many points to start.")
+    .def_readwrite("quaderr_Tol", &TripleLensing::quaderr_Tol,
+                   "Tolerance of quadrupole test.")
+    // Maginfication calculations
+    // .def("tripleFS2python", &TripleLensing::tripleFS2python,
+    //     py::return_value_policy::reference,
+    //     R"mydelimiter(
+    //     Extended Source Point Lens magnification calculation.
 
-        //     Magnification of a uniform brightness-source by a triple lens system.
-        //     Parameters
-        //     ----------
-        //     u : float 
-        //         Distance of source from the center of the lens.
-        //     rho : float 
-        //         Source radius in units of the Einstein radius of the lens.
+    //     Magnification of a uniform brightness-source by a triple lens system.
+    //     Parameters
+    //     ----------
+    //     u : float
+    //         Distance of source from the center of the lens.
+    //     rho : float
+    //         Source radius in units of the Einstein radius of the lens.
 
-        //     Returns
-        //     -------
-        //     float
-        //         Magnification.
-        //     )mydelimiter")
+    //     Returns
+    //     -------
+    //     float
+    //         Magnification.
+    //     )mydelimiter")
 
-        .def("tripleFS2python", 
-            [](TripleLensing &self, std::vector<double> mlens, std::vector<double> zlens, double xsCenter, double ysCenter, double rs){
-                double mu;
-                mu = self.tripleFS2python(mlens.data(), zlens.data(), xsCenter, ysCenter, rs);
-                return mu; 
-            },
-            R"mydelimiter(
+    .def("tripleFS2python",
+    [](TripleLensing & self, std::vector<double> mlens, std::vector<double> zlens, double xsCenter, double ysCenter, double rs) {
+        double mu;
+        mu = self.tripleFS2python(mlens.data(), zlens.data(), xsCenter, ysCenter, rs);
+        return mu;
+    },
+    R"mydelimiter(
             outputCriticalTriple_list
             )mydelimiter")
-        .def("solv_lens_equation", 
-            [](TripleLensing &self, std::vector<double> mlens, std::vector<double> zlens,
-                                      double xs, double ys, int nlens )
-            {
-                std::vector<double> zrxy( (nlens*nlens+1)*2 );
-                self.solv_lens_equation(zrxy.data(), mlens.data(), zlens.data(),xs,ys,nlens
-                        );
-                return zrxy;
-            },
-            R"mydelimiter(
+    .def("solv_lens_equation",
+         [](TripleLensing & self, std::vector<double> mlens, std::vector<double> zlens,
+            double xs, double ys, int nlens )
+    {
+        std::vector<double> zrxy( (nlens * nlens + 1) * 2 );
+        self.solv_lens_equation(zrxy.data(), mlens.data(), zlens.data(), xs, ys, nlens
+                               );
+        return zrxy;
+    },
+    R"mydelimiter(
             solv_lens_equation
             )mydelimiter")
-        .def("outputCriticalTriple_list", 
-            [](TripleLensing &self, std::vector<double> mlens, std::vector<double> zlens, int nlens, int NPS )
-            {
-                std::vector<double> allxys(NPS*40);
-                // std::vector<double> allxys(NPS*4+2);
-                self.outputCriticalTriple_list(allxys.data(), mlens.data(), zlens.data(),nlens,NPS);
-                return allxys;
-            },
-            R"mydelimiter(
+    .def("outputCriticalTriple_list",
+         [](TripleLensing & self, std::vector<double> mlens, std::vector<double> zlens, int nlens, int NPS )
+    {
+        std::vector<double> allxys(NPS * 40);
+        // std::vector<double> allxys(NPS*4+2);
+        self.outputCriticalTriple_list(allxys.data(), mlens.data(), zlens.data(), nlens, NPS);
+        return allxys;
+    },
+    R"mydelimiter(
             outputCriticalTriple_list
             )mydelimiter")
-        .def("TriLightCurve", 
-            [](TripleLensing &self, std::vector<double> params,
-                                       std::vector<double> y1s, std::vector<double> y2s)
-            {
-                std::vector<double> mags(y1s.size());
-                self.TriLightCurve(params.data(), mags.data(), 
-                        y1s.data(), y2s.data(), y1s.size());
-                return mags;
-            },
-            R"mydelimiter(
+    .def("TriLightCurve",
+         [](TripleLensing & self, std::vector<double> params,
+            std::vector<double> y1s, std::vector<double> y2s)
+    {
+        std::vector<double> mags(y1s.size());
+        self.TriLightCurve(params.data(), mags.data(),
+                           y1s.data(), y2s.data(), y1s.size());
+        return mags;
+    },
+    R"mydelimiter(
             Static binary lens light curve for a given set of parameters.
             Uses the TripleMag function.
 
@@ -111,13 +111,13 @@ PYBIND11_MODULE(TripleLensing, m) {
             mags: list[float] 
                 Magnification array.
             )mydelimiter")
-        ;
+    ;
 
 //     py::class_<_theta>(m, "_theta")
-//         .def(py::init<double>()); //constructor 
+//         .def(py::init<double>()); //constructor
 
 //     py::class_<_point>(m, "_point")
-//         .def(py::init<double, double, _theta *>()) 
+//         .def(py::init<double, double, _theta *>())
 //         .def_readwrite("next", &_point::next)
 //         .def_readwrite("prev", &_point::prev)
 //         .def_readonly("x1", &_point::x1)

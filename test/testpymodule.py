@@ -21,7 +21,7 @@ print("finite source magnification: ", mu)
 
 #plot lens system topology, critical curves and caustics
 from utils import *
-# plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs)
+plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs)
 
 
 # test light curve generation:
@@ -39,12 +39,12 @@ rs = 0.22e-3;
 salpha = np.sin(alpha)
 calpha = np.cos(alpha)
 params = [t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs]
-
-ts = np.linspace(7470, 7510, 1000)
+# source position
+ts = np.linspace(7470, 7510, 500)
 tn = (ts - t0) / tE;
 y1s = u0 * salpha + tn * calpha;
 y2s = u0 * calpha - tn * salpha;
-
+# computing light curve
 print("generating light curve ...")
 mus = TRIL.TriLightCurve(params, y1s, y2s)
 pltlkv(ts, mus, params)

@@ -46,7 +46,7 @@ void TripleLensing::TripleLkvAdap(double mlens[], double zlens[], double rs, _cu
 }
 
 // add on 2020 Feb 04
-void TripleLensing::solv_lens_equation(double zrxy[], double mlens[], double zlens[], double xs, double ys, int nlens){
+void TripleLensing::solv_lens_equation(double zrxy[], double mlens[], double zlens[], double xs, double ys, int nlens) {
     // int DEGREE = NLENS*NLENS + 1;
     // complex zr[DEGREE];
     // // double zrxy[DEGREE*2];
@@ -69,35 +69,35 @@ void TripleLensing::solv_lens_equation(double zrxy[], double mlens[], double zle
 }
 
 //pr:
-  // t0 = 7494.153;
-  // u0 = 0.021;
-  // tE = 74.62;
-  // s2 = 1.396;
-  // q2 = 0.029;
-  // alpha = 2.948; //rad
-  // s3 = 1.168;
-  // q3 = 3.27e-3;
-  // psi = 5.332; //rad
-  // rs = 0.22e-3;
-// 
+// t0 = 7494.153;
+// u0 = 0.021;
+// tE = 74.62;
+// s2 = 1.396;
+// q2 = 0.029;
+// alpha = 2.948; //rad
+// s3 = 1.168;
+// q3 = 3.27e-3;
+// psi = 5.332; //rad
+// rs = 0.22e-3;
+//
 
 void TripleLensing::TriLightCurve(double *pr, double *mags, double *y1s, double *y2s, int np) {
     // pr: t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs
     double t0 = pr[0], u0 = pr[1], tE = pr[2], s2 = pr[3], q2 = pr[4], alpha = pr[5], s3 = pr[6], q3 = pr[7], psi = pr[8], rs = pr[9];
-    double salpha = sin(pr[3]), calpha = cos(pr[3]), tE_inv = 1/tE;
+    double salpha = sin(pr[3]), calpha = cos(pr[3]), tE_inv = 1 / tE;
 
-  double mlens[NLENS], tn; // NLENS defined in .h file
-  complex zlens[NLENS];
+    double mlens[NLENS], tn; // NLENS defined in .h file
+    complex zlens[NLENS];
 
-  // parameter conversion, from s2, q2,, s3, q3, psi to mlens[i], zlens[i]
-  double inv1andq2 = 1 / (1 + q2);
-  double inv1andq2q3 = 1 / (1 + q2 + q3);
-  mlens[0] = inv1andq2q3;
-  mlens[1] = q2 * inv1andq2q3;
-  mlens[2] = q3 * inv1andq2q3;
-  zlens[0] = complex(- q2 * inv1andq2 * s2 , 0);
-  zlens[1] = complex( inv1andq2 * s2 , 0);
-  zlens[2] = complex(zlens[0].re + s3 * cos(psi), s3 * sin(psi));
+    // parameter conversion, from s2, q2,, s3, q3, psi to mlens[i], zlens[i]
+    double inv1andq2 = 1 / (1 + q2);
+    double inv1andq2q3 = 1 / (1 + q2 + q3);
+    mlens[0] = inv1andq2q3;
+    mlens[1] = q2 * inv1andq2q3;
+    mlens[2] = q3 * inv1andq2q3;
+    zlens[0] = complex(- q2 * inv1andq2 * s2 , 0);
+    zlens[1] = complex( inv1andq2 * s2 , 0);
+    zlens[2] = complex(zlens[0].re + s3 * cos(psi), s3 * sin(psi));
 
     for (int i = 0; i < np; i++) {
         // tn = (ts[i] - t0) * tE_inv;
@@ -110,8 +110,8 @@ void TripleLensing::TriLightCurve(double *pr, double *mags, double *y1s, double 
 
 
 //output in two files the triple critical curves and caustics
- void TripleLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS)
- // void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
+void TripleLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS)
+// void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
 {
     VBBinaryLensing VBBL;
     VBBL.outputCriticalTriple_list(allxys, mlens, zlens, nlens, NPS);
@@ -232,7 +232,7 @@ _curve *newSegment(_sols *imageTracks)
 }
 
 
-// tripleQuatrapoleTest Bozza 2018 equation 39 with c_Q = 1, add on 
+// tripleQuatrapoleTest Bozza 2018 equation 39 with c_Q = 1, add on
 double tripleQuatrapoleTest(double mlens[], complex zlens[], double xs, double ys, int *nimages, double rs, double *sumerr) {
     VBBinaryLensing VBBL;
 

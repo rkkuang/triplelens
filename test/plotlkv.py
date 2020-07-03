@@ -112,8 +112,8 @@ draw_circle(ax, Xs1[0], Ys1[0], 0.05, color =colors[2])
 draw_circle(ax, Xs1[0], Ys1[0], 0.01, color =colors[3])
 # draw_circle(ax, Xs1[0], Ys1[0], 2.2e-4, color =colors[4])
 ax.scatter(Xs1[0], Ys1[0], color=colors[0], s = 0.5)
-ax.set_xlabel(r"$x(\theta_E)$", fontdict = font)
-ax.set_ylabel(r"$y(\theta_E)$", fontdict = font)
+ax.set_xlabel(r"$x/ \theta_E $", fontdict = font)
+ax.set_ylabel(r"$y/ \theta_E $", fontdict = font)
 
 
 

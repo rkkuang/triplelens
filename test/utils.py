@@ -433,15 +433,18 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
     if srctext:
         for xy,m,i in zip(z, mlens, range(nlens)):
             ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m,fontdict = font))
-    if sci:
+    if sci == 1:
         ax.annotate('(${:.1e}$, ${:.1e}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,horizontalalignment='right', verticalalignment='bottom')
-    else:
+    elif sci == 0:
         ax.annotate('(${}$, ${}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,horizontalalignment='right', verticalalignment='bottom')
-    ax.set_xlabel(r"$x(\theta_E)$", fontdict = font)
-    ax.set_ylabel(r"$y(\theta_E)$", fontdict = font)
+    else:
+        pass
+    ax.set_xlabel(r"$x/ \theta_E $", fontsize = 17, fontname='Times New Roman')
+    ax.set_ylabel(r"$y/ \theta_E $", fontsize = 17,fontname='Times New Roman')
     plt.axis('equal')
     # plt.xlim(-1.1,1.6)
     # plt.ylim(-1.3,1.4)
+    # ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True)) 
     tit = """
     The three plus signs: the lens positions; The black circle: finite source
     The red solid and dashed curve: the caustics and critical curves.

@@ -1,4 +1,4 @@
-# Microlensing light-curve computation for finite source star lensed by triple lens system
+# Calculating light curves for triple microlensing systems
 
 This method is based on the image track connecting method, which is different from traditional inverse ray shooting routine.
 

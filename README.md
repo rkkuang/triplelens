@@ -1,4 +1,4 @@
-# Calculating light curves for triple microlensing systems
+# Light Curve Calculations for Triple Microlensing Systems
 
 This method is based on the image track connecting method, which is different from traditional inverse ray shooting routine.
 

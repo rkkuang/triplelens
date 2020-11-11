@@ -5,6 +5,8 @@ import matplotlib
 import matplotlib as mpl
 import sys
 from mpl_toolkits.axes_grid.inset_locator import inset_axes as iax
+from matplotlib import gridspec
+from matplotlib.ticker import MaxNLocator, AutoMinorLocator, FormatStrFormatter
 
 import TripleLensing
 TRIL = TripleLensing.TripleLensing()
@@ -13,6 +15,7 @@ NLENS = 3
 DEGREE = NLENS**2 + 1
 import math
 M_PI = math.pi
+# EPS = 1.0e-5
 EPS = 1.0e-5
 
 
@@ -31,6 +34,13 @@ font2 = {'family': 'Times New Roman',
     'weight': 'normal',
     'size': 20,
     }
+
+
+import matplotlib
+colors0 = []
+for name, hex in matplotlib.colors.cnames.items():
+    # print(name, hex)
+    colors0.append(name)
 
 def read_lens_system_triple(fileName):
     # ../data/lens_system_triple.dat
@@ -64,7 +74,7 @@ def readFile(fileName, column1, column2, expected_elem_each_row=4): #column numb
     f.close()
     return x0,  y0
 
-def read_cpplkv(fileName):
+def read_timratio(fileName):
     #reading cpp generated light curve
     # four value, time in HJD, 2nd, 3rd are the coordinate (xs, ys) of source center ,the 4th is the corresponding magnification
     # fprintf(ftrilkv, "%.15f %.15f %.15f %.15f ", t_array[j], y1_array[j], y2_array[j], mag_array[j]);
@@ -73,11 +83,29 @@ def read_cpplkv(fileName):
     cols = line.split(" ")[:-1]
     f.close()
     cols = np.array([float(i) for i in cols])
-    times = cols[::4]
-    xs = cols[1::4]
-    ys = cols[2::4]
-    mags = cols[3::4]
-    return times, xs, ys, mags
+    # print(cols)
+    return cols[0], cols[1], cols[2] 
+
+def read_cpplkv(fileName, raws = 4):
+    #reading cpp generated light curve
+    # four value, time in HJD, 2nd, 3rd are the coordinate (xs, ys) of source center ,the 4th is the corresponding magnification
+    # fprintf(ftrilkv, "%.15f %.15f %.15f %.15f ", t_array[j], y1_array[j], y2_array[j], mag_array[j]);
+    f = open(fileName, "r")
+    line = f.readline()
+    cols = line.split(" ")[:-1]
+    f.close()
+    cols = np.array([float(i) for i in cols])
+    # print(fileName)
+    # print("len(cols): ",len(cols))
+    times = cols[::raws]
+    xs = cols[1::raws]
+    ys = cols[2::raws]
+    mags = cols[3::raws]
+    if raws == 5:
+        iffinite = cols[4::raws]
+        return times, xs, ys, mags, iffinite.astype(np.int)
+    else:
+        return times, xs, ys, mags
 
 def read_cpplkv_adap(fileName):
     #reading cpp generated light curve
@@ -92,6 +120,19 @@ def read_cpplkv_adap(fileName):
     mags = np.array([float(i) for i in mags])
     return times, mags
 
+def read_cppmap1c(fileName):
+    #reading cpp generated magnification map
+    # three value, the coordinate (xs, ys) of source center ,the 3rd is the corresponding magnification
+    f = open(fileName, "r")
+    line = f.readline()
+    f.close()
+    cols = line.split(" ")[:-1]
+    cols = np.array([float(i) for i in cols])
+    # xs = cols[::3]
+    # ys = cols[1::3]
+    # mags = cols[2::3]
+    return cols
+
 def read_cppmap(fileName):
     #reading cpp generated magnification map
     # three value, the coordinate (xs, ys) of source center ,the 3rd is the corresponding magnification
@@ -104,6 +145,243 @@ def read_cppmap(fileName):
     ys = cols[1::3]
     mags = cols[2::3]
     return xs, ys , mags
+
+def readTimeRarioData(fileName):
+    f = open(fileName, "r")
+    line = f.readline()
+    cols = line.split(" ")[:-1]
+    cols = np.array([float(i) for i in cols])
+    Nexp = int(cols[0])
+    Navg = int(cols[1])
+
+    line = f.readline()
+    cols = line.split(" ")[:-1]
+    cols = np.array([float(i) for i in cols])
+    f.close()
+
+    print("Nexp, Navg, len(cols): ", Nexp, Navg, len(cols))
+
+    # print(cols)
+    # print("len(cols)",len(cols))
+
+    rhos = []
+    timvbbls = []
+    timtrils = []
+    for i in range(Nexp):
+        timvbbls.append([])
+        timtrils.append([])
+        for j in range(Navg):
+            # print("i*(3*Navg)+j*Navg+1: ", i*(3*Navg)+j*Navg+1)
+            # try:
+            # print("i = %d, j = %d, idx = %d"%(i,j,i*(3*Navg)+j*3+1))
+            timvbbls[i].append( cols[ i*(3*Navg)+j*3+1 ])
+            timtrils[i].append( cols[ i*(3*Navg)+j*3+2 ])
+            # except:
+            # pass
+        # try:
+        rhos.append(cols[i*(3*Navg)])
+        # except:
+        # pass
+    print(rhos)
+    timvbbls = [np.array(i) for i in timvbbls]
+    timtrils = [np.array(i) for i in timtrils]
+    return rhos, timvbbls, timtrils
+
+
+def read_saveTrack(fileName, static = 0, step = 200,finalstep = 10):
+    f = open(fileName, "r")
+    line = f.readline()
+    seglens = line.split(" ")[:-1]
+    # 2,3,4,3
+    segnum = len(seglens)
+    # 4
+    seglens = np.array([int(i) for i in seglens])
+    cumseglens = [ sum(seglens[:i+1]) for i in range(segnum) ]
+    # 2, 5, 9, 12
+
+    line = f.readline()
+    cols = line.split(" ")[:-1]
+    cols = np.array([float(i) for i in cols])
+    f.close()    
+    # p->x1, p->x2, p->phi, p->mu
+    x1s = cols[::4]
+    x2s = cols[1::4]
+    phis = cols[2::4]
+    mus = cols[3::4]
+    if static:
+        show_connected_tracks_static(x1s,x2s,cumseglens)
+    else:
+        show_connected_tracks(x1s,x2s,cumseglens,step = step,finalstep = finalstep)
+
+    plt.show()
+
+
+
+first = 1
+cnt = 0
+def show_connected_tracks(xs, ys, cumseglens, step = 100,xlim=(-1.5,1.5),ylim=(-1.5,1.5),finalstep = 10):
+    connected_track_x = xs
+    connected_track_y = ys
+    lengthlist = [0]+cumseglens
+    segnum = len(cumseglens)
+    dc = len(colors0)//segnum
+    colors = colors0[::dc]
+    # print(colors)
+
+    Onetrack_length = len(connected_track_x)  
+    print(lengthlist) 
+    print("Total length: ", Onetrack_length)
+    headx, heady, tailx, taily = [],[],[],[]
+    for j in range(len(lengthlist)-1):
+        headx.append( connected_track_x[lengthlist[j]] )    
+        heady.append( connected_track_y[lengthlist[j]] )
+        tailx.append( connected_track_x[lengthlist[j+1]-1] )
+        taily.append( connected_track_y[lengthlist[j+1]-1] )
+
+    plt.ion() 
+    fig, ax = plt.subplots(figsize=(8,8))
+    ax.axis("equal")
+    from matplotlib.animation import FuncAnimation, writers
+    # connected_track_x, connected_track_y = Onetrack.toxylist()
+    
+    global cnt
+    cnt = 0
+    global first
+    first = 0
+    def update(i):
+        global cnt
+        global first
+        plt.cla()
+        for hx,hy,tx,ty,j in zip(headx, heady, tailx, taily, range(len(headx))):
+            ax.text(hx-0.01,hy,"{}".format(j), color="red")
+            ax.text(tx+0.01,ty,"{}".format(j), color="blue")
+        ax.plot(headx, heady, 'o', color="red" , markersize=2)
+        ax.plot(tailx, taily, 'o', color="blue" , markersize=2)
+        ax.plot(connected_track_x[:i], connected_track_y[:i], '.', color="gray" , markersize=2)
+        ax.plot(connected_track_x[i], connected_track_y[i], '.', color="green", markersize=8)
+        ax.text(0.8,1,"track_{},length_{}".format(cnt, lengthlist[cnt+1]-lengthlist[cnt]))
+        if i>=lengthlist[cnt+1]:
+            if first:
+                cnt += 1
+                first = 0
+            else:
+                i>=lengthlist[cnt+2]
+                first = 1
+        plt.draw()
+        plt.xlim(xlim[0],xlim[1])
+        plt.ylim(ylim[0],ylim[1])
+        plt.pause(0.001)
+
+    plt.ioff()
+    s = np.arange(0,Onetrack_length,step)
+    # print("(Onetrack_length-s[-1]), step, (Onetrack_length-s[-1])//step",(Onetrack_length-s[-1]), step, (Onetrack_length-s[-1])//step)
+    # input()
+    # s = np.concatenate([s, np.arange(s[-1],Onetrack_length,max(1, (Onetrack_length-s[-1])//10)) ])
+    s = np.concatenate([s, np.arange(s[-1],Onetrack_length,max(1, (Onetrack_length-s[-1])//finalstep)) ])
+    try:
+        s = np.concatenate([s, np.arange(s[-1],Onetrack_length,1)])
+    except:
+        pass
+    ani = FuncAnimation(fig, update, frames = s ,blit = False, interval=1000/2, save_count=300)
+    print('Begin saving mp4')
+    FFMpegWriter = writers['ffmpeg']
+    writer = FFMpegWriter(fps=5, metadata=dict(title='None', artist='None', comment="None"), bitrate=9600)
+    mp4name = "./data/connected_track.mp4"
+    ani.save(mp4name, writer=writer,dpi=240)
+    print('Finished.')
+
+
+def show_connected_tracks_static(xs,ys,cumseglens, step = 100,xlim=(-1.5,1.5),ylim=(-1.5,1.5), txt = 1, inax = 0):
+    connected_track_x = xs
+    connected_track_y = ys
+    lengthlist = [0]+cumseglens
+    segnum = len(cumseglens)
+    dc = len(colors0)//segnum
+    colors = colors0[::dc]
+    print(colors)
+
+    Onetrack_length = len(connected_track_x)  
+    print(lengthlist) 
+    print("Total length: ", Onetrack_length)
+
+    headx, heady, tailx, taily = [],[],[],[]
+    for j in range(len(lengthlist)-1):
+        headx.append( connected_track_x[lengthlist[j]] )    
+        heady.append( connected_track_y[lengthlist[j]] )
+        tailx.append( connected_track_x[lengthlist[j+1]-1] )
+        taily.append( connected_track_y[lengthlist[j+1]-1] )
+
+    # plt.ion() 
+    fig, ax = plt.subplots(figsize=(8,8))
+    plt.subplots_adjust(top = 0.95, bottom = 0.1, right = 0.95, left = 0.15, hspace = 0, wspace = 0)
+    ax.tick_params(axis='both', labelsize = 17, direction="in")
+    
+    # from matplotlib.animation import FuncAnimation, writers
+    # connected_track_x, connected_track_y = Onetrack.toxylist()
+    
+    global cnt
+    cnt = 0
+    global first
+    first = 0
+    # colors = ["blue", "green", "black", "red", "orange", "salmon", "lime"]
+
+    scal = 3e-2
+    scal = 3e-2
+    for hx,hy,tx,ty,j in zip(headx, heady, tailx, taily, range(len(headx))):
+        if txt:
+            if (abs(hx-tx)<1e-2) or (abs(hy-ty)<1e-2):
+                # input("KJLJKLJLJLJKJLJLK")
+                ax.text(hx-1.1*scal,hy-3*scal,"H", color=colors[j], fontsize = 27)
+                ax.text(tx+0.1*scal,ty,"T", color=colors[j], fontsize = 27)
+            else:
+                ax.text(hx-1.1*scal,hy-3*scal,"H", color=colors[j], fontsize = 27)
+                ax.text(tx+0.1*scal,ty,"T", color=colors[j], fontsize = 27)
+        ax.plot(hx, hy, 'o', color=colors[j], markersize=4)
+        ax.plot(tx, ty, 'o', color=colors[j], markersize=4)
+        # ax.plot(closed_tracks[j][0], closed_tracks[j][1], '.', color=colors[j], markersize=2)
+        ax.plot(connected_track_x[lengthlist[j]:lengthlist[j+1]], connected_track_y[lengthlist[j]:lengthlist[j+1]], '.', color=colors[j], markersize=2)
+
+    ax.set_xlabel(r"$x/ \theta_E $", fontsize = 17, fontname='Times New Roman')
+    ax.set_ylabel(r"$y/ \theta_E $", fontsize = 17,fontname='Times New Roman')
+
+    if inax:
+        inset_axes = iax(ax,
+                            width="40%", # width = 30% of parent_bbox
+                            height="40%", # height : 1 inch
+                            loc=1) #1 top right, 
+        for hx,hy,tx,ty,j in zip(headx, heady, tailx, taily, range(len(headx))):
+            scal = 1e-3
+            if txt:
+                if (abs(hx-tx)<1e-2) or (abs(hy-ty)<1e-2):
+                    inset_axes.text(hx-1.1*scal,hy,"H", color=colors[j], fontsize = 27)
+                    inset_axes.text(tx+1.1*scal,ty,"T", color=colors[j], fontsize = 27)
+                else:
+                    inset_axes.text(hx-1.1*scal,hy,"H", color=colors[j], fontsize = 27)
+                    inset_axes.text(tx+1.1*scal,ty,"T", color=colors[j], fontsize = 27)
+            inset_axes.plot(hx, hy, 'o', color=colors[j], markersize=4)
+            inset_axes.plot(tx, ty, 'o', color=colors[j], markersize=4)
+            # inset_axes.plot(connected_track_x, connected_track_y, '.', color=colors[j], markersize=2)
+            inset_axes.plot(connected_track_x[lengthlist[j]:lengthlist[j+1]], connected_track_y[lengthlist[j]:lengthlist[j+1]], '.', color=colors[j], markersize=2)
+
+        inset_axes.tick_params(axis='both', labelsize = 17, direction="in")
+
+        #segm1
+        # inset_axes.set_xlim(-0.4,-0.38)
+        # inset_axes.set_ylim(1.155,1.175)
+
+        #segm2 loc = 9
+        # inset_axes.set_xlim(0.435,0.485)
+        # inset_axes.set_ylim(-0.365,-0.315)    
+
+        #segm3
+        inset_axes.set_xlim(-0.58,-0.55)
+        inset_axes.set_ylim(0.835,0.865)   
+
+    # plt.draw()
+    ax.set_xlim(xlim[0],xlim[1])
+    ax.set_ylim(ylim[0],ylim[1])
+    # print("???????? can you set xylim")
+    ax.axis("equal")
 
 def add_arrow(line, position=None, direction='right', size=15, color=None):
     """
@@ -161,6 +439,36 @@ def add_colorbar(im, aspect=20, pad_fraction=0.5, **kwargs):
     plt.sca(current_ax)
     return im.axes.figure.colorbar(im, cax=cax, **kwargs)
 
+def cutsubimg4finiteSource(ImgSize, Rs, xlim,ylim, realimgsize, srcplaneIMG, srcplaneIMG_withoutlens, xlim0, xlim1, ylim0, ylim1 ):
+    pixelRs = int( ImgSize[0]*Rs/(xlim[1] - xlim[0]) )
+    dx = (xlim1 - xlim0)/(realimgsize-1)
+    dy = (ylim1 - ylim0)/(realimgsize-1)
+    psf = np.zeros((2*pixelRs+1, 2*pixelRs+1))
+    for i in range(1, 2*pixelRs+2):
+        for j in range(1, 2*pixelRs+2):
+            if ( (i- pixelRs - 1)**2 + (j-pixelRs-1)**2 )<=pixelRs**2:
+                psf[i-1,j-1] = 1    
+    print("psf: \n", psf.shape)
+    muRayshoot = np.zeros((realimgsize, realimgsize))
+    px = xlim0
+    for i in range(realimgsize):
+        py = ylim0
+        for j in range(realimgsize):
+            # pixelx = int((px - xlim[0])*(ImgSize[0]-1)/(xlim[1] - xlim[0]))
+            # pixely = int((py - ylim[0])*(ImgSize[1]-1)/(ylim[1] - ylim[0]))
+            pixelx = int((px - xlim[0])*(ImgSize[0])/(xlim[1] - xlim[0]))
+            pixely = int((py - ylim[0])*(ImgSize[1])/(ylim[1] - ylim[0]))
+
+            submap_wlens = srcplaneIMG[ pixelx - pixelRs: pixelx + pixelRs + 1, pixely - pixelRs : pixely + pixelRs + 1]
+            submap_wolens = srcplaneIMG_withoutlens[ pixelx - pixelRs: pixelx + pixelRs + 1, pixely - pixelRs : pixely + pixelRs + 1]
+
+            raynum_wlens = np.sum( submap_wlens*psf )
+            raynum_wolens = np.sum( submap_wolens*psf )
+
+            muRayshoot[j,i] = raynum_wlens/ raynum_wolens
+            py += dy
+        px += dx
+    return muRayshoot
 
 def fmt(x, pos):
     '''https://stackoverflow.com/questions/25983218/scientific-notation-colorbar-in-matplotlib'''
@@ -402,7 +710,7 @@ def plotcritcaus():
 #     for xy,m,i in zip(z, mlens, range(NLENS)):
 #         ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i,m,fontdict = font))
 
-def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.5, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%", sci=True):
+def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.5, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%", sci=False, cl = "blue",axeq=1):
     # non-uniform phis
     z = [ [zlens[0], zlens[1]], [zlens[2], zlens[3]], [zlens[4], zlens[5]] ]
     nlens = len(mlens)
@@ -423,16 +731,19 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
     # print("uniphi in image plane, len PHI:", len(Phis))
     imgXS, imgYS, XS, YS, falseimgXS, falseimgYS = get_allimgs_v2(mlens, z, xsCenter, ysCenter, rs, nlens, Phis)
 
-    ax.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=5)
+    ax.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=15)
+    # ax.plot([xsCenter], [ysCenter], '*', color='orange', markersize=15,zorder=-1)
     ax.plot(XS, YS, '.', color="k" , markersize=1)
-    ax.plot(imgXS, imgYS, '.', color='magenta', markersize=1)
+    ax.plot(imgXS, imgYS, '.', color=cl, markersize=1)
+    # ax.plot(imgXS, imgYS, '.', color='magenta', markersize=1)
     # ax.plot(imgXS, imgYS, '.', color='cyan', markersize=1)
     if pltfalseimg:
-        ax.plot(falseimgXS, falseimgYS, '.', color='b', markersize=1)
+        # ax.plot(falseimgXS, falseimgYS, '.', color='b', markersize=1)
+        ax.plot(falseimgXS, falseimgYS, '.', color='gray', markersize=1) # 2020.11.02
 
     if srctext:
         for xy,m,i in zip(z, mlens, range(nlens)):
-            ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m,fontdict = font))
+            ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i+1,m),fontdict = font)
     if sci == 1:
         ax.annotate('(${:.1e}$, ${:.1e}$)'.format(xsCenter,ysCenter), xy=xy, xycoords='axes fraction', fontsize=17,horizontalalignment='right', verticalalignment='bottom')
     elif sci == 0:
@@ -441,9 +752,11 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
         pass
     ax.set_xlabel(r"$x/ \theta_E $", fontsize = 17, fontname='Times New Roman')
     ax.set_ylabel(r"$y/ \theta_E $", fontsize = 17,fontname='Times New Roman')
-    plt.axis('equal')
-    # plt.xlim(-1.1,1.6)
-    # plt.ylim(-1.3,1.4)
+    if axeq:
+        plt.axis('equal')
+    else:
+        plt.xlim(-1.1,1.6)
+        plt.ylim(-1.3,1.4)
     # ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True)) 
     tit = """
     The three plus signs: the lens positions; The black circle: finite source
@@ -458,9 +771,10 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
         inset_axes.plot(criticalx, criticaly, '--', color='red', markersize=1)
         inset_axes.plot(causticsx, causticsy, '-', color='red', markersize=1)
         inset_axes.plot(XS, YS, 'k')
-        inset_axes.plot(imgXS, imgYS, '.', color='magenta', markersize=1)
+        inset_axes.plot(imgXS, imgYS, '.', color=cl, markersize=1)
+        # inset_axes.plot(imgXS, imgYS, '.', color='magenta', markersize=1)
         inset_axes.plot(falseimgXS, falseimgYS, '.', color='b', markersize=1)
-        inset_axes.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=5)
+        inset_axes.plot([xy[0]for xy in z], [xy[1]for xy in z], '+', color='k', markersize=15)
         inset_axes.tick_params(axis='both', labelsize = 12, direction="in")
         # inset_axes.set_xlim(-0.06,0.04)
         # inset_axes.set_ylim(-0.05,0.05)
@@ -472,28 +786,40 @@ def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=40
     if 0:
         plt.savefig("./data/topo_{}_{}_rs{}.png".format(xsCenter,ysCenter,rs), dpi=300)
 
+def gamma_to_u(gamma):
+    return 3. * gamma / (2. + gamma)
+def u_to_gamma(u):
+    return (2. * u) / (3. - u)
 
-def pltlkv(ts, mus, params):
+def pltlkv(ts, mus, params=None, label = None):
+    # fig = plt.subplots(figsize=(13,7), dpi=100)
+
     fig = plt.subplots(figsize=(13,7), dpi=100)
-    main = plt.subplot()
-    main.plot(ts, np.log10( mus ), color="r",linewidth = 2)
+    gs = gridspec.GridSpec(2,1,height_ratios=[5,1])
+
+    # main = plt.subplot()
+    plt.subplots_adjust(top = 0.95, bottom = 0.1, right = 0.95, left = 0.15, hspace = 0, wspace = 0)
+    main = plt.subplot(gs[0])
+
+    main.plot(ts, np.log10( mus ), color="r",linewidth = 2, label = label)
     main.set_ylabel(r"log($\mu$)", fontdict=font)
     main.set_xlabel('HJD - 2450000', fontdict=font)
     main.tick_params(axis='both', labelsize = legend_tick_size, direction = "in")    
-    msg = r"""
-        $t_0$ = {}
-        $u_0$ = {}
-        $t_E$ = {} d
-        $s_2$ = {}
-        $q_2$ = {}
-        $s_3$ = {}
-        $q_3$ = {}
-        $\alpha$ = {}
-        $\psi$ = {}
-        $\rho$ = {:.1e}
-        """.format(params[0], params[1], params[2] ,params[3],params[4],params[6], params[7],params[5],params[8],params[9])
-    # print("msg", msg) t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs
-    main.text(0.0, 0.4, msg, transform=main.transAxes, fontdict = font)
+    if params:
+        msg = r"""
+            $t_0$ = {}
+            $u_0$ = {}
+            $t_E$ = {} d
+            $s_2$ = {}
+            $q_2$ = {}
+            $s_3$ = {}
+            $q_3$ = {}
+            $\alpha$ = {}
+            $\psi$ = {}
+            $\rho$ = {:.1e}
+            """.format(params[0], params[1], params[2] ,params[3],params[4],params[6], params[7],params[5],params[8],params[9])
+        main.text(0.0, 0.4, msg, transform=main.transAxes, fontdict = font)
+    return main, gs
 
 def get_crit_caus(mlens, z, NLENS, NPS = 200):
     zlens = [i[0] for i in z] + [i[1] for i in z]
@@ -526,6 +852,7 @@ def get_crit_caus(mlens, z, NLENS, NPS = 200):
 
 def sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS):
     zlens = [i[0] for i in z] + [i[1] for i in z]
+    # print("zlens inside sol_len_equ_cpp :", zlens)
     
     resxy = TRIL.solv_lens_equation(mlens, zlens, xsCenter, ysCenter, NLENS)
     # print(res)
@@ -710,6 +1037,18 @@ def myatan(x,y):
         else:
             return M_PI + ang
 
+def checkLensEqu(mlens, zlens_list, xs, ys, z):
+    zlens = []
+    for i in range(len(zlens_list)):
+        zlens.append( complex(zlens_list[i][0], zlens_list[i][1]) )
+    z = complex(z[0], z[1]) # solution to be checked
+    zs = complex(xs, ys)
+    # dzs = zs - ( z - mlens[0] / conj(z - zlens[0]) - mlens[1] / conj(z - zlens[1]) - mlens[2] / conj(z - zlens[2]) )
+    dzs = zs - z
+    for i in range(len(mlens)):
+        dzs += (mlens[i] / conj(z - zlens[i]))
+    return abs(dzs)
+
 def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
     # z = [x, y]
     zlens = []
@@ -764,6 +1103,7 @@ def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
                 thetaJ += math.pi / 2.0
     # print([flag, mu, lambda1, lambda2, thetaJ])
     return [flag, mu, lambda1, lambda2, thetaJ]
+
 def muPoint(mlens, z, xsCenter, ysCenter, NLENS):
     res = sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS)
     mu = 0

@@ -11,3 +11,5 @@ pymodule/python_bindings.cpp
 src/TripleLensingLibrary.cpp
 src/VBBinaryLensingLibrary.cpp
 test/testpymodule.py
+test/testpymodule_binary.py
+test/testpymodule_solvlensequ.py

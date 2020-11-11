@@ -4,7 +4,14 @@ data/*
 README.assets/*
 # Ignore any executables
 #bin/*
-
+test/gentopos.py
+test/gentopos_movie.py
+test/gentopos_movie2.py
+test/temptest.py
+tmp/*
+dist/*
+var/*
+TripleLensing.egg-info/*
 # Ignore Mac specific files
 .DS_Store
 

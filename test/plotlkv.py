@@ -48,7 +48,7 @@ main.set_xlabel('HJD - 2450000', fontdict=font)
 main.tick_params(axis='both', labelsize = legend_tick_size, direction = "in")#labelcolor=color
 # main.yaxis.set_minor_locator(AutoMinorLocator(5))
 
-colors = ["k","b", "g", "r", "cyan"]
+colors = ["k","b", "r", "g", "cyan"]
 
 main.plot(times0, mags0, color=colors[0],linewidth = 2)
 main.plot(times0, mags1, color=colors[1],linewidth = 2)
@@ -72,9 +72,10 @@ msg = r"""
 main.text(0.0, 0.5, msg, transform=main.transAxes, fontdict = font)
 
 
-plt.savefig("./data/lkv.png".format(xsCenter,ysCenter), dpi=300)
+# plt.savefig("./data/lkv.png".format(xsCenter,ysCenter), dpi=300)
 
-plt.show()
+# plt.show()
+
 
 fig, ax = plt.subplots(figsize=(8,8))
 ax.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
@@ -93,7 +94,7 @@ lensx, lensy = readFile(datapath+"lens_system.dat", 1, 2, expected_elem_each_row
 lensm, _ = readFile(datapath+"lens_system.dat", 0, 2, expected_elem_each_row=3)
 
 for i in range(len(lensm)-1):
-    plt.plot(lensx[1+i], lensy[1+i], '+', color='k')#markersize=5*lensm[i+1]
+    plt.plot(lensx[1+i], lensy[1+i], '+', color='k', markersize=15)#markersize=5*lensm[i+1]
 
 line = ax.plot(Xs1, Ys1, c="g")[0] # source tragectory
 add_arrow(line)
@@ -114,7 +115,6 @@ draw_circle(ax, Xs1[0], Ys1[0], 0.01, color =colors[3])
 ax.scatter(Xs1[0], Ys1[0], color=colors[0], s = 0.5)
 ax.set_xlabel(r"$x/ \theta_E $", fontdict = font)
 ax.set_ylabel(r"$y/ \theta_E $", fontdict = font)
-
 
 
 f = open(datapath+"lens_system.dat", "r")

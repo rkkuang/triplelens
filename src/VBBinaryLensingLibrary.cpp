@@ -31,6 +31,7 @@ char systemslash = '/';
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// #include <fstream>
 
 #ifndef __unmanaged
 using namespace VBBinaryLensingLibrary;
@@ -70,6 +71,7 @@ VBBinaryLensing::VBBinaryLensing() {
 	Mag0 = 0;
 	ESPLoff = true;
 	multidark = false;
+	finalNPS = 0;
 }
 
 VBBinaryLensing::~VBBinaryLensing() {
@@ -336,105 +338,269 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 	return CriticalCurves;
 }
 
+// add on Sep 8, 2020, to get the caustics track, maybe can get the enclosed area from that track, to estimate the cross section
+_sols *VBBinaryLensing::outCritTriple(double m[], complex z[], int NPS, int nlens) {
+	int NTRIPLE = nlens;
+	// fprintf(stderr, "inside VBBinaryLensing::PlotCritTriple, nlens: %d\n", nlens);
+	complex  a, q, ej, zr[2 * NTRIPLE], x1, x2;
+	// int NPS = 200;
+	_sols *CriticalCurves;
+	_curve *Prov, *Prov2, *isso;
+	_point *pisso;
+	double SD, MD, CD;
+	int NCRITICAL = 2 * NTRIPLE;
+	complex coefs[2 * NTRIPLE + 1];
 
-// add on 2020 Feb 04
-void VBBinaryLensing::solv_lens_equation(double zrxy[], double mlens[], double zlens[], double xs, double ys, int NLENS){
-	int DEGREE = NLENS*NLENS + 1;
-    complex zr[DEGREE];
-    // double zrxy[DEGREE*2];
-    complex coefficients[DEGREE + 1];
+	int i, j, k;
+	int n = NTRIPLE;
+	complex  f0[2 * NTRIPLE + 1], f[NTRIPLE][2 * NTRIPLE - 1], g[NTRIPLE][2 * NTRIPLE];
+	complex c[2 * NTRIPLE + 1], cfix[2 * NTRIPLE - 1];
 
-    complex Zlens[NLENS];
-    int i;
-    for (i=0; i<NLENS; i++){
-    	Zlens[i] = complex(zlens[i], zlens[i+NLENS]);
-    }
-    polynomialCoefficients(mlens, Zlens, xs, ys, coefficients, NLENS, DEGREE);
-    cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+	//coefficients for Pi_i=1, N (z-zi)^2, of order 2N
+	f0[0] = z[0] * z[0];
+	f0[1] = -2.0 * z[0];
+	f0[2] = complex(1.0, 0.0);
 
-    for (i=0; i<DEGREE;i++){
-    	zrxy[i] = zr[i].re;
-    	zrxy[i+DEGREE] = zr[i].im;
-    }
-    // return zrxy;
+	/*
+	for (i=0; i<3; i++) {
+	  printf("%d %f %f %f\n", i, m[i], real(z[i]), imag(z[i]));
+	}
+	*/
+	//     multiply by (z-zi)^2
+	k = 2;
+	for (i = 1; i < n; i++) {
+
+		//     multiply by (z-zi)
+		f0[k + 1] = f0[k];
+		for (j = k; j > 0; j--) {
+			f0[j] = f0[j - 1] - z[i] * f0[j];
+		}
+		f0[0] = - f0[0] * z[i];
+
+		k = k + 1;
+		//     multiply by another (z-zi)
+		f0[k + 1] = f0[k];
+		for (j = k; j > 0; j--) {
+			f0[j] = f0[j - 1] - z[i] * f0[j];
+		}
+		f0[0] = - f0[0] * z[i];
+
+		k = k + 1;
+	}
+
+	//     do the coefficients for f_i = PI_{j=1, N, j !ne i} (z-zj)^2, of order 2N-2
+	for (k = 0; k < n; k++) {
+		//     do division by (z-zk)
+		g[k][2 * n - 1] = f0[2 * n];
+		for (i = 2 * n - 1; i > 0; i--) {
+			g[k][i - 1] = z[k] * g[k][i] + f0[i];
+		}
+
+		//    do another division by (z-zk)
+		f[k][2 * n - 2] = g[k][2 * n - 1];
+		for (i = 2 * n - 2; i > 0; i--) {
+			f[k][i - 1] = z[k] * f[k][i] + g[k][i];
+		}
+	}
+
+	//     now find the coefficients for the whole polynomial: f0 - Sum_i^N m_i f(i) == 0
+	for (i = 2 * n; i >= 0; i--) c[i] = f0[i];
+
+	for (i = 2 * n - 2; i >= 0; i--) {
+		cfix[i] = complex(0.0, 0.0);
+		for (k = 0; k < n; k++) {
+			cfix[i] = cfix[i] + m[k] * f[k][i];
+		}
+		//	  printf("cfix: %d %f %f\n", i,  real(cfix[i]), imag(cfix[i]));
+	}
+
+	CriticalCurves = new _sols;
+	for (int i = 0; i < NCRITICAL; i++) {
+		Prov = new _curve;
+		CriticalCurves->append(Prov);
+	}
+
+	for (int j = 0; j < NPS; j++) {
+
+		ej = complex(cos(2 * j * M_PI / NPS), -sin(2 * j * M_PI / NPS));
+		//	  ej = complex(cos(2.0*M_PI/3.0), sin(2*M_PI/3.0));
+		for (i = 0; i <= 2 * n; i++) coefs[i] = c[i] * ej;
+		for (i = 2 * n - 2; i >= 0; i--) coefs[i] = coefs[i] - cfix[i];
+
+		/*
+		for (i=0; i<=2*n; i++) {
+		  printf("%d %f %f\n", i, real(coefs[i]), imag(coefs[i]));
+		}
+		*/
+
+		// cmplx_roots_gen(zr, coefs, 6, true, true);
+		cmplx_roots_gen(zr, coefs, NCRITICAL, true, true);
+		// why degree 6?
+
+		if (j > 0) {
+			Prov2 = new _curve();
+			for (int i = 0; i < NCRITICAL; i++) {
+				Prov2->append(zr[i].re, zr[i].im);
+			}
+			for (Prov = CriticalCurves->first; Prov;  Prov = Prov->next) {
+				Prov2->closest(Prov->last, &pisso);
+				Prov2->drop(pisso);
+				Prov->append(pisso);
+			}
+		}
+		else {
+			// for j=0, which means the first point of ej, we get 6 solutions, for each of this 6 solutions, link them to 6 _curve(Prov) respectively, 6 _curve s = CriticalCurves
+			Prov = CriticalCurves->first;
+			for (int i = 0; i < NCRITICAL; i++) {
+				Prov->append(zr[i].re, zr[i].im);
+				Prov = Prov->next;
+			}
+		}
+	}
+
+	Prov = CriticalCurves->first;
+	while (Prov->next) {
+		SD = *(Prov->first) - *(Prov->last);
+		MD = 1.e100;
+		for (Prov2 = Prov->next; Prov2; Prov2 = Prov2->next) {
+			CD = *(Prov2->first) - *(Prov->last);
+			if (CD < MD) {
+				MD = CD;
+				isso = Prov2;
+			}
+		}
+		if (MD < SD) {
+			CriticalCurves->drop(isso);
+			Prov->join(isso);
+		}
+		else {
+			Prov = Prov->next;
+		}
+	}
+
+	// Caustics
+	complex zs, zz;
+	for (Prov = CriticalCurves->last; Prov; Prov = Prov->prev) {
+		Prov2 = new _curve;
+		for (_point *scanpoint = Prov->first; scanpoint; scanpoint = scanpoint->next) {
+			zz = complex(scanpoint->x1, scanpoint->x2);
+			// lens equation to find caustics
+			// zs = zz - m[0] / conj(zz - z[0]) - m[1] / conj(zz - z[1]) - m[2] / conj(zz - z[2]);
+			zs = zz;
+			for (int i = 0; i < NTRIPLE; i++) {
+				zs = zs - m[i] / conj(zz - z[i]) ;
+			}
+
+			// Prov2->append(real(zs), imag(zs));
+			scanpoint->ds = real(zs);
+			scanpoint->dJ = imag(zs);
+		}
+		// CriticalCurves->append(Prov2);
+		// fprintf(stderr, "CriticalCurves.first.next.last.x1 %f\n",CriticalCurves->first->next->last->x1 );
+	}
+	return CriticalCurves;
 }
 
 
+
+// // add on 2020 Feb 04
+// void VBBinaryLensing::solv_lens_equation(double zrxy[], double mlens[], double zlens[], double xs, double ys, int NLENS){
+// 	int DEGREE = NLENS*NLENS + 1;
+//     complex zr[DEGREE];
+//     // double zrxy[DEGREE*2];
+//     complex coefficients[DEGREE + 1];
+
+//     complex Zlens[NLENS];
+//     int i;
+//     for (i=0; i<NLENS; i++){
+//     	Zlens[i] = complex(zlens[i], zlens[i+NLENS]);
+//     }
+//     polynomialCoefficients(mlens, Zlens, xs, ys, coefficients, NLENS, DEGREE);
+//     cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+
+//     for (i=0; i<DEGREE;i++){
+//     	zrxy[i] = zr[i].re;
+//     	zrxy[i+DEGREE] = zr[i].im;
+//     }
+//     // return zrxy;
+// }
+
+
 //output in two files the triple critical curves and caustics
- void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
- // void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
+void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
+// void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
 {
-    // VBBinaryLensing VBBL;
-    // double allxys[4*NPS+2];
-    complex Zlens[NLENS];
-    int i;
-    for (i=0; i<NLENS; i++){
-    	Zlens[i] = complex(zlens[i], zlens[i+NLENS]);
-    }
+	// VBBinaryLensing VBBL;
+	// double allxys[4*NPS+2];
+	complex Zlens[NLENS];
+	int i;
+	for (i = 0; i < NLENS; i++) {
+		Zlens[i] = complex(zlens[i], zlens[i + NLENS]);
+	}
 
-    int ncurves = 0;
-    int ncritical = 0;
-    _sols *criticalCurves;
-    // FILE *fcritical, *fcaustics;
+	int ncurves = 0;
+	int ncritical = 0;
+	_sols *criticalCurves;
+	// FILE *fcritical, *fcaustics;
 
-    criticalCurves = PlotCritTriple(mlens, Zlens, NPS,NLENS);
-    // fcritical = fopen("critical_curves.dat", "w");
-    // fcaustics = fopen("caustics.dat", "w");
+	criticalCurves = PlotCritTriple(mlens, Zlens, NPS, NLENS);
+	// fcritical = fopen("critical_curves.dat", "w");
+	// fcaustics = fopen("caustics.dat", "w");
 
-    // check how many closed critical curves we have
-    // first halfs are critical curves
-    ncritical = criticalCurves->length / 2; // number of closed critical curves
-    // allxys[0] = ncritical;
+	// check how many closed critical curves we have
+	// first halfs are critical curves
+	ncritical = criticalCurves->length / 2; // number of closed critical curves
+	// allxys[0] = ncritical;
 #ifdef VERBOSE
-    printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
+	printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
 #endif
 
-    // write out the critical curves and caustics separately
-    // allxys:
-    // num_critical_points
-    // then critx_i, crity_i
-    // numb_caustics_points
-    //then causticsx_i, causticsy_i
-    // [2, crx1,cry1,crx2,cry2, 1, cax1, cay1]
- //idx [0, 1,   2,   3,   4,    5, 6,    7]
+	// write out the critical curves and caustics separately
+	// allxys:
+	// num_critical_points
+	// then critx_i, crity_i
+	// numb_caustics_points
+	//then causticsx_i, causticsy_i
+	// [2, crx1,cry1,crx2,cry2, 1, cax1, cay1]
+//idx [0, 1,   2,   3,   4,    5, 6,    7]
 
 
-    ncurves = 0;
-    int count_critical = 0;
-    int count_caustic = 0;
-    for (_curve *c = criticalCurves->first; c; c = c->next) {
-        int npoints = 0;
+	ncurves = 0;
+	int count_critical = 0;
+	int count_caustic = 0;
+	for (_curve *c = criticalCurves->first; c; c = c->next) {
+		int npoints = 0;
 
-        ncurves++;
+		ncurves++;
 
-        // second half, caustics
-        if (ncurves > ncritical) {      // second halfs are caustics
-            for (_point *p = c->first; p; p = p->next) {
-                // fprintf(fcaustics, "%.10lf %.10lf\n", p->x1, p->x2);
+		// second half, caustics
+		if (ncurves > ncritical) {      // second halfs are caustics
+			for (_point *p = c->first; p; p = p->next) {
+				// fprintf(fcaustics, "%.10lf %.10lf\n", p->x1, p->x2);
 
-                npoints++;
+				npoints++;
 
-                count_caustic ++;
-                allxys[2*count_critical+1 + 2*count_caustic-1] = p->x1;
-                allxys[2*count_critical+1 + 2*count_caustic] = p->x2;
-                // allxys[npoints] = p->x1; # this is a bug not commeted
-            }
-            //      printf("critical curve #%d  number of points %d\n", ncurves-ncritical, npoints);
-        } else {
-        	// first half, critical curves
-            for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
-                // fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
-            count_critical ++;
-            // fprintf(stderr, "I am inside outputCriticalTriple_list%f\n", count_critical);
-            allxys[count_critical*2-1] = p->x1;
-            allxys[count_critical*2] = p->x2;
-            }
-        }
+				count_caustic ++;
+				allxys[2 * count_critical + 1 + 2 * count_caustic - 1] = p->x1;
+				allxys[2 * count_critical + 1 + 2 * count_caustic] = p->x2;
+				// allxys[npoints] = p->x1; # this is a bug not commeted
+			}
+			//      printf("critical curve #%d  number of points %d\n", ncurves-ncritical, npoints);
+		} else {
+			// first half, critical curves
+			for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
+				// fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
+				count_critical ++;
+				// fprintf(stderr, "I am inside outputCriticalTriple_list%f\n", count_critical);
+				allxys[count_critical * 2 - 1] = p->x1;
+				allxys[count_critical * 2] = p->x2;
+			}
+		}
 
-    }
-    allxys[0] = count_critical;
-    allxys[2*count_critical+1] = count_caustic;
-    // fclose(fcritical);  fclose(fcaustics);
+	}
+	allxys[0] = count_critical;
+	allxys[2 * count_critical + 1] = count_caustic;
+	// fclose(fcritical);  fclose(fcaustics);
 }
 
 void VBBinaryLensing::PrintCau(double a, double q) {
@@ -936,7 +1102,7 @@ double VBBinaryLensing::BinaryMag(double a1, double q1, double y1v, double y2v, 
 	flag = 0;
 	Magold = -1.;
 	NPSold = 2;
-	fprintf(stderr, "stheta->th %f, stheta->maxerr %f\n", stheta->th, stheta->maxerr);
+	// fprintf(stderr, "stheta->th %f, stheta->maxerr %f\n", stheta->th, stheta->maxerr);
 	do {
 		stheta = Thetas->insert(th);
 		y = y0 + complex(RSv * cos(th), RSv * sin(th));
@@ -1007,15 +1173,42 @@ double VBBinaryLensing::BinaryMag(double a1, double q1, double y1v, double y2v, 
 #endif
 	} while ((currerr > errimage) && (currerr > RelTol * Mag) && (NPS < NPSmax) && ((flag < NPSold)/* || NPS<8 ||(currerr>10*errimage)*/)/*&&(flagits)*/);
 
-	printf("\nNPS= %d Mag = %lf maxerr= %lg currerr =%lg th = %lf\n", NPS, Mag / (M_PI * RSv * RSv), maxerr / (M_PI * RSv * RSv), currerr / (M_PI * RSv * RSv), th);
+	// printf("\nNPS= %d Mag = %lf maxerr= %lg currerr =%lg th = %lf\n", NPS, Mag / (M_PI * RSv * RSv), maxerr / (M_PI * RSv * RSv), currerr / (M_PI * RSv * RSv), th);
 
 	Mag /= (M_PI * RSv * RSv);
 	therr = currerr / (M_PI * RSv * RSv);
 
+	finalNPS = NPS;
+	// saveTracks(Images);
 
 	delete Thetas;
 
 	return Mag;
+}
+
+void VBBinaryLensing::saveTracks(_sols **track)
+{
+	int i = 0;
+	int itrack = 0;
+	FILE *fp;
+
+	fp = fopen("data/vbbl_allTracks.dat", "w");
+	// fp = fopen(filename, "w");
+	// printf("entered saveTracks\n\n\n");
+
+	for (_curve *c = (*track)->first; c; c = c->next) { //curves
+		fprintf(fp, "%d ", c->length);
+	}
+	fprintf(fp, "\n");
+
+	for (_curve *c = (*track)->first; c; c = c->next) { //curves
+		for (_point *p = c->first; p; p = p->next) { //point
+			fprintf(fp, "%f %f %f %f ", p->x1, p->x2, p->phi, p->mu);
+			i++;
+		}
+		itrack++;
+	}
+	fclose(fp);
 }
 
 // magnification of a uniform-brightness source by a binary lens.
@@ -1035,6 +1228,7 @@ double VBBinaryLensing::BinaryMag2(double s, double q, double y1v, double y2v, d
 		y1v, y2v - source position
 		rho - source size
 	*/
+	finalNPS = 0;
 	double Mag, sms, tn, rho2;
 	int c = 0;
 	_sols *Images;
@@ -1042,7 +1236,8 @@ double VBBinaryLensing::BinaryMag2(double s, double q, double y1v, double y2v, d
 	sms = s + 1 / s;
 	tn = y1v * y1v + y2v * y2v - sms * sms;
 
-	fprintf(stderr, "safedist=%f, Tol=%f, corrquad=%f, corrquad2=%f\n", safedist, Tol, corrquad, corrquad2);
+	ifFinite = 0;
+	// fprintf(stderr, "safedist=%f, Tol=%f, corrquad=%f, corrquad2=%f\n", safedist, Tol, corrquad, corrquad2);
 
 	// question, where is Tol defiend
 	// fprintf(stderr, "Tol = %f\n", Tol);
@@ -1055,15 +1250,14 @@ double VBBinaryLensing::BinaryMag2(double s, double q, double y1v, double y2v, d
 		corrquad2 *= (rho + 1.e-3);
 		if (corrquad < Tol && corrquad2 < 1 && (rho2 * s * s < q || safedist > 4 * rho2)) {
 			Mag = Mag0;
-		}
-		else {
+		}else {
 			// VBBL.a1 = Gamma
+			ifFinite = 1;
 			Mag = BinaryMagDark(s, q, y1v, y2v, rho, a1, Tol);
-			fprintf(stderr, "I am in VBBinaryLensing::BinaryMag2, using BinaryMagDark\n");
+			// fprintf(stderr, "I am in VBBinaryLensing::BinaryMag2, using BinaryMagDark\n");
 		}
 		Mag0 = 0;// could be removed
-	}
-	else {
+	}else {
 		Mag = 1;
 	}
 	return Mag;
@@ -1149,7 +1343,15 @@ double VBBinaryLensing::BinaryMagDark(double a, double q, double y1, double y2, 
 				r2 = cb * cb;
 				cr2 = 1 - r2;
 				scr2 = sqrt(cr2);
-				cc = (3 * r2 * (1 - a1) - 2 * a1 * (scr2 * cr2 - 1)) / (3 - a1); // cumulative function F(r) from equ(45) at new r = cb, integral of f(r)
+				cc = (3 * r2 * (1 - a1) - 2 * a1 * (scr2 * cr2 - 1)) / (3 - a1);
+				// cumulative function F(r) from equ(45) at new r = cb, integral of 2rf(r)
+				// cc = (3 * r2 * (1 - a1) - 2 * a1 * ((1-scr2) * cr2 - 1)) / (3 - a1);
+				// cc = (3 * r2 * (- a1) - 2 * a1 * ((1-scr2) * cr2 - 1)) ;
+				// -3 a1 r2 -2 a1 ( cr2 - 1)
+
+
+
+				// cc = ( - a1 * (r2 - 2 * scr2*cr2)) ;
 				if (cc > tc) {
 					rb = cb;
 					rc = cc;
@@ -1167,6 +1369,9 @@ double VBBinaryLensing::BinaryMagDark(double a, double q, double y1, double y2, 
 			scan->prev->cum = cc;
 			scan->prev->f = first->f * (1 - a1 * (1 - scr2));//Bozza 2010 42
 			scan->prev->Mag = BinaryMag(a, q, y_1, y_2, RSv * cb, Tolv, &Images);
+
+			
+
 			totNPS += NPS;
 			scan->prev->nim = Images->length;
 			if (scan->prev->prev->nim == scan->prev->nim) {
@@ -1218,7 +1423,8 @@ double VBBinaryLensing::BinaryMagDark(double a, double q, double y1, double y2, 
 	}
 	NPS = totNPS;
 	therr = currerr;
-
+	// fprintf(stderr, "\t\t NPS = %d in VBBL\n", NPS);
+	finalNPS = NPS;
 	return Mag;
 }
 
@@ -2287,7 +2493,7 @@ new_jacobians4
 	J3=J3*za2;\
 	ob2=(J2.re*J2.re+J2.im*J2.im)*(6-6*dJ.re+dJ2);\
 	J2=J2*J2*za2*J1c;\
-	cq= 0.5*(fabs(ob2-6.*J2.re-2.*J3.re*dJ.re)+3*fabs(J2.im))/fabs(dJ.re*dJ2*dJ2);
+	cq= 0.5*( fabs(ob2-6.*J2.re-2.*J3.re*dJ.re) + 3*fabs(J2.im) )/fabs(dJ.re*dJ2*dJ2);
 
 #define _Jacobians4\
 	zaltc=yc+coefs[21]/dza+coefs[22]/z;\
@@ -2654,6 +2860,7 @@ _curve *VBBinaryLensing::NewImages(complex yi, complex  *coefs, _theta *theta) {
 				}
 			}
 		}
+		// 但是这部分代码好像后面没用到啊？
 		if ((good[worst3] < dlmax) && ((good[worst1] < dlmax) || (good[worst2] > 1.e2 * good[worst3]))) {
 			bad = 0;
 		}
@@ -2810,6 +3017,7 @@ void VBBinaryLensing::OrderImages(_sols *Sols, _curve *Newpts) {
 
 	theta = Newpts->first->theta;
 	th = theta->th;
+	// theta->Mag: area
 	theta->Mag = theta->prev->Mag = theta->maxerr = theta->prev->maxerr = 0;
 	if (Newpts->length == 3) {
 		mi = theta->next->errworst - theta->errworst;
@@ -3067,7 +3275,7 @@ void VBBinaryLensing::OrderImages(_sols *Sols, _curve *Newpts) {
 
 	// immagini seguenti
 	// following images
-	if (nfoll) { // 又来一次循环？
+	if (nfoll) {
 		// Caso di creazione nuove immagini
 		// Case of creating new images
 		if (npres < nfoll) {
@@ -5247,164 +5455,6 @@ void VBBinaryLensing::cmplx_laguerre2newton(complex *poly, int degree, complex *
 
 
 
-// obtain the polynomical coefficients
-// input: lens mass and positions, mlens[], zlens[], source positions: xs, ys
-// output: c
-void polynomialCoefficients(double mlens[], complex zlens[], double xs, double ys, complex c[], int NLENS, int DEGREE)
-{
-	int i, j, k;
-	int n;
-
-	complex zs, zsc;      /* source position and conjugate */
-	complex zc[NLENS];        /* conjugate of lens positions */
-
-	complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS];
-	complex temp[NLENS + 1];
-	complex ctemp[DEGREE + 1];
-	complex qtemp[DEGREE + 1], qtemp2[NLENS + 1];
-	complex ptemp[DEGREE + 1];
-	int degrees;
-
-	n = NLENS;
-	zs = complex(xs, ys);
-	zsc = conj(zs);
-
-	for (i = 0; i < n; i++) {
-		zc[i] = conj(zlens[i]);
-	}
-
-	for (i = 0; i < n; i++) {
-		temp[0] = 1.0;
-		for (j = 0; j < n; j++) {
-			multiply_z(temp, zlens[j], j);
-		}
-
-		/* numerator, m[i] * (z-z1)*(z-z2) ... (z-zn) */
-		for (j = 0; j <= n; j++) {
-			p[j][i] = mlens[i] * temp[j];
-		}
-
-		/* denominator */
-		for (j = 0; j <= n; j++) { /* (zsc-conjugate(z[i])) * Product_{j=1}^N (z-z[j]) */
-			q[j][i] = (zsc - zc[i]) * temp[j];
-		}
-
-		/* Sum_{j=1}^n Product (z-z_k), k=1, n, but k !=j. */
-		for (j = 0; j < n; j++) {
-			/* coefficient for  Product (z-z_k), k=1, n, but k !=j. This is a polynomial of DEGREE n-1 */
-			temp[0] = 1.0;
-			degrees = 0;
-			for (k = 0; k < n; k++) {
-				if (k == j) continue;
-
-				multiply_z(temp, zlens[k], degrees);
-				degrees++;
-			}
-
-			/* doing the sum */
-			for (k = 0; k < n; k++) {
-				q[k][i] = q[k][i] + mlens[j] * temp[k];
-			}
-		}
-	}
-
-	/* now clear the fractions, z-zs - Sum_i p_i/q_i */
-	/* get the polynomial Product q_i, i=1, n */
-
-	/* first term */
-	qtemp[0] = 1.0;
-	degrees = 0;
-	for (i = 0; i < n; i++) {
-		for (j = 0; j <= n; j++) {
-			qtemp2[j] = q[j][i];
-		}
-
-		multiply(qtemp, degrees, qtemp2, n, ctemp);
-
-		degrees += n;
-
-
-		for (j = 0; j <= degrees; j++) {
-			qtemp[j] = ctemp[j];
-		}
-	}
-
-	/* get coefficients of (z-zs) Product_i=1^n q_i */
-	multiply_z(ctemp, zs, degrees);
-
-	/* copy the coefficients */
-	for (i = 0; i < n * n + 2; i++) {
-		c[i] = ctemp[i];
-	}
-
-	/* second term */
-	for (i = 0; i < n; i++) {
-		degrees = 0;
-		qtemp[0] = 1.0;
-		for (j = 0; j < n; j++) {
-			if (j == i) continue;
-
-			for (k = 0; k <= n; k++) {
-				qtemp2[k] = q[k][j];
-			}
-
-			multiply(qtemp, degrees, qtemp2, n, ctemp);
-
-			degrees += n;
-
-			for (k = 0; k <= degrees; k++) {
-				qtemp[k] = ctemp[k];
-			}
-		}
-
-		for (k = 0; k <= n; k++) {
-			ptemp[k] = p[k][i];
-		}
-
-		multiply(qtemp, degrees, ptemp, n, ctemp);
-
-		for (k = 0; k < n * n + 1; k++) {
-			c[k] = c[k] - ctemp[k];
-		}
-	}
-}
-
-
-
-/* multiply a polynomial of degree n by (z-a), returns a polynomial of degree n+1 */
-void multiply_z(complex c[], complex a, int n)
-{
-	int j;
-
-	c[n + 1] = c[n];
-	for (j = n; j >= 1; j--) c[j] = c[j - 1] - c[j] * a;
-	c[0] = c[0] * (-a);
-}
-
-/* multiply a polynomial of degree n by (z-a)^2, returns a polynomial of degree n+2 */
-void multiply_zSquare(complex c[], complex a, int n)
-{
-	multiply_z(c, a, n);
-	multiply_z(c, a, n + 1);
-}
-
-/* multiply two polynomials of degree of na and nb, input as a(na), b(nb) */
-void multiply(complex a[], int na, complex b[], int nb, complex c[])
-{
-	int i, j;
-
-	/* zero the array */
-	for (i = 0; i <= na + nb; i++) {
-		c[i] = 0.0;
-	}
-
-	/* now do the product */
-	for (i = 0; i <= na; i++) {
-		for (j = 0; j <= nb; j++) {
-			c[i + j] = c[i + j] + a[i] * b[j];
-		}
-	}
-}
 
 
 #define ITER_MAX 50

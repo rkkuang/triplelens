@@ -52,7 +52,8 @@ for i in range(len(lensm)-1):
 print("plot pureImgPoints.dat")
 
 xpureImg, ypureImg = readFile(datapath+"pureImgPoints.dat", 0, 1, expected_elem_each_row=2)
-ax.plot(xpureImg, ypureImg, '.', color='cyan', markersize=1)
+# ax.plot(xpureImg, ypureImg, '.', color='cyan', markersize=1)
+ax.plot(xpureImg, ypureImg, '.', color='green', markersize=1)
 print("len imgs: ", len(x))
 
 xfalseimg, yfalseimg = readFile(datapath+"pureImgPoints_falseimg.dat", 0, 1, expected_elem_each_row=2)
@@ -81,7 +82,7 @@ ax.plot(sx, sy, 'k')
 plt.axis('equal')
 # 
 # 
-ax.annotate('(${}$, ${}$)'.format(xsCenter,ysCenter), xy=(0.2, 0.9), xycoords='axes fraction', fontsize=17,
+ax.annotate('(${:.1e}$, ${:.1e}$)'.format(xsCenter,ysCenter), xy=(0.5, 0.9), xycoords='axes fraction', fontsize=17,
                 horizontalalignment='right', verticalalignment='bottom')
 # if input("save or not? [y/n]") == "y":
 

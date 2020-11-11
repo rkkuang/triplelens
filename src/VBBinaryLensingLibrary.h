@@ -68,22 +68,23 @@ class VBBinaryLensing
 	void OrderImages(_sols *, _curve *);
 	void cmplx_laguerre(complex *, int, complex *, int &, bool &);
 	void cmplx_newton_spec(complex *, int, complex *, int &, bool &);
-
+	
 	void solve_quadratic_eq(complex &, complex &, complex *);
 	void solve_cubic_eq(complex &, complex &, complex &, complex *);
 
 public:
 	double Mag0, corrquad, corrquad2, safedist;
 	double Tol, RelTol, a1, t0_par;
-	int satellite, parallaxsystem, t0_par_fixed, nsat;
-	int minannuli, nannuli, NPS;
+	int satellite, parallaxsystem, t0_par_fixed, nsat, finalNPS;
+	int minannuli, nannuli, NPS, ifFinite;
 	double y_1, y_2, av, therr;
 
-	void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int NLENS);
+	// void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int NLENS);
 	void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
 	// Critical curves and caustic calculation
 	_sols *PlotCrit(double a, double q);
 	_sols *PlotCritTriple(double m[], complex z[], int NPS, int nlens);
+	_sols *outCritTriple(double m[], complex z[], int NPS, int nlens);
 	void PrintCau(double a, double q);
 
 	// Initialization for calculations including parallax
@@ -133,6 +134,7 @@ public:
 	double BinaryLightCurveParallax(double *parameters, double t);
 	double BinaryLightCurveOrbital(double *parameters, double t);
 
+
 	double BinSourceLightCurve(double *parameters, double t);
 	double BinSourceLightCurveParallax(double *parameters, double t);
 	double BinSourceLightCurveXallarap(double *parameters, double t);
@@ -144,6 +146,7 @@ public:
 	// Constructor and destructor
 	VBBinaryLensing();
 	~VBBinaryLensing();
+	void saveTracks(_sols ** track);
 
 };
 
@@ -163,10 +166,9 @@ struct annulus {
 #endif
 
 
-void multiply(complex a[], int na, complex b[], int nb, complex c[]);
-void multiply_z(complex c[], complex a, int n);
-void multiply_zSquare(complex c[], complex a, int n);
-void polynomialCoefficients(double mlens[], complex zlen[], double xs, double ys, complex c[], int NLENS, int DEGREE);
+
+
+
 void findCloseImages(double mlens[], complex zlens[], double xs, double ys, int NLENS, complex close_zr[], int iter[]);
 void newtonSolver(double mlens[], complex zlens[], double xs, double ys, int NLENS, complex *z, int *iter);
 

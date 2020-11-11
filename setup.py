@@ -3,6 +3,7 @@ from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
 import os
+# build python module by:
 # sudo python3 setup.py install
 __version__ = '1.0.1'
 

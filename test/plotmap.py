@@ -1,26 +1,37 @@
+'''
+Figure 8. in original draft
+
+'''
+
 from utils import *
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl  
 from matplotlib.ticker import MaxNLocator, AutoMinorLocator, FormatStrFormatter
-
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
 from matplotlib import gridspec
 import matplotlib.ticker as ticker
 
+import matplotlib.ticker as mticker
+f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
+import os
+
 mpl.rc('font',family='Times New Roman')
+fontsz = 17
 
 font = {'family': 'Times New Roman',
     'color':  'k',
     'weight': 'normal',
-    'size': 17,
+    'size': fontsz,
     }
-legend_tick_size = 17
+legend_tick_size = fontsz
 font2 = {'family': 'Times New Roman',
     'weight': 'normal',
-    'size': 17,
+    'size': fontsz,
     }
 
+
+cmap1 = 'seismic'
 datapath = "./data/"
 
 lens_params = read_lens_system_triple(datapath+"lens_system_triple.dat")
@@ -29,6 +40,18 @@ Xs0, Ys0 , mags0 = read_cppmap(datapath+"magmap0.05.dat")
 
 # mapraysht = np.load(datapath+"rayshtmap_5e-2_128_raynum2e4.dat")
 mapraysht = np.load(datapath+"rayshtmap_5e-2_128_raynum5e4.dat")
+
+filename = "rayshtmap_data"
+dirpath = "/Users/anything/THU/astro/softwares/gravlens/triplelens/data/response_figure/data/"
+if not os.path.exists(dirpath+filename):
+    print("saving raysht mag map {}".format(dirpath+filename))
+    np.savez(dirpath+filename, Xs0=Xs0, Ys0=Ys0, mapraysht = mapraysht)
+else:
+    print("{} already exists, do you sure to overwrite?".format(dirpath+filename))
+
+
+# mapraysht = np.load("/Users/anything/THU/astro/softwares/aeroastro/gravlen/critical_and_caustics/pys/totahiti191210/muRayshoot_raynum1.0e+04.npy")
+# mapraysht = mapraysht.T
 
 Imgsize = 128
 mags0 = mags0.reshape(Imgsize, Imgsize)
@@ -39,12 +62,13 @@ mags0 = np.log10(mags0)
 mapraysht = np.log10(mapraysht)
 
 
-cmap1 = 'seismic'
+
 # fig, ax = plt.subplots(figsize=(8,8))
 
-fig = plt.subplots(figsize=(16,8), dpi=100)
+fig = plt.subplots(figsize=(14,6), dpi=100)
 gs = gridspec.GridSpec(1,2)
-plt.subplots_adjust(top = 0.95, bottom = 0.1, right = 0.9, left = 0.1, hspace = 0, wspace = 0.2)
+plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 0.9, left = 0.1, hspace = 0, wspace = 0.2)
+# plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 0.9, left = 0.1, hspace = 0, wspace = 0.35)
 
 
 main = plt.subplot(gs[0])
@@ -54,7 +78,9 @@ main.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
 main.set_xlabel(r"$x/ \theta_E$", fontdict = font)
 main.set_ylabel(r"$y/ \theta_E$", fontdict = font)
 
-mapfig = main.imshow(mags0.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
+# mapfig = main.imshow(mags0.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
+mapfig = main.imshow(mags0.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap="Reds")
+
 # mapfig = plt.imshow(mapraysht.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
 
 cbar = add_colorbar(mapfig)
@@ -68,7 +94,8 @@ secnd.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
 secnd.set_xlabel(r"$x/ \theta_E$", fontdict = font)
 # ax.set_ylabel(r"$y(\theta_E)$", fontdict = font)
 # mapfig = secnd.imshow(mapraysht.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
-mapfig = secnd.imshow(resmap.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1)
+
+mapfig = secnd.imshow(resmap.T, extent=(-0.2,1,-0.6,0.6), origin='lower',cmap=cmap1, vmin = -7e-4, vmax = 7e-4)
 
 cbar = add_colorbar(mapfig)#format=ticker.FuncFormatter(fmt),format=OOMFormatter(-2, mathText=True)
 cbar.set_label(r"Residual",fontdict=font)
@@ -94,5 +121,5 @@ cbar.update_ticks()
 # inset_axes.set_xlim(-0.1,0.1)
 
 
-plt.savefig("./data/magmap.png".format(xsCenter,ysCenter), dpi=300)
+# plt.savefig("./data/magmap.png".format(xsCenter,ysCenter), dpi=300)
 plt.show()

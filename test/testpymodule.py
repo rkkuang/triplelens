@@ -64,7 +64,7 @@ u = gamma_to_u(Gamma)
 RelTolLimb, AbsTolLimb = 1e-3, 1e-4
 
 # source position
-ts = np.linspace(7470, 7510, 100)
+ts = np.linspace(7470, 7510, 20)
 tn = (ts - t0) / tE;
 y1s = u0 * salpha + tn * calpha;
 y2s = u0 * calpha - tn * salpha;
@@ -76,7 +76,7 @@ mus = TRIL.TriLightCurve(mlens, zlens, y1s, y2s, rs, secnum, basenum, quaderr_To
 
 print("generating light curve with limb-darkening ...")
 musLimb = TRIL.TriLightCurveLimb(mlens, zlens, y1s, y2s, rs, secnum, basenum, quaderr_Tol, relerr_Tol, RelTolLimb, AbsTolLimb, u)
-np.savez("./doc/demolkvs", ts=np.array(ts), muslimb=np.array(musLimb), musnolimb = np.array(mus))
+# np.savez("./doc/demolkvs", ts=np.array(ts), muslimb=np.array(musLimb), musnolimb = np.array(mus))
 
 main, gs = pltlkv(ts, mus, params, label = "Without limb-darkening")
 main.plot(ts, np.log10( musLimb ), color="b",linewidth = 2, label = "With limb-darkening")

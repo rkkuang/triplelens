@@ -1,0 +1,1 @@
+ffmpeg -i xxx.mp4 -pix_fmt rgb24 output.gif

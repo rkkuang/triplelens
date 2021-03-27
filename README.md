@@ -1,6 +1,10 @@
 # Light Curve Calculations for Triple Microlensing Systems
 
-This method is based on the image boundary connecting method, which is different from traditional inverse ray shooting routine. Also, the way of obtaining image bondaries is different from the previous  contour plot method of Schramm & Kayser (1987).
+The basic idea of this method is contour integration, with a new approach for connecting image solutions into continuous image tracks, which is presented in the paper: [Light Curve Calculations for Triple Microlensing Systems](https://doi.org/10.1093/mnras/stab509).
+
+This software contains some basic data structures of the [VBBinaryLensing](https://github.com/valboz/VBBinaryLensing) software, and some optimizations (e.g., the Quadrupole test) which were presented in [V. Bozza et al., MNRAS 479 (2018) 5157](https://academic.oup.com/mnras/article-abstract/479/4/5157/5050380), see also their relevant papers [V. Bozza, MNRAS 408 (2010) 2188](https://academic.oup.com/mnras/article/408/4/2188/1420048), and [V. Bozza, E. Khalouei and E. Bachelet, arXiv:2011.04780](https://arxiv.org/abs/2011.04780).
+
+The complex root solving algorithm is adopted from Jan Skowron & Andy Gould [code](http://www.astrouw.edu.pl/~jskowron/cmplx_roots_sg/) (see their [paper](https://arxiv.org/abs/1203.1034)) and translated to C++ by Tyler M. Heintz and Ava R. Hoag.
 
 ### cpp software
 

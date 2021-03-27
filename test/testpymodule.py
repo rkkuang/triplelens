@@ -29,7 +29,6 @@ from utils import *
 # plot_critcaus_srcimgs(mlens, zlens, 0.7, 0, 0.1)
 # plt.show()
 
-
 # test light curve generation:
 # triple lens event parameters
 t0 = 7494.153;

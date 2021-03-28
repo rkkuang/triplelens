@@ -710,7 +710,7 @@ def plotcritcaus():
 #     for xy,m,i in zip(z, mlens, range(NLENS)):
 #         ax.text(xy[0],xy[1],"m{}@{:.1e}".format(i,m,fontdict = font))
 
-def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.5, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%", sci=False, cl = "blue",axeq=1):
+def plot_critcaus_srcimgs(mlens, zlens, xsCenter, ysCenter, rs,nphi=2000, NPS=4000,secnum = 360, basenum = 5, scale = 10, pltfalseimg = True, title = False, srctext = False, xy = (0.3, 0.9), inst = False, xylim = (-0.1,0.1,-0.1,0.1), wh = "32%", sci=False, cl = "blue",axeq=1):
     # non-uniform phis
     z = [ [zlens[0], zlens[1]], [zlens[2], zlens[3]], [zlens[4], zlens[5]] ]
     nlens = len(mlens)

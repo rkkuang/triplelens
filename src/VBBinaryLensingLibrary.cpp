@@ -777,7 +777,8 @@ void VBBinaryLensing::ComputeParallax(double t, double t0, double *Et) {
 	static double a, e, inc, L, om, M, EE, dE, dM;
 	static double x1, y1, vx, vy, Ear[3], vEar[3];
 	static double Et0[2], vt0[2], r, sp, ty, Spit;
-	int c = 0, ic;
+	// int c = 0, ic;
+	int ic;
 
 	if (t0_par_fixed == 0) t0_par = t0;
 	if (t0_par_fixed == -1) {
@@ -925,7 +926,8 @@ void VBBinaryLensing::ComputeParallax(double t, double t0, double *Et) {
 // magnification of a point source by a binary lens. There is also a version returning the positions of the images.
 double VBBinaryLensing::BinaryMag0(double a1, double q1, double y1v, double y2v, _sols **Images) {
 	static complex a, q, m1, m2, y;
-	static double av = -1.0, qv = -1.0, cq;
+	// static double av = -1.0, qv = -1.0, cq;
+	static double av = -1.0, qv = -1.0;
 	static complex  coefs[24], d1, d2, dy, dJ, dz;
 	// coefs, a 24 long complex array
 	double Mag = -1.0;
@@ -1230,7 +1232,7 @@ double VBBinaryLensing::BinaryMag2(double s, double q, double y1v, double y2v, d
 	*/
 	finalNPS = 0;
 	double Mag, sms, tn, rho2;
-	int c = 0;
+	// int c = 0;
 	_sols *Images;
 
 	sms = s + 1 / s;
@@ -1683,7 +1685,7 @@ double VBBinaryLensing::ESPLMag(double u, double RSv) {
 
 double VBBinaryLensing::ESPLMag2(double u, double rho) {
 	double Mag, u2, u6, rho2Tol;
-	int c = 0;
+	// int c = 0;
 
 	//Tol1_4 = sqrt(2 / Tol);
 	//u2 = u*u;
@@ -1713,7 +1715,7 @@ double VBBinaryLensing::ESPLMagDark(double u, double RSv, double a1) {
 	int c = 0, flag;
 	double currerr, maxerr;
 	annulus *first, *scan, *scan2;
-	int nannold, totNPS = 1;
+	int nannold;//, totNPS = 1;
 
 	while ((Mag < 0.9) && (c < 3)) {
 
@@ -2034,7 +2036,8 @@ void VBBinaryLensing::BinSourceLightCurve(double *pr, double *ts, double *mags, 
 
 
 void VBBinaryLensing::BinSourceLightCurveParallax(double *pr, double *ts, double *mags, double *y1s, double *y2s, int np) {
-	double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7], w1 = pr[8], w2 = pr[9], w3 = pr[10];
+	// double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7], w1 = pr[8], w2 = pr[9], w3 = pr[10];
+	double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7];
 	double Et[2];
 	t0old = 0;
 
@@ -2307,7 +2310,8 @@ double VBBinaryLensing::BinSourceLightCurve(double *pr, double t) {
 
 
 double VBBinaryLensing::BinSourceLightCurveParallax(double *pr, double t) {
-	double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7], w1 = pr[8], w2 = pr[9], w3 = pr[10];
+	// double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7], w1 = pr[8], w2 = pr[9], w3 = pr[10];
+	double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7];
 	double Et[2], mag;
 
 	ComputeParallax(t, t0, Et);
@@ -2333,6 +2337,7 @@ double VBBinaryLensing::BinSourceLightCurveParallax(double *pr, double t) {
 
 double VBBinaryLensing::BinSourceLightCurveXallarap(double *pr, double t) {
 	double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7], q = pr[8], w1 = pr[9], w2 = pr[10], w3 = pr[11];
+	// double u1 = pr[2], u2 = pr[3], t01 = pr[4], t02 = pr[5], tE_inv = exp(-pr[0]), FR = exp(pr[1]), tn, u, u0, pai1 = pr[6], pai2 = pr[7], q = pr[8];
 	double th, Cth, Sth;
 	double Et[2], mag;
 	double s, s_true, w, phi0, inc, phi, Cinc, Sinc, Cphi, Sphi, Cphi0, Sphi0, COm, SOm;
@@ -2765,7 +2770,8 @@ _curve *VBBinaryLensing::NewImages(complex yi, complex  *coefs, _theta *theta) {
 	static complex zr[5] = { 0., 0., 0., 0., 0. };
 	static double dzmax, dlmax = 1.0e-6, good[5], dJ2, ob2, cq;
 	static int worst1, worst2, worst3, bad, f1;
-	static double av = 0.0, m1v = 0.0, disim, disisso;
+	// static double av = 0.0, m1v = 0.0, disim, disisso;
+	static double disim;
 	static _curve *Prov;
 	static _point *scan, *prin, *fifth, *left, *right, *center;
 
@@ -3008,7 +3014,8 @@ void VBBinaryLensing::OrderImages(_sols *Sols, _curve *Newpts) {
 	static _curve *cprec[5];
 	static _curve *cpres[5];
 	static _curve *cfoll[5];
-	static _point *scan, *scan2, *scan3, *isso[2];
+	// static _point *scan, *scan2, *scan3, *isso[2];
+	static _point *scan, *scan2, *isso[2];
 	static _curve *scurve, *scurve2;
 
 	_theta *theta;
@@ -4836,7 +4843,8 @@ void VBBinaryLensing::cmplx_laguerre(complex *poly, int degree, complex *root, i
 	double faq; //jump length
 	double FRAC_ERR = 2.0e-15; //Fractional Error for double precision
 	complex p, dp, d2p_half; //value of polynomial, 1st derivative, and 2nd derivative
-	static int i, j, k;
+	// static int i, j, k;
+	static int i, k;
 	bool good_to_go;
 	complex denom, denom_sqrt, dx, newroot;
 	double ek, absroot, abs2p;
@@ -4848,28 +4856,28 @@ void VBBinaryLensing::cmplx_laguerre(complex *poly, int degree, complex *root, i
 
 	//--------------------------------------------------------------------------------------------
 
-	//EXTREME FAILSAFE! not usually needed but kept here just to be on the safe side. Takes care of first coefficient being 0
-	if (false) {
-		if (degree < 0) {
-			printf("Error: cmplx_laguerre: degree<0");
-			return;
-		}
-		if (poly[degree] == complex(0, 0)) {
-			if (degree == 0) return;
-			cmplx_laguerre(poly, degree - 1, root, iter, success);
-		}
-		if (degree <= 1) {
-			if (degree == 0) {
-				success = false; // we just checked if poly[0] is zero and it isnt
-				printf("Warning: cmplx_laguerre: degree = 0 and poly[0] does not equal zero, no roots");
-				return;
-			}
-			else {
-				*root = -poly[0] / poly[1];
-				return;
-			}
-		}
-	} // End of EXTREME failsafe
+	// //EXTREME FAILSAFE! not usually needed but kept here just to be on the safe side. Takes care of first coefficient being 0
+	// if (false) {
+	// 	if (degree < 0) {
+	// 		printf("Error: cmplx_laguerre: degree<0");
+	// 		return;
+	// 	}
+	// 	if (poly[degree] == complex(0, 0)) {
+	// 		if (degree == 0) return;
+	// 		cmplx_laguerre(poly, degree - 1, root, iter, success);
+	// 	}
+	// 	if (degree <= 1) {
+	// 		if (degree == 0) {
+	// 			success = false; // we just checked if poly[0] is zero and it isnt
+	// 			printf("Warning: cmplx_laguerre: degree = 0 and poly[0] does not equal zero, no roots");
+	// 			return;
+	// 		}
+	// 		else {
+	// 			*root = -poly[0] / poly[1];
+	// 			return;
+	// 		}
+	// 	}
+	// } // End of EXTREME failsafe
 
 	good_to_go = false;
 	one_nth = 1.0 / degree;
@@ -4997,30 +5005,31 @@ void VBBinaryLensing::cmplx_newton_spec(complex *poly, int degree, complex *root
 	iter = 0;
 	success = true;
 
-	//the next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version
-	if (false) { //change false to true if you would like to use caustion about haveing first coefficient == 0
-		if (degree < 0) {
-			printf("Error: cmplx_newton_spec: degree<0");
-			return;
-		}
-		if (poly[degree] == zero) {
-			if (degree == 0) return;
-			cmplx_newton_spec(poly, degree, root, iter, success);
-			return;
-		}
-		if (degree <= 1) {
-			if (degree == 0) {
-				success = false;
-				printf("Warning: cmplx_newton_spec: degree=0 and poly[0]!=0, no roots");
-				return;
-			}
-			else {
-				*root = -poly[0] / poly[1];
-				return;
-			}
-		}
-	}
+	// //the next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version
+	// if (false) { //change false to true if you would like to use caustion about haveing first coefficient == 0
+	// 	if (degree < 0) {
+	// 		printf("Error: cmplx_newton_spec: degree<0");
+	// 		return;
+	// 	}
+	// 	if (poly[degree] == zero) {
+	// 		if (degree == 0) return;
+	// 		cmplx_newton_spec(poly, degree, root, iter, success);
+	// 		return;
+	// 	}
+	// 	if (degree <= 1) {
+	// 		if (degree == 0) {
+	// 			success = false;
+	// 			printf("Warning: cmplx_newton_spec: degree=0 and poly[0]!=0, no roots");
+	// 			return;
+	// 		}
+	// 		else {
+	// 			*root = -poly[0] / poly[1];
+	// 			return;
+	// 		}
+	// 	}
+	// }
 	//end EXTREME Failsafe
+
 	good_to_go = false;
 
 	stopping_crit2 = 0.0; //value not important, will be initialized anyway on the first loop
@@ -5158,30 +5167,30 @@ void VBBinaryLensing::cmplx_laguerre2newton(complex *poly, int degree, complex *
 	success = true;
 	stopping_crit2 = 0; //value not important, will be initialized anyway on the first loop
 
-	//next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version.
-	if (false) {//change false to true if you would like to use caution about having first coefficent == 0
-		if (degree < 0) {
-			printf("Error: cmplx_laguerre2newton: degree < 0");
-			return;
-		}
-		if (poly[degree] == zero) {
-			if (degree == 0) return;
-			cmplx_laguerre2newton(poly, degree, root, iter, success, starting_mode);
-			return;
-		}
-		if (degree <= 1) {
-			if (degree == 0) {//// we know from previous check that poly[0] not equal zero
-				success = false;
-				printf("Warning: cmplx_laguerre2newton: degree = 0 and poly[0] = 0, no roots");
-				return;
-			}
-			else {
-				*root = -poly[0] / poly[1];
-				return;
-			}
-		}
-	}
-	//end EXTREME failsafe
+	// //next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version.
+	// if (false) {//change false to true if you would like to use caution about having first coefficent == 0
+	// 	if (degree < 0) {
+	// 		printf("Error: cmplx_laguerre2newton: degree < 0");
+	// 		return;
+	// 	}
+	// 	if (poly[degree] == zero) {
+	// 		if (degree == 0) return;
+	// 		cmplx_laguerre2newton(poly, degree, root, iter, success, starting_mode);
+	// 		return;
+	// 	}
+	// 	if (degree <= 1) {
+	// 		if (degree == 0) {//// we know from previous check that poly[0] not equal zero
+	// 			success = false;
+	// 			printf("Warning: cmplx_laguerre2newton: degree = 0 and poly[0] = 0, no roots");
+	// 			return;
+	// 		}
+	// 		else {
+	// 			*root = -poly[0] / poly[1];
+	// 			return;
+	// 		}
+	// 	}
+	// }
+	// //end EXTREME failsafe
 
 	j = 1;
 	good_to_go = false;

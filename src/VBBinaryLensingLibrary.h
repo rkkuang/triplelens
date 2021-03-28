@@ -56,7 +56,8 @@ class VBBinaryLensing
 	double **tsat, ***possat;
 	// double Mag0, corrquad, corrquad2, safedist;
 	int nim0;
-	double e, phi, phip, phi0, Om, inc, t0, d3, v3, GM, flagits;
+	// double e, phi, phip, phi0, Om, inc, t0, d3, v3, GM, flagits;
+	double t0;
 	double Obj[3], rad[3], tang[3], t0old;
 	double Eq2000[3], Quad2000[3], North2000[3];
 	double ESPLout[101][101], ESPLin[101][101];

@@ -178,6 +178,6 @@ plt.show()
 
 ![](./doc/lkvs.png)
 
-Image topologies change as the source are moving (please see ./doc/top_lkv.mp4 for original movie):
+Image topologies change as the source is moving (please see ./doc/top_lkv.mp4 for original movie):
 
 <img align="center" src="./doc/top_lkv.gif" width="900" height="400">

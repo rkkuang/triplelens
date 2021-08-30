@@ -21,6 +21,8 @@
 #define __binlens
 #define __unmanaged
 
+#define FRAC_ERR 2.0e-17 //Fractional Error for double precision, 2.0e-15
+
 // #define _PRINT_ERRORS2
 
 #define _L1 x1-((x1+a/2.0)/((x1+a/2.0)*(x1+a/2.0)+x2*x2)+q*(x1-a/2.0)/((x1-a/2.0)*(x1-a/2.0)+x2*x2))/(1.0+q) // Used in PlotCrits
@@ -227,13 +229,12 @@ public:
 
 	double x1;
 	double x2;
-	double parab, ds, dJ;
+	double parab, absdzs, ds, dJ;
 	complex d, J2, dz;
 	_theta *theta;
 	int closepairparity;//add on 20200414, used to mark the critical points at creation and destroy of images.
 	_point(double , double, _theta *);
 	_point *next, *prev;
-	// ~_point(void);
 	double operator-(_point);
 };
 
@@ -245,6 +246,7 @@ public:
 	_curve *next, *prev;
 	_curve *partneratstart, *partneratend;
 	double parabstart, maxerr, second_maxerr, third_maxerr;
+	int posflagnum;
 
 	_curve(_point *);
 	_curve(void);
@@ -277,6 +279,7 @@ public:
 	void append(_curve *);
 	void prepend(_curve *);
 	void join(_sols *);
+	void sort(void);
 	void removelen1track();
 };
 

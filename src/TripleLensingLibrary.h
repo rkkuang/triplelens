@@ -15,7 +15,14 @@
 
 #define NLENS 3
 #define DEGREE (NLENS*NLENS+1)
-#define EPS 1.0e-5
+#define EPS 1.0e-5 // segment close threshold, 1.0e-5 is ok
+
+
+#define SOLEPS 1.0e-4 // true or false solution of lens equation solving, 1.0e-5 is a bit too strict at some cases
+#define MISS_SOL_THRESHOLD 1
+
+#define JUMP_SEARCH_DEPTH 5 // search depth for the situation that we can not jump
+
 #define one_24 (double)1.0/24
 
 
@@ -44,8 +51,9 @@ public:
 
 
 class TripleLensing {
-    int finalnphi, nimages, ftime, FSflag, nsolution, trackcnt, parity, degrees, adanp0 = 2, MAXNPS = 2000, secnum_priv, basenum_priv, clpairparity1, clpairparity2;
-    double TINY, ph1, ph2, ph3, adaerrTol = 0.0005, timerrTol = 1e-3, tempdis, mindis, M_PI2 = 2 * M_PI;
+    int finalnphi, nimages, ftime, FSflag, nsolution, trackcnt, parity, degrees, adanp0 = 2, MAXNPS = 2000, secnum_priv, basenum_priv, clpairparity1, clpairparity2, special_flag = 0;
+    double TINY, ph1, ph2, ph3, adaerrTol = 0.0005, timerrTol = 1e-3, tempdis, mindis, M_PI2 = 2 * M_PI, absdzs;
+    // absdzs is used to store the abs(dzs) in trueSolution()
     double r2_1, r2_2, x, y, dx_db, dy_db, dx_db2, dy_db2 , Jxx, Jyy, Jxy, rho2, areaSource, phi0, x1, x2, y1, y2, phi1, phi2, dphi, dphi3, ds1, ds2, subArea, pos_area, rep, imp, x_xj, y_yj, xy_j2, relerr_priv; // trueSolution
     complex zs, dzs, dzsdz, zsc, zc[NLENS], z1, z2, z3, z1bar, z2bar, z3bar, zsbar, z13, z23, z33, z12, z22, z32, zsmod, z1barz2barzs, z1barz3barzs, z2barz3barzs, z1barzs, z2barzs, z3barzs, z1barzsmod, z2barzsmod, z3barzsmod, z1barzsbar, z2barzsbar, z3barzsbar, z1barz2barzsmod, z1barz3barzsmod, z2barz3barzsmod, z1barz2barzsbar, z1barz3barzsbar, z2barz3barzsbar;
     complex tempzc, tempzc2, tempzc3, tempzc4, J1c, dz1, dz2;
@@ -59,7 +67,12 @@ class TripleLensing {
     int NPS;
     double *mlens, *Zlens;
 public:
-    int nphi, secnum, basenum, distype, maxmuidx, flag,  pntnum, CQ, finalNPS, ifFinite;
+    int nphi, secnum, basenum, distype, maxmuidx, flag,  pntnum, CQ, finalNPS, ifFinite, area_quality=1;
+    // area_quality = 1 means this magnification is ok, otherwise (mainly caused by insufficient samples around the source edge)
+    // if area_quality == 0, mean parity in areaFunc might be wrong
+    // if area_quality == 2, means return from a looser threshold
+    // if area_quality == 3, means return muPS
+
     double quad_err, quaderr_Tol, area, mu0, mu, relerr_mag, lambda1, lambda2, thetaJ, eacherr, muTotal, xs, ys, phi, SD, MD, CD, muPS, ds, dJ2, RelTolLimb = 1e-3, AbsTolLimb = 1e-4;
     unsigned short int ifjump;
     complex *zlens;
@@ -96,11 +109,12 @@ public:
     _sols *outputTracks_v2_savehalf(double xsCenter, double ysCenter, double rs, _linkedarray *PHI, _sols **prevstore);
 
     void bisec(_curve *lightkv, _point *scan2, _point *scan3, double errorTol_critical, double tE_inv, double u0, double salpha, double calpha, double t0, double rs);
+    double angcos(_point *p1, _point *p2, _point *p3, _point *p4);
 
     void TripleLkvAdap(double rs, _curve *lightkv, double t_start, double t_end, double alpha, double tE, double t0 , double u0);
 
 
-    int trueSolution(double xs, double ys, complex z);
+    int trueSolution(double xs, double ys, complex z, double *mu);
     int trueSolution_qtest(double xs, double ys, complex z);
 
     void outImgPoints(double xsCenter, double ysCenter, double rs, int nphi);
@@ -109,7 +123,7 @@ public:
     void outputImagesTriple(double xsCenter, double ysCenter, int nphi, double rs);
 
 
-    double areaFunc(_sols *track, double rs);
+    double areaFunc(_sols *track, double rs, int finalnphi, double muPS, double muPrev, int *quality);
     double areaFunc_parab(_sols *track, double rs);
 
     void polynomialCoefficients(double xs, double ys, complex c[]);
@@ -124,14 +138,15 @@ void addPoint(_curve *final, _point *p);
 _curve *newSegment(_sols *imageTracks);
 
 
-_curve *jump_over_caustics(_curve *final, _sols *imageTracks, int *head, int *tail, _curve *markedCurve, bool checkfinalhead = false);
-_curve *connect_head_or_tail(int *ifcontinue, _curve *final , _sols *imageTracks, _sols *connected, bool checkfinalhead = false);
+_curve *jump_over_caustics(_curve *final, _sols *imageTracks, int *head, int *tail, _curve *markedCurve, bool checkfinalhead, int *ifcontinueFromjump,  _sols * connected, int *ifkeep_jumping);
+_curve *jump_over_caustics_deeper(_curve *final, _sols *imageTracks, int *head, int *tail, _curve *markedCurve, bool checkfinalhead, int *ifcontinueFromjump,  _sols * connected, int *ifkeep_jumping);
+_curve *connect_head_or_tail(int *ifcontinue, _curve *final , _sols *imageTracks, _sols *connected, bool checkfinalhead, int *ifkeep_connect);
 _point *pnt_reach_head_or_tail(_point * p, _curve * Prov, _sols * imageTracks, int *reach);
 
 void printOneTrack(_curve *curve);
 void printAllTracks(_sols *track);
-void saveTracks(_sols *track);
-void saveTracks_before(_sols *track);
+void saveTracks(_sols *track, int nphi);
+void saveTracks_before(_sols *track, int nphi);
 void outputCriticalTriple(double mlens[], complex zlens[], int nlens, int npnt = 3000);
 void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens, int npnt);
 

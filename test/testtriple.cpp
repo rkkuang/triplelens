@@ -10,7 +10,7 @@ run ./bin/testtriple after make
 
 For applying to Binary lens, set NLENS to 2 in src/TripleLensingLibrary.h and then redo compile
 
-The output file can further be processed with provided python scripts (inside test folder) for visualization
+The output file can further be processed with provided python scripts (inside the test folder) for visualization
 
 */
 #include <stdlib.h>
@@ -80,8 +80,8 @@ int main()
     ysCenter = 0;
 
     TripleLensing TRIL(mlens, zlens);
-    TRIL.secnum = 360; // divide the source bondary into how many parts
-    TRIL.quaderr_Tol = 1e-5; // the Quadrupole test tolerance
+    TRIL.secnum = 90; // divide the source bondary into how many parts
+    TRIL.quaderr_Tol = 1e-3; // the Quadrupole test tolerance
     TRIL.basenum = 2; // the number density of sampled dots among each part
 
     // simply call TripleMag function to get the magnification of the source at (xsCenter, ysCenter)
@@ -94,8 +94,8 @@ int main()
   }//end if NLENS == 3
   
   TripleLensing TRIL(mlens, zlens);
-  TRIL.secnum = 360;
-  TRIL.quaderr_Tol = 1e-8;
+  TRIL.secnum = 90;
+  TRIL.quaderr_Tol = 1e-3;
   TRIL.basenum = 2;
 
   // output critical curves and caustics, and image positions corresponding to the source boundary
@@ -127,11 +127,11 @@ int main()
   rs = 0.005;
 // Now let us calculate the light curve on np points equally spaced between t0-3tE and t0+3tE:
   int np = 1000;
-  double *t_array = NULL, *mag_array = NULL, *y1_array = NULL, *y2_array = NULL;
+  double *t_array = NULL, *mag_array = NULL, *y1_array1 = NULL, *y2_array1 = NULL;
   t_array = new double[np];
   mag_array = new double[np];
-  y1_array = new double[np];
-  y2_array = new double[np];
+  y1_array1 = new double[np];
+  y2_array1 = new double[np];
   double t_start = 7470, t_end = 7510;
   double dt = (t_end - t_start) / np;
   clock_t tim0, tim1;
@@ -147,9 +147,9 @@ int main()
 
     tn = (t_array[i] - t0) * tE_inv;
     // Position of the source center
-    y1_array[i] = u0 * salpha + tn * calpha;
-    y2_array[i] = u0 * calpha - tn * salpha;
-    mag_array[i] = TRIL.TripleMag(y1_array[i], y2_array[i], rs);
+    y1_array1[i] = u0 * salpha + tn * calpha;
+    y2_array1[i] = u0 * calpha - tn * salpha;
+    mag_array[i] = TRIL.TripleMag(y1_array1[i], y2_array1[i], rs);
     // fprintf(stderr, "\t\t tn = %f, muFS = %f \n", t_array[i], mag_array[i] );
     // mag_array[i] = TRIL.TriplePS(mlens, zlens, y1_array[i], y2_array[i]);
   }
@@ -161,7 +161,7 @@ int main()
   ftrilkv = fopen("./data/fulltrilkv_rs5e-3.dat", "w");
 
   for (int j = 0; j < np; j++) {
-    fprintf(ftrilkv, "%.15f %.15f %.15f %.15f ", t_array[j], y1_array[j], y2_array[j], mag_array[j]);
+    fprintf(ftrilkv, "%.15f %.15f %.15f %.15f ", t_array[j], y1_array1[j], y2_array1[j], mag_array[j]);
   }
   fclose(ftrilkv);
 #endif
@@ -183,14 +183,15 @@ int main()
   double dx = (xlim1 - xlim0) / (ImgSize - 1);
   double dy = (ylim1 - ylim0) / (ImgSize - 1);
   double px = xlim0, py = ylim0;
-  double *mus = NULL, *y1_array = NULL, *y2_array = NULL, muFS;
+  double *mus = NULL, *y1_array2 = NULL, *y2_array2 = NULL, muFS;
   mus = new double[ImgSize2];
-  y1_array = new double[ImgSize2];
-  y2_array = new double[ImgSize2];
+  y1_array2 = new double[ImgSize2];
+  y2_array2 = new double[ImgSize2];
   // double mus = new [ImgSize2], y1_array[ImgSize2], y2_array[ImgSize2], muFS;
-  clock_t tim0, tim1;
+  clock_t tim02, tim12;
   std::cout.width(3);//i的输出为3位宽
-  tim0 = clock();
+  fprintf(stderr, "generating magnification map (%d points) ... \n", ImgSize2);
+  tim02 = clock();
   for (int i = 0; i < ImgSize; i++) {
     py = ylim0;
     for (int j = 0; j < ImgSize; j++) {
@@ -198,21 +199,21 @@ int main()
       cout << flush << '\r' << string((i * ImgSize + j) * 100.0 / ImgSize2, '#');
       muFS = TRIL.TripleMag(px, py, rs);
       mus[i * ImgSize + j] = muFS;
-      y1_array[i * ImgSize + j] = px;
-      y2_array[i * ImgSize + j] = py;
+      y1_array2[i * ImgSize + j] = px;
+      y2_array2[i * ImgSize + j] = py;
       py += dy;
     }
     px += dx;
   }
   std::cout << std::endl;
-  tim1 = clock();
-  fprintf(stderr, "total time on map generating = %f s\n", (tim1 - tim0) / 1e6);
+  tim12 = clock();
+  fprintf(stderr, "total time on map generating = %f s\n", (tim12 - tim02) / 1e6);
 
   FILE *fmumap;
   fmumap = fopen("./data/magmap0.05.dat", "w");
   for (int i = 0; i < ImgSize; i++) {
     for (int j = 0; j < ImgSize; j++) {
-      fprintf(fmumap, "%.15f %.15f %.15f ", y1_array[i * ImgSize + j], y2_array[i * ImgSize + j], mus[i * ImgSize + j]);
+      fprintf(fmumap, "%.15f %.15f %.15f ", y1_array2[i * ImgSize + j], y2_array2[i * ImgSize + j], mus[i * ImgSize + j]);
     }
   }
   fclose(fmumap);
@@ -260,66 +261,69 @@ int main()
 #ifdef LMBLKV
   rs = 0.1; // use a larger source radius to see the limb-darkening effect
   double limba1 = 0.51; // limb darkening coefficient
-  int np = 100; //
-  double *t_array = NULL, *mag_array = NULL, *mag_array_limb = NULL, *y1_array = NULL, *y2_array = NULL;
-  t_array = new double[np];
-  mag_array = new double[np];
-  mag_array_limb = new double[np];
-  y1_array = new double[np];
-  y2_array = new double[np];
-  double t_start = 7470, t_end = 7510;
-  double dt = (t_end - t_start) / np;
-  clock_t tim0, tim1;
-  for (int i = 0; i < np; i++) {
-    t_array[i] = t_start + i * dt;
+  int np3 = 100; //
+  double *t_array3 = NULL, *mag_array3 = NULL, *mag_array_limb = NULL, *y1_array3 = NULL, *y2_array3 = NULL;
+  t_array3 = new double[np3];
+  mag_array3 = new double[np3];
+  mag_array_limb = new double[np3];
+  y1_array3 = new double[np3];
+  y2_array3 = new double[np3];
+  double t_start3 = 7470, t_end3 = 7510;
+  double dt3 = (t_end3 - t_start3) / np3;
+  clock_t tim03, tim13;
+  for (int i = 0; i < np3; i++) {
+    t_array3[i] = t_start3 + i * dt3;
   }
 
-  TRIL.secnum = 45; // divide the source bondary into how many parts
-  TRIL.quaderr_Tol = 1e-5; // the Quadrupole test tolerance
+  TRIL.secnum = 90; // divide the source bondary into how many parts
+  TRIL.quaderr_Tol = 1e-3; // the Quadrupole test tolerance
   TRIL.basenum = 2;
+  TRIL.relerr_mag = 1e-3;
 
   // parameters controls the accuracy of limb-darkening calculation
-  TRIL.RelTolLimb = 1e-3;
-  TRIL.AbsTolLimb = 1e-4;
+  TRIL.RelTolLimb = 1e-2;
+  TRIL.AbsTolLimb = 1e-2;
 
-  fprintf(stderr, "generating uniform brightness light curve (%d points) ... \n", np);
-  tim0 = clock();
+  fprintf(stderr, "generating uniform brightness light curve (%d points) ... \n", np3);
+  tim03 = clock();
   std::cout.width(3);
-  for (int i = 0; i < np; i++) {
-    std::cout << 100.0 * i / np << "%";
-    cout << flush << '\r' << string(i * 100.0 / np, '#');
+  for (int i = 0; i < np3; i++) {
+    std::cout << 100.0 * i / np3 << "%";
+    cout << flush << '\r' << string(i * 100.0 / np3, '#');
 
-    tn = (t_array[i] - t0) * tE_inv;
+    tn = (t_array3[i] - t0) * tE_inv;
     // Position of the source center
-    y1_array[i] = u0 * salpha + tn * calpha;
-    y2_array[i] = u0 * calpha - tn * salpha;
-    mag_array[i] = TRIL.TripleMag(y1_array[i], y2_array[i], rs);
+    y1_array3[i] = u0 * salpha + tn * calpha;
+    y2_array3[i] = u0 * calpha - tn * salpha;
+
+    mag_array3[i] = TRIL.TripleMag(y1_array3[i], y2_array3[i], rs);
+
   }
   std::cout << std::endl;
-  tim1 = clock();
-  fprintf(stderr, "total time on lightkv generating = %f s\n", (tim1 - tim0) / 1e6);
+  tim13 = clock();
+  fprintf(stderr, "total time on lightkv generating = %f s\n", (tim13 - tim03) / 1e6);
 
-  fprintf(stderr, "generating limb darkening light curve (%d points) ... \n", np);
-  tim0 = clock();
+  fprintf(stderr, "generating limb darkening light curve (%d points) ... \n", np3);
+  tim03 = clock();
   std::cout.width(3);
-  for (int i = 0; i < np; i++) {
-    std::cout << 100.0 * i / np << "%";
-    cout << flush << '\r' << string(i * 100.0 / np, '#');
-    mag_array_limb[i] = TRIL.TripleMagDark(y1_array[i], y2_array[i], rs, limba1); // not exactly, due to y1_array, y2_array are already obtained
+  for (int i = 0; i < np3; i++) {
+    std::cout << 100.0 * i / np3 << "%";
+    cout << flush << '\r' << string(i * 100.0 / np3, '#');
+    mag_array_limb[i] = TRIL.TripleMagDark(y1_array3[i], y2_array3[i], rs, limba1); // not exactly, due to y1_array, y2_array are already obtained
   }
   std::cout << std::endl;
-  tim1 = clock();
-  fprintf(stderr, "total time on lightkv generating = %f s\n", (tim1 - tim0) / 1e6);
+  tim13 = clock();
+  fprintf(stderr, "total time on limb darkening lightkv generating = %f s\n", (tim13 - tim03) / 1e6);
 
-  FILE *ftrilkv, *ftrilkv_limb; //save light curve to .dat file
-  ftrilkv = fopen("./data/unilkv.dat", "w");
+  FILE *ftrilkv3, *ftrilkv_limb; //save light curve to .dat file
+  ftrilkv3 = fopen("./data/unilkv.dat", "w");
   ftrilkv_limb = fopen("./data/limblkv.dat", "w");
 
-  for (int j = 0; j < np; j++) {
-    fprintf(ftrilkv, "%.15f %.15f %.15f %.15f ", t_array[j], y1_array[j], y2_array[j], mag_array[j]);
-    fprintf(ftrilkv_limb, "%.15f %.15f %.15f %.15f ", t_array[j], y1_array[j], y2_array[j], mag_array_limb[j]);
+  for (int j = 0; j < np3; j++) {
+    fprintf(ftrilkv3, "%.15f %.15f %.15f %.15f ", t_array3[j], y1_array3[j], y2_array3[j], mag_array3[j]);
+    fprintf(ftrilkv_limb, "%.15f %.15f %.15f %.15f ", t_array3[j], y1_array3[j], y2_array3[j], mag_array_limb[j]);
   }
-  fclose(ftrilkv);
+  fclose(ftrilkv3);
   fclose(ftrilkv_limb);
 #endif
 

@@ -16,7 +16,7 @@ rs = 0.005
 #parameters controls the accuracy of finite source calculation
 secnum = 45 # divide the source bondary into how many parts
 basenum = 2 # the number density of sampled dots among each part
-quaderr_Tol = 1e-5 # the Quadrupole test tolerance
+quaderr_Tol = 1e-3 # the Quadrupole test tolerance
 relerr_Tol = 1e-3 # the relative error tolerance for magnification
 
 #compute the magnification:
@@ -60,10 +60,11 @@ if 0: # test uniform brightness only
     plt.show()
 
 if 0: # test also limb darkening
+    secnum = 180
     Gamma = 0.51 # Gamma coefficient of the linear limb-darkening profile
     u = gamma_to_u(Gamma)
     # parameters controls the accuracy of limb-darkening calculation
-    RelTolLimb, AbsTolLimb = 1e-3, 1e-4
+    RelTolLimb, AbsTolLimb = 1e-2, 1e-2
 
     # source position
     ts = np.linspace(7470, 7510, 100)

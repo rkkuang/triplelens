@@ -36,8 +36,6 @@ TripleLensing::TripleLensing(double mlens[], complex zlens[]) {
         zc[i] = conj(zlens[i]);
     }
 
-
-
     temp_const1[0][0] = 1.0;
     temp_const2[0][0][0] = 1.0;
     for (int i = 0; i < NLENS; i++) {
@@ -432,7 +430,18 @@ void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, do
     fclose(fileImage1);
 }
 
+double TripleLensing::angcos(_point *p1, _point *p2, _point *p3, _point *p4) {
+    // calculate the cos between the vector p1 --> p2, and vector p3 --> p4;
+    double x1, y1, x2, y2;
+    x1 = p2->x1 - p1->x1;
+    y1 = p2->x2 - p1->x2;
 
+    x2 = p4->x1 - p3->x1;
+    y2 = p4->x2 - p3->x2;
+
+    return (x1 * x2 + y1 * y2) / ( sqrt(  (x1 * x1 + y1 * y1) * ( x2 * x2 + y2 * y2 ) ) );
+
+}
 
 // tripleFS_v2_savehalf_quadtest(mlens, zlens, xsCenter, ysCenter, rs, nphi, &finalnphi, secnum, basenum, &quad_err, quaderr_Tol);
 double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
@@ -446,7 +455,24 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
     secnum_priv = this->secnum;
     quad_err = this->quaderr_Tol;
     basenum_priv = this->basenum;
-    muPS = tripleQuatrapoleTest(xsCenter, ysCenter, rs);
+    finalnphi = 0;
+    int area_quality_local = 1;
+
+    double _curr_relerr_priv = relerr_priv;
+
+    // 2021.06.08
+    for (int jj = 0; jj < DEGREE + 1; jj++) {
+        zr[jj] = complex(0, 0);
+    }
+
+    muPS = tripleQuatrapoleTest(xsCenter, ysCenter, rs); // this is not robust, didn't check the number of true solution is 4, 6, 8, or 10
+
+#ifdef VERBOSE
+    char arr[1024];
+    fprintf(stderr, "please input >>> ");
+    scanf("%c%*c", &arr[0]);
+#endif
+
     if ( CQ * quad_err <= quaderr_Tol) {
 #ifdef VERBOSE
         fprintf(stderr, "quad_err %f,using point source magnification, muPS = %f\n", quad_err, muPS);
@@ -460,11 +486,11 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 #endif
         mu0 = muPS;
         secnum_priv = fmax(fmin((int)(2 * secnum_priv * ( abs(log10(quad_err * 1e4)) * mu0 * mu0) / abs(log10(rs))) , 45), secnum_priv);
-        relerr_priv = fmax( relerr_priv , relerr_priv / fmax( quad_err, mu0 * mu0 ) * abs(log10(rs))  );
+        _curr_relerr_priv = fmax( _curr_relerr_priv , _curr_relerr_priv / fmax( quad_err, mu0 * mu0 ) * abs(log10(rs))  );
 
 
 #ifdef VERBOSE
-        printf("point magnification: %f, relerr_priv = %.3e\n", mu0, relerr_priv);
+        printf("point magnification: %f, relerr_priv = %.3e\n", mu0, _curr_relerr_priv);
 #endif
 
         _sols *imageTracks  = new _sols;
@@ -473,17 +499,30 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
         phis = getphis_v3(  xsCenter,  ysCenter,  rs);
 
         for (int i = 0; i < 10; i++) {
-            delete imageTracks;
-            imageTracks = new _sols;
+            if (i > 0) { // 2021.06.08
+                delete imageTracks;
+                imageTracks = new _sols;
+            }
 #ifdef VERBOSE
-            fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d\n", prevstore->length);
+            fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d, phis->length %d\n", prevstore->length, phis->length);
 #endif
-            imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
 
+#ifdef VERBOSE
+            fprintf(stderr, "\n\n\n\n\n\n\n\n\n\n\n \t\t\t\t\t %d-th into outputTracks_v2_savehalf, please input a char >>> ", i);
+            scanf("%c%*c", &arr[0]);
+#endif
+
+            imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
             finalnphi = phis->length;
+#ifdef VERBOSE
+            saveTracks(imageTracks, finalnphi);// temp
+            fprintf(stderr, "\t\t\t imageTracks saved. \n");
+#endif
+
+
             if (!imageTracks) {
 #ifdef VERBOSE
-                fprintf(stderr, "\n\nin tripleFS, i= %d, imageTracks = Null, nphi = %d, xsCenter=%f, ysCenter = %f\n\n", i, finalnphi, xsCenter, ysCenter);
+                fprintf(stderr, "\n\nin tripleFS, i= %d, imageTracks = Null (be careful), nphi = %d, xsCenter=%f, ysCenter = %f\n\n", i, finalnphi, xsCenter, ysCenter);
 #endif
                 if (distype == 2) {
                     delete phis;
@@ -503,23 +542,53 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 #ifdef parabcorr
             area = areaFunc_parab(imageTracks, rs);
 #else
-            area = areaFunc(imageTracks, rs);
+            area = areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality_local);
 #endif
-
             mu = area / areaSource;
+
+            area_quality = area_quality_local;
+            if (area_quality_local == 0) {
+                _curr_relerr_priv *= 2;
+            }
+
 #ifdef VERBOSE
-            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length);
+            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, abs(mu - mu0) / mu = %.3e, errTol = %.3e, \n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length, abs(mu - mu0) / mu, _curr_relerr_priv);
 #endif
 #ifdef verbose
-            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d\n", i, mu0, mu, *finalnphi, xsCenter, ysCenter, imageTracks->length);
+            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length);
 #endif
-            if (abs(mu - mu0) / mu < relerr_priv) break;
+            if (abs(mu - mu0) / mu < _curr_relerr_priv) {
+                break;
+            } else if (abs(mu - mu0) / mu < _curr_relerr_priv * i ) {
+#ifdef VERBOSE
+                fprintf(stderr, "return mu = %f, because mu0 = %f, mu = %f, relerr_priv*i = %.3e this might be a hard case, area_quality_local = %d\n", mu, mu0, mu, _curr_relerr_priv * i, area_quality_local);
+
+#endif
+                delete imageTracks;
+                delete phis;
+                delete prevstore;
+
+                area_quality = 2; // return because of looser threshold, quality might be low
+                return (mu);
+            } else if ( (i > 2 && 0.5 * ( abs(mu / mu0) + abs(mu0 / mu) > 2.1) ) ) {
+#ifdef VERBOSE
+                fprintf(stderr, "return muPS = %f, because mu0 = %f, mu = %f are too arbitrary, this might be a hard case, area_quality_local=%d\n", muPS, mu0, mu, area_quality_local);
+#endif
+                delete imageTracks;
+                delete phis;
+                delete prevstore;
+
+                area_quality = 3; // return point source magnification
+                return (muPS);
+            }
+
             mu0 = mu;
             phis->extend();
+
         }
 #ifdef VERBOSE
         printf("mu = %f\n", mu);
-        saveTracks(imageTracks);
+        // saveTracks(imageTracks);
 #endif
 
         // show image track animation here:
@@ -559,7 +628,6 @@ double TripleLensing::gould(double xsCenter, double ysCenter, double rs, double 
         ys = ysCenter + rs * sin(phi);
         muRho[i] = TriplePS(xs, ys);
     }
-
 
     // four points at half radius
     dphi = M_PI * 0.5;
@@ -614,7 +682,10 @@ double TripleLensing::TripleMagDark(double xsCenter, double ysCenter, double RSv
         scan->next = 0;
         scan->bin = 1.;
         scan->cum = 1.;
-        scan->Mag = TripleMagFull(xsCenter, ysCenter, RSv);
+
+        // scan->Mag = TripleMagFull(xsCenter, ysCenter, RSv);
+        scan->Mag = TripleMag(xsCenter, ysCenter, RSv);
+
         totNPS += finalNPS;//NPS;
         scan->nim = nimages; //Images->length;
         // delete Images;
@@ -628,10 +699,10 @@ double TripleLensing::TripleMagDark(double xsCenter, double ysCenter, double RSv
 
         Magold = scan->Mag;
         Mag = scan->Mag;
-    
+
         currerr = scan->err;
         flag = 0;
-        
+
         nannuli = nannold = 1;
         while (((flag < nannold + 5) && (currerr > Tolv) && (currerr > this->RelTolLimb * Mag)) || (nannuli < minannuli)) {
             // update/find the annuli with the maximum error
@@ -681,7 +752,8 @@ double TripleLensing::TripleMagDark(double xsCenter, double ysCenter, double RSv
             scan->prev->cum = cc;
             scan->prev->f = first->f * (1 - a1 * (1 - scr2));//Bozza 2010 42
 
-            scan->prev->Mag = TripleMagFull(xsCenter, ysCenter, RSv * cb);
+            // scan->prev->Mag = TripleMagFull(xsCenter, ysCenter, RSv * cb);
+            scan->prev->Mag = TripleMag(xsCenter, ysCenter, RSv * cb);
 
             totNPS += finalNPS;//NPS;
 
@@ -737,79 +809,80 @@ double TripleLensing::TripleMagFull(double xsCenter, double ysCenter, double rs)
     ftime = 1;
     relerr_priv = relerr_mag;
     secnum_priv = secnum;
+    int area_quality;
 
     muPS = TriplePS(xsCenter, ysCenter);
-        ifFinite = 1;
-        mu0 = muPS;
+    ifFinite = 1;
+    mu0 = muPS;
 #ifdef VERBOSE
-        printf("point magnification: %f, relerr_priv = %.3e\n", mu0, relerr_priv);
+    printf("point magnification: %f, relerr_priv = %.3e\n", mu0, relerr_priv);
 #endif
-        _sols *imageTracks  = new _sols;
-        _sols *prevstore  = new _sols;
-        _linkedarray *phis = new _linkedarray;
+    _sols *imageTracks  = new _sols;
+    _sols *prevstore  = new _sols;
+    _linkedarray *phis = new _linkedarray;
 
-        phis = getphis_v3(xsCenter,  ysCenter,  rs);
-        for (int i = 0; i < 10; i++) {
-            delete imageTracks;
-            imageTracks = new _sols;
+    phis = getphis_v3(xsCenter,  ysCenter,  rs);
+    for (int i = 0; i < 10; i++) {
+        delete imageTracks;
+        imageTracks = new _sols;
 #ifdef VERBOSE
-            fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d\n", prevstore->length);
+        fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d\n", prevstore->length);
 #endif
-            imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
+        imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
 
-            finalnphi = phis->length;
-            if (!imageTracks) {
+        finalnphi = phis->length;
+        if (!imageTracks) {
 #ifdef VERBOSE
-                fprintf(stderr, "\n\nin TripleMagFull, i= %d, imageTracks = Null, nphi = %d, xsCenter=%f, ysCenter = %f, rs = %f\n\n", i, finalnphi, xsCenter, ysCenter, rs);
+            fprintf(stderr, "\n\nin TripleMagFull, i= %d, imageTracks = Null, nphi = %d, xsCenter=%f, ysCenter = %f, rs = %f\n\n", i, finalnphi, xsCenter, ysCenter, rs);
 #endif
-                if (distype == 2) {
-                    delete phis;
-                    phis = new _linkedarray;
-                    maxmuidx = (int)(absint(maxmuidx + 1)) % secnum;
-                    basenum *= 2;
-                    phis = getphis_v3( xsCenter,  ysCenter, ys);
-                } else {
-                    phis->extend();
-                }
-                i -= 1;
-                ftime = 1;
-                continue;
+            if (distype == 2) {
+                delete phis;
+                phis = new _linkedarray;
+                maxmuidx = (int)(absint(maxmuidx + 1)) % secnum;
+                basenum *= 2;
+                phis = getphis_v3( xsCenter,  ysCenter, ys);
+            } else {
+                phis->extend();
             }
-            ftime = 0;
+            i -= 1;
+            ftime = 1;
+            continue;
+        }
+        ftime = 0;
 
-#ifdef parabcorr 
-            area = areaFunc_parab(imageTracks, rs);
+#ifdef parabcorr
+        area = areaFunc_parab(imageTracks, rs);
 #else
-            area = areaFunc(imageTracks, rs);
+        area = areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality);
 #endif
 
-            mu = area / areaSource;
+        mu = area / areaSource;
 #ifdef VERBOSE
-            fprintf(stderr, "in TripleMagFull, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, rs = %f\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length, rs);
+        fprintf(stderr, "in TripleMagFull, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, rs = %f\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length, rs);
 #endif
 #ifdef verbose
-            fprintf(stderr, "in TripleMagFull, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, rs = %f\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length, rs);
+        fprintf(stderr, "in TripleMagFull, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, rs = %f\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length, rs);
 
 #endif
-            if (abs(mu - mu0) / mu < relerr_priv) break;
-            mu0 = mu;
-            phis->extend();
-        }
+        if (abs(mu - mu0) / mu < relerr_priv) break;
+        mu0 = mu;
+        phis->extend();
+    }
 #ifdef VERBOSE
-        printf("mu = %f\n", mu);
-        saveTracks(imageTracks);
+    printf("mu = %f\n", mu);
+    saveTracks(imageTracks, finalnphi);
 #endif
 
 
-        finalNPS = finalnphi;
-        nimages = imageTracks->length;
-        delete imageTracks;
-        delete phis;
-        delete prevstore;
-        return (mu);
-    
+    finalNPS = finalnphi;
+    nimages = imageTracks->length;
+    delete imageTracks;
+    delete phis;
+    delete prevstore;
+    return (mu);
+
 }
-    
+
 
 // tripleQuatrapoleTest Bozza 2018 equation 39 with c_Q = 1, add on
 double TripleLensing::tripleQuatrapoleTest(double xs, double ys, double rs) {
@@ -826,9 +899,11 @@ double TripleLensing::tripleQuatrapoleTest(double xs, double ys, double rs) {
     quad_err = 0.0;//quad_err
     for (int i = 0; i < DEGREE; i++) {
         flag = trueSolution_qtest(xs, ys, zr[i]);
-        nimages += flag;
-        if (flag) {
-            muTotal += abs(mu);
+        nimages = nimages + flag;
+        if (flag == 1) {
+            muTotal = muTotal + abs(mu);
+            // fprintf(stderr, "muTotal = %f \n", muTotal);
+            // fprintf(stderr, "mu, J1.re, J1.im, J2.re, J2.im, dJ.re, dJ.im, J3.re, J3.im : %f, %f, %f, %f, %f, %f, %f, %f, %f\n", mu, J1.re, J1.im, J2.re, J2.im, dJ.re, dJ.im, J3.re, J3.im  );
             eacherr = 0.0;
             J1c = conj(J1);
             J1c2 = J1c * J1c;
@@ -839,9 +914,8 @@ double TripleLensing::tripleQuatrapoleTest(double xs, double ys, double rs) {
 
             eacherr += abs( (6.0 * firstterm - 2.0 * secondterm + 2.0 * thirdterm).re ); //muQI
             eacherr += abs( 6.0 * firstterm.im );
-
             // quad_err += eacherr * rho2 / abs(dJ2 * dJ2 * dJ.re);
-            quad_err += eacherr / abs(dJ2 * dJ2 * dJ.re);
+            quad_err += eacherr / (abs(dJ2 * dJ2 * dJ.re) + TINY); // 2021.06.08, add +TINY
         }
     }
     quad_err *= rho2;
@@ -860,6 +934,7 @@ void addPoint(_curve *final, _point *p)
 
     final->last->ds = p->ds;
     final->last->dz = p->dz;
+    final->last->absdzs = p->absdzs;
     final->last->closepairparity = p->closepairparity;
 
 }
@@ -876,6 +951,7 @@ _curve *newSegment(_sols *imageTracks)
         final->last->zs = p->zs;
         final->last->flag = p->flag ;
         final->last->thetaJ = p->thetaJ;
+        final->last->absdzs = p->absdzs;
 
         final->last->ds = p->ds;
         final->last->dz = p->dz;
@@ -898,18 +974,59 @@ if(imageTracks->length > 1){\
 }
 
 
-
-//magnification for a triple lens point source
-// double TripleLensing::triplePS(double mlens[], complex zlens[], double xs, double ys, int *nimages) {
 double TripleLensing::TriplePS(double xs, double ys) {
+    double mu;
+    double mulist[DEGREE];
+    int total_parity = 0, flaglist[DEGREE], absdzslist[DEGREE];
+
     polynomialCoefficients(xs, ys, coefficients);
     VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
     muTotal = 0.0;
     nimages = 0;
     for (int i = 0; i < DEGREE; i++) {
-        flag = trueSolution(xs, ys, zr[i]);
+        flag = trueSolution(xs, ys, zr[i], &mu);
+        mulist[i] = mu;
+        flaglist[i] = flag;
+        absdzslist[i] = absdzs;
+
         nimages += flag;
         muTotal += ( flag ? abs(mu) : 0  );
+        total_parity += (flag ? ( mu > 0 ? 1 : -1 ) : 0 );
+    }
+
+    int k = 0;
+    int missing_sol_idx = 0;
+    int worst_true_sol_idx = 0;
+    double missing_sol_absdzs = 1e3, missing_sol_mu;
+    double worst_tru_sol_absdzs = -1e1, worst_tru_sol_mu;
+
+// correction according to the number of true images and total parity
+    if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) {
+        for (k = 0 ; k < DEGREE; k++) {
+            if ( flaglist[k] == 1 &&  absdzslist[k] > worst_tru_sol_absdzs) {
+                worst_tru_sol_absdzs =  absdzslist[k];
+                worst_true_sol_idx = k;
+                worst_tru_sol_mu =  mulist[k];
+            }
+            if ( flaglist[k] == 0 &&  absdzslist[k] < missing_sol_absdzs) {
+                missing_sol_absdzs =  absdzslist[k];
+                missing_sol_mu = mulist[k];
+                missing_sol_idx = k;
+            }
+        }
+
+        // if total parity is wrong, we try to remove solutions
+        if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
+            flaglist[worst_true_sol_idx] = -1;
+            nimages -= 1;
+            muTotal -= abs( worst_tru_sol_mu );
+        }
+        else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
+            flaglist[missing_sol_idx] = 1;
+            nimages += 1;
+            muTotal += abs(missing_sol_mu);
+        } else {
+        }
     }
     return (muTotal);
 }
@@ -923,10 +1040,9 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
 
     fprintf(stderr, "Generating image positions corresponding to source boundary ...");
     /* now find the closed curves for all real and imaginary roots for a circular source */
-
+    double mu;
     nsolution = 0;
     FSflag = 0;
-    // int i, j, k;
 
     phi0 = 1.5;
     dphi = 2.0 * M_PI / (nphi - 1);
@@ -942,7 +1058,7 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
     VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
     for (int i = 0; i < DEGREE; i++) {
         // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
-        flag = trueSolution(xs, ys, zr[i]);
+        flag = trueSolution(xs, ys, zr[i], &mu);
         if (flag == 1) {        // true solution
             fprintf(fileImage0, "%f %f\n", zr[i].re, zr[i].im);
         }
@@ -963,7 +1079,7 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
         nimages = 0;
         for (int i = 0; i < DEGREE; i++) {
             // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
-            flag = trueSolution( xs, ys, zr[i]);
+            flag = trueSolution( xs, ys, zr[i], &mu);
             nimages += flag;
             if (flag == 1) {        // true solution
                 fprintf(fileImage1, "%f %f\n", zr[i].re, zr[i].im);
@@ -976,8 +1092,6 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
     fclose(fileImage2);
     fprintf(stderr, " ... done.\n");
 }
-
-
 
 //output in two files the triple critical curves and caustics 2020.09.08
 void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens, int npnt)
@@ -1006,29 +1120,49 @@ void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens,
 }
 
 
+// #define _c_parity \
+// if (c->length>1){\
+//             if (c->first->mu > 0 && c->first->next->mu > 0) {\
+//                 c->parity = 1;\
+//             }\
+//             else if(c->first->mu < 0 && c->first->next->mu < 0) {\
+//                 c->parity = -1;\
+//             }else if (c->first->mu > 0 && c->first->next->mu < 0 && c->first->next->next->mu < 0){\
+//                 c->parity = -1;\
+//             }else if (c->first->mu < 0 && c->first->next->mu > 0 && c->first->next->next->mu > 0){\
+//                 c->parity = 1;\
+//             }\
+// }else{\
+//     c->parity = (c->first->mu > 0) ? 1:-1;\
+// }
 
-
+// revised on 2021.06.08
 #define _c_parity \
-if (c->length>1){\
+if (c->length>2){\
             if (c->first->mu > 0 && c->first->next->mu > 0) {\
                 c->parity = 1;\
             }\
             else if(c->first->mu < 0 && c->first->next->mu < 0) {\
                 c->parity = -1;\
-            }else if (c->first->mu > 0 && c->first->next->mu < 0 && c->first->next->next->mu < 0){\
-                c->parity = -1;\
-            }else if (c->first->mu < 0 && c->first->next->mu > 0 && c->first->next->next->mu > 0){\
+            }else if ( ( (c->first->mu > 0 ? 1:-1) + (c->first->next->mu > 0 ? 1:-1) + (c->first->next->next->mu > 0 ? 1:-1))  > 0){\
                 c->parity = 1;\
+                special_flag = 1;\
+            }else{\
+                c->parity = -1;\
+                special_flag = 1;\
             }\
 }else{\
     c->parity = (c->first->mu > 0) ? 1:-1;\
 }
 
-#define _final_parity \
 
+
+#define _final_parity \
+if (final->parity == 0){\
+final->parity = (final->first->mu > 0 ? 1:-1);}\
 
 #define _Prov_parity \
-
+Prov->parity = (Prov->first->mu > 0 ? 1:-1);\
 
 #define _Prov2_parity \
 if(Prov2->length>1){\
@@ -1047,20 +1181,20 @@ else if (Prov2->first->mu < 0 && Prov2->first->next->mu < 0) {\
 }
 
 
-
-
 // _sols *outputTracks_v2_savehalf
 _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter, double rs, _linkedarray *PHI, _sols **prevstore) {
     nsolution = 0;
-    int j = 0;//, k;
+    int j, k, missing_sol_idx, worst_true_sol_idx, total_parity;
+    double missing_sol_absdzs, missing_sol_mu , worst_tru_sol_absdzs, worst_tru_sol_mu;
     // double mu, lambda1, lambda2, thetaJ;
+    double mu;
 
     _sols *allSolutions, *imageTracks;
     _curve *Prov = new _curve;
     _curve *Prov2 = new _curve;
     _curve *tempProv = new _curve;
 
-    _point *pisso;
+    _point *pisso, *missing_sol, *pscan1, *pscan2; // *worst_true_sol
     _point *scanpisso;
     // double SD, MD, CD;
 
@@ -1076,9 +1210,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     if (ftime) {
         *prevstore = NULL;
         *prevstore = new _sols;
-        Node *scan;//, *tempscan;
+        Node *scan;
         scan = PHI->first;
-
 
         phi = scan->value;
         xs = xsCenter + rs * cos(phi);
@@ -1091,10 +1224,11 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         tempProv = new _curve;
         (*prevstore)->append(tempProv);
         Prov = allSolutions->first;
-
+        // the head of all tracks
         nimages = 0;
+        total_parity = 0;
         for (int i = 0; i < DEGREE; i++) {
-            flag = trueSolution(xs, ys, zr[i]);
+            flag = trueSolution(xs, ys, zr[i], &mu);
             nimages += flag;
 
             Prov->append(zr[i].re, zr[i].im);
@@ -1102,16 +1236,22 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             Prov->last->mu = mu;
             Prov->last->zs = complex(xs, ys);
             Prov->last->thetaJ = thetaJ;
+            Prov->last->absdzs = absdzs;
 
-            (*prevstore)->last->append(zr[i].re, zr[i].im);
+            (*prevstore)->last->append(zr[i].re, zr[i].im);// (*prevstore) = multiple_curves, (*prevstore)->last = one curve, (*prevstore)->last->last = one point
             (*prevstore)->last->last->phi = phi;
             (*prevstore)->last->last->mu = mu;
             (*prevstore)->last->last->zs = complex(xs, ys);
             (*prevstore)->last->last->thetaJ = thetaJ;
+            (*prevstore)->last->last->absdzs = absdzs;
 
             if (flag == 1) {      // true solution
-                Prov->last->flag = 1 ;
+                total_parity +=  (mu > 0 ? 1 : -1);
+                Prov->last->flag = 1;
                 (*prevstore)->last->last->flag = 1 ;
+
+                // add on 2021.06.10
+                Prov->posflagnum += 1;
 
 #ifdef parabcorr
                 dy = complex(-sin(phi), cos(phi)) * rs;
@@ -1128,9 +1268,86 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 (*prevstore)->last->last->flag = -1 ;
                 Prov->last->flag = -1 ;
             }
-
-            Prov = Prov->next;
+            Prov = Prov->next; // this might be wrong
         }
+
+        // whether nimages = 4, 6, 8, or 10;
+        if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) { // check the number of solutions is correct or not
+#ifdef VERBOSE
+            fprintf(stderr, "1st \t\t nimages = %d, and parity = %d which are wrong\n\n", nimages, total_parity);
+#endif
+            // you need to find out one more solution, and change their flag to 1
+            k = 0;
+            missing_sol_idx = 0;
+            worst_true_sol_idx = 0;
+            missing_sol_absdzs = 1e3;
+            worst_tru_sol_absdzs = -1e1;
+            for (_curve *_tmp = allSolutions->first; _tmp; _tmp = _tmp->next) {
+#ifdef VERBOSE
+                fprintf(stderr, "k = %d, missing_sol->absdzs %.5e, missing_sol->mu %.5e\n", k, _tmp->first->absdzs,  _tmp->first->mu);
+#endif
+                if ( _tmp->first->flag == 1 &&  _tmp->first->absdzs > worst_tru_sol_absdzs) {
+                    worst_tru_sol_absdzs =  _tmp->first->absdzs;
+                    worst_true_sol_idx = k;
+                    worst_tru_sol_mu =  _tmp->first->mu;
+                }
+                if ( _tmp->first->flag == -1 &&  _tmp->first->absdzs < missing_sol_absdzs) {
+                    missing_sol_absdzs =  _tmp->first->absdzs;
+                    missing_sol_mu = _tmp->first->mu;
+                    missing_sol_idx = k;
+                }
+                k = k + 1;
+            }
+#ifdef VERBOSE
+            fprintf(stderr , "missing_sol_idx = %d, missing_sol_mu = %f\n\n", missing_sol_idx, missing_sol_mu);
+            fprintf(stderr , "worst_true_sol_idx = %d, worst_tru_sol_mu = %f\n\n", worst_true_sol_idx, worst_tru_sol_mu);
+#endif
+
+            if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2  && worst_tru_sol_absdzs > SOLEPS * 0.5) {
+                // pscan1 = Prov->first;
+                _curve *_tmp = allSolutions->first;
+                pscan2 = (*prevstore)->last->first;
+                k = 0;
+                while (k != worst_true_sol_idx ) {
+                    // pscan1 = pscan1->next;
+                    _tmp = _tmp->next;
+                    pscan2 = pscan2->next;
+                    k += 1;
+                }
+                // 定位到了 missing solution，将其 flag 变为 1
+                // pscan1->flag = 0;
+                _tmp->first->flag = -1; // 0 or -1? -- -1!
+                pscan2->flag = -1;
+                nimages -= 1;
+                _tmp->posflagnum -= 1;
+
+            }
+            else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
+                // 不是最优的实现方法
+                // pscan1 = Prov->first;
+                _curve *_tmp = allSolutions->first;
+                pscan2 = (*prevstore)->last->first;
+                k = 0;
+                while (k != missing_sol_idx) {
+                    _tmp = _tmp->next;
+                    pscan2 = pscan2->next;
+                    k += 1;
+                }
+                // 定位到了 missing solution，将其 flag 变为 1
+                // pscan1->flag = 1;
+                _tmp->first->flag = 1;
+                pscan2->flag = 1;
+                nimages += 1;
+
+                _tmp->posflagnum += 1;
+
+            } else {
+#ifdef VERBOSE
+                fprintf(stderr, "\t\t\t ****** 1278, 1st, can not add or delete solution, \n");
+#endif
+            }
+        }
+
         scan->nimages = nimages;
         scan = scan->next;
 
@@ -1144,13 +1361,14 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
             delete Prov2;
-            Prov2 = new _curve;
+            Prov2 = new _curve; // use to store the ten solutions in current phi
             tempProv = new _curve;
-            (*prevstore)->append(tempProv);
+            (*prevstore)->append(tempProv);// prevstore 在这只是用于保存以前解出来的解, 后续 phi->extend 之后不用再重新解这些 lens equations; 每次的 10 个解作为一条curve 保存
             nimages = 0;
+            total_parity = 0;
             for (int i = 0; i < DEGREE; i++) {
                 // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
-                flag = trueSolution(xs, ys, zr[i]);
+                flag = trueSolution(xs, ys, zr[i], &mu);
                 nimages += flag;
 
                 Prov2->append(zr[i].re, zr[i].im);
@@ -1158,15 +1376,19 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov2->last->mu = mu;
                 Prov2->last->zs = complex(xs, ys);
                 Prov2->last->thetaJ = thetaJ;
+                Prov2->last->absdzs = absdzs;
 
                 (*prevstore)->last->append(zr[i].re, zr[i].im);
                 (*prevstore)->last->last->phi = phi;
                 (*prevstore)->last->last->mu = mu;
                 (*prevstore)->last->last->zs = complex(xs, ys);
                 (*prevstore)->last->last->thetaJ = thetaJ;
+                (*prevstore)->last->last->absdzs = absdzs;
 
 
                 if (flag == 1) {      // true solution
+                    total_parity += ( mu > 0 ? 1 : -1 );
+
                     Prov2->last->flag = +1 ;
                     (*prevstore)->last->last->flag = +1 ;
 
@@ -1187,6 +1409,91 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 }
             }
 
+
+            // whether nimages = 4, 6, 8, or 10;
+            if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) { // check the number of solutions is correct or not
+#ifdef VERBOSE
+                fprintf(stderr, "\n2nd \t\t nimages = %d, and parity = %d which are wrong\n\n", nimages, total_parity);
+                // you need to find out one more solution, and change their flag to 1
+#endif
+
+                k = 0;
+                missing_sol_idx = 0;
+                worst_true_sol_idx = 0;
+
+                missing_sol_absdzs = 1e3;
+                worst_tru_sol_absdzs = -1e1;
+                for (missing_sol = Prov2->first; missing_sol; missing_sol = missing_sol->next) {
+#ifdef VERBOSE
+                    fprintf(stderr, "idx = %d,  absdzs = %.5e, mu = %.17g, (x,y) = %.17g, %.17g\n", k, missing_sol->absdzs, missing_sol->mu, missing_sol->x1, missing_sol->x2);
+#endif
+                    if (missing_sol->flag == 1 && missing_sol->absdzs > worst_tru_sol_absdzs) {
+                        worst_tru_sol_absdzs = missing_sol->absdzs;
+                        worst_true_sol_idx = k;
+                        worst_tru_sol_mu = missing_sol->mu;
+                    }
+
+                    // find missing solution
+                    if (missing_sol->flag == -1 && missing_sol->absdzs < missing_sol_absdzs) {
+                        missing_sol_absdzs = missing_sol->absdzs;
+                        missing_sol_mu = missing_sol->mu;
+                        missing_sol_idx = k;
+                    }
+                    k = k + 1;
+                }
+#ifdef VERBOSE
+                fprintf(stderr , "missing_sol_idx = %d, missing_sol_mu = %f\n\n", missing_sol_idx, missing_sol_mu);
+                fprintf(stderr , "worst_true_sol_idx = %d, worst_tru_sol_mu = %f\n\n", worst_true_sol_idx, worst_tru_sol_mu);
+#endif
+
+                if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
+#ifdef VERBOSE
+                    fprintf(stderr, "2nd \t\t remove a false positive\n");
+#endif
+                    pscan1 = Prov2->first;
+                    pscan2 = (*prevstore)->last->first;
+                    k = 0;
+                    while (k != worst_true_sol_idx ) {
+                        pscan1 = pscan1->next;
+                        pscan2 = pscan2->next;
+                        k += 1;
+                    }
+                    pscan1->flag = -1;
+                    pscan2->flag = -1; // not 0
+                    nimages -= 1;
+                }
+                else if ( (total_parity  +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
+                    // if (  missing_sol_absdzs / worst_tru_sol_absdzs < MISS_SOL_THRESHOLD ) {
+                    // 不是最优的实现方法
+#ifdef VERBOSE
+                    fprintf(stderr, "2nd \t\t add a missing solution\n");
+#endif
+                    pscan1 = Prov2->first;
+                    pscan2 =  (*prevstore)->last->first;
+                    k = 0;
+                    while (k != missing_sol_idx) {
+                        pscan1 = pscan1->next;
+                        pscan2 = pscan2->next;
+                        k += 1;
+                    }
+                    // 定位到了 missing solution，将其 flag 变为 1
+                    pscan1->flag = 1;
+                    pscan2->flag = 1;
+                    nimages += 1;
+                } else {
+
+#ifdef VERBOSE
+                    fprintf(stderr, "2nd \t\t nimages = %d, and parity = %d which are wrong, srcxy = (%.17g, %.15g)\n\n", nimages, total_parity, xs, ys);
+                    k = 0;
+                    for (missing_sol = Prov2->first; missing_sol; missing_sol = missing_sol->next) {
+                        fprintf(stderr, "idx = %d,  absdzs = %.5e, mu = %.5e\n", k, missing_sol->absdzs, missing_sol->mu);
+                    }
+                    fprintf(stderr, "\t\t\t ****** 1411, 2nd, can not add or delete solution, \n");
+#endif
+                }
+            }
+
+
             scan->nimages = nimages;
             scan = scan->next;
 
@@ -1195,13 +1502,15 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov2->closest(Prov->last, &pisso);
                 Prov2->drop(pisso);
                 Prov->append(pisso);
+                if (pisso->flag == 1) {Prov->posflagnum += 1;}
             }
         }
 #ifdef VERBOSE
         fprintf(stderr, "*prevstore->length %d\n", (*prevstore)->length);
 #endif
 
-    } else { //firsttime = 0
+    } else {
+        //firsttime = 0 // when it is possible, use prerviously obtained solutions
 #ifdef VERBOSE
         fprintf(stderr, "not first time\n");
 #endif
@@ -1231,10 +1540,11 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         Prov = new _curve;
         Prov = allSolutions->first;
         nimages = 0;
+        total_parity = 0;
         scanpisso = scanstorecurve->first;
 
         for (int i = 0; i < DEGREE; i++) {
-            flag = (int)((scanpisso->flag + 1) / 2);
+            flag = (int)((scanpisso->flag + 1) / 2.0);
             nimages += flag;
 
             Prov->append(scanpisso->x1, scanpisso->x2);
@@ -1243,9 +1553,12 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             Prov->last->zs = scanpisso->zs; //complex(xs, ys);
             Prov->last->thetaJ = scanpisso->thetaJ;
             Prov->last->flag = scanpisso->flag;
+            Prov->last->absdzs = scanpisso->absdzs;
 
             Prov->last->ds = scanpisso->ds;
             Prov->last->dz = scanpisso->dz;
+
+            if (scanpisso->flag) {Prov->posflagnum = 1;}
 
             tempcurrstore->last->append(scanpisso->x1, scanpisso->x2);
             tempcurrstore->last->last->phi = scanpisso->phi;
@@ -1253,6 +1566,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             tempcurrstore->last->last->zs = scanpisso->zs; //complex(xs, ys);
             tempcurrstore->last->last->thetaJ = scanpisso->thetaJ;
             tempcurrstore->last->last->flag = scanpisso->flag;
+            tempcurrstore->last->last->absdzs = scanpisso->absdzs;
 
             tempcurrstore->last->last->ds = scanpisso->ds;
             tempcurrstore->last->last->dz = scanpisso->dz;
@@ -1277,9 +1591,10 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 tempProv = new _curve;
                 tempcurrstore->append(tempProv);
                 nimages = 0;
+                total_parity = 0;
                 for (int i = 0; i < DEGREE; i++) {
                     // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
-                    flag = trueSolution(xs, ys, zr[i]);
+                    flag = trueSolution(xs, ys, zr[i], &mu);
                     nimages += flag;
                     Prov2->append(zr[i].re, zr[i].im);
                     Prov2->last->phi = phi;
@@ -1287,17 +1602,19 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     Prov2->last->mu = mu;
                     Prov2->last->zs = complex(xs, ys);
                     Prov2->last->thetaJ = thetaJ;
+                    Prov2->last->absdzs = absdzs;
 
                     tempcurrstore->last->append(zr[i].re, zr[i].im);
                     tempcurrstore->last->last->phi = phi;
                     tempcurrstore->last->last->mu = mu;
                     tempcurrstore->last->last->zs = complex(xs, ys);
                     tempcurrstore->last->last->thetaJ = thetaJ;
+                    tempcurrstore->last->last->absdzs = absdzs;
 
                     if (flag == 1) {      // true solution
+                        total_parity += (mu > 0 ? 1 : -1);
                         Prov2->last->flag = +1 ;
                         tempcurrstore->last->last->flag = +1 ;
-
 #ifdef parabcorr
                         dy = complex(-sin(phi), cos(phi)) * rs;
                         // dz = (dy - conj(J1) * conj(dy)) / dJ.re;
@@ -1314,6 +1631,72 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                         tempcurrstore->last->last->flag = -1;
                     }
                 }
+
+                // whether nimages = 4, 6, 8, or 10;
+                if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) { // check the number of solutions is correct or not
+#ifdef VERBOSE
+                    fprintf(stderr, "3rd \t\t nimages = %d, and parity = %d which are wrong\n\n", nimages, total_parity);
+#endif
+                    // you need to find out one more solution, and change their flag to 1
+
+                    k = 0;
+                    missing_sol_idx = 0;
+                    worst_true_sol_idx = 0;
+
+                    missing_sol_absdzs = 1e3;
+                    worst_tru_sol_absdzs = -1e1;
+                    for (missing_sol = Prov2->first; missing_sol; missing_sol = missing_sol->next) {
+                        if (missing_sol->flag == 1 && missing_sol->absdzs > worst_tru_sol_absdzs) {
+                            worst_tru_sol_absdzs = missing_sol->absdzs;
+                            worst_true_sol_idx = k;
+                            worst_tru_sol_mu = missing_sol->mu;
+                        }
+
+                        if (missing_sol->flag == -1 && missing_sol->absdzs < missing_sol_absdzs) {
+                            missing_sol_absdzs = missing_sol->absdzs;
+                            missing_sol_idx = k;
+                            missing_sol_mu = missing_sol->mu;
+                        }
+                        k = k + 1;
+                    }
+
+                    if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
+                        pscan1 = Prov2->first;
+                        pscan2 = tempcurrstore->last->first;
+                        k = 0;
+                        while (k != worst_true_sol_idx ) {
+                            pscan1 = pscan1->next;
+                            pscan2 = pscan2->next;
+                            k += 1;
+                        }
+                        // 定位到了 missing solution，将其 flag 变为 1
+                        pscan1->flag = -1;
+                        pscan2->flag = -1;
+                        nimages -= 1;
+                    }
+
+
+                    else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
+                        // 不是最优的实现方法
+                        pscan1 = Prov2->first;
+                        pscan2 = tempcurrstore->last->first;
+                        k = 0;
+                        while (k != missing_sol_idx) {
+                            pscan1 = pscan1->next;
+                            pscan2 = pscan2->next;
+                            k += 1;
+                        }
+                        // 定位到了 missing solution，将其 flag 变为 1
+                        pscan1->flag = 1;
+                        pscan2->flag = 1;
+                        nimages += 1;
+                    } else {
+#ifdef VERBOSE
+                        fprintf(stderr, "\t\t\t ****** 1613, 3rd, can not add or delete solution, \n");
+#endif
+                    }
+                }
+
                 scan->nimages = nimages;
                 scan = scan->next;
 
@@ -1322,6 +1705,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     Prov2->closest(Prov->last, &pisso);
                     Prov2->drop(pisso);
                     Prov->append(pisso);
+                    if (pisso->flag == 1) {Prov->posflagnum += 1;}
                 }
             } else {
                 delete Prov2;
@@ -1340,6 +1724,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     Prov2->last->zs = scanpisso->zs; //complex(xs, ys);
                     Prov2->last->thetaJ = scanpisso->thetaJ;
                     Prov2->last->flag = scanpisso->flag;
+                    Prov2->last->absdzs = scanpisso->absdzs;
 
                     Prov2->last->ds = scanpisso->ds;
                     Prov2->last->dz = scanpisso->dz;
@@ -1350,6 +1735,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     tempcurrstore->last->last->zs = scanpisso->zs; //complex(xs, ys);
                     tempcurrstore->last->last->thetaJ = scanpisso->thetaJ;
                     tempcurrstore->last->last->flag = scanpisso->flag;
+                    tempcurrstore->last->last->absdzs = scanpisso->absdzs;
 
                     tempcurrstore->last->last->ds = scanpisso->ds;
                     tempcurrstore->last->last->dz = scanpisso->dz;
@@ -1364,6 +1750,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     Prov2->closest(Prov->last, &pisso);
                     Prov2->drop(pisso);
                     Prov->append(pisso);
+                    if (pisso->flag == 1) {Prov->posflagnum += 1;}
                 }
             }
 
@@ -1376,14 +1763,81 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         delete tempcurrstore;
     }
 
-    //  printAllTracks(allSolutions);
+#ifdef VERBOSE
+    printAllTracks(allSolutions);
+    printf("allSolutions->length %d\n", allSolutions->length);
+    k = 0;
+    for (_curve *tmpsc = allSolutions->first; tmpsc; tmpsc = tmpsc->next) {
+        fprintf(stderr, "\t\t %d, track->length %d, posflagnum %d, percentage %f  , \n", k, tmpsc->length, tmpsc->posflagnum, 100.0 * tmpsc->posflagnum / tmpsc->length);
+        k = k + 1;
+    }
+#endif
+
+
+
 
     //allocate memory for potentially true image tracks, we make a factor four more segments just in case
     imageTracks = new _sols;
-    for (int i = 0; i < (NLENS + 1) * DEGREE; i++) {
-        Prov = new _curve;
-        imageTracks->append(Prov);
+
+    //2021.06.10, before proceed, we directly drop out pure false image curves;
+    // this must be slightly faster
+    // Prov = allSolutions->first;
+    // while (Prov) {
+    //     Prov2 = Prov->next;
+    //     // if (1.0*Prov->posflagnum/Prov->length < 0.01) {
+    //     if (Prov->posflagnum == 0) {
+    //         allSolutions->drop(Prov);
+    //         delete Prov;
+    //         Prov = Prov2;
+    //     } else {Prov = Prov->next;}
+    // }
+
+    _curve *tmp1802;//
+
+    Prov = allSolutions->first;
+    while (Prov) {
+        if (Prov->posflagnum <= 1 || ( (1.0 * Prov->posflagnum / Prov->length < 0.5) && abs(Prov->first->mu) < EPS  && abs(Prov->last->mu) < EPS )  ) {
+            // the second condition is for a tiny image, where the flag can not be correctly judged
+            // what's the area of this tiny image, compared to the source area?
+
+            Prov2 = Prov->next;
+            allSolutions->drop(Prov);
+            delete Prov;
+            Prov = Prov2;
+        } else if (1.0 * Prov->posflagnum / Prov->length > 0.99) {
+            // append Prov to imageTracks
+            Prov2 = Prov->next;
+
+            tmp1802 = Prov;
+            allSolutions->drop(Prov);
+            imageTracks->append(tmp1802);
+
+            Prov = Prov2;
+        }
+        else {Prov = Prov->next;}
     }
+
+#ifdef VERBOSE
+    for (_curve *ttmp = imageTracks->first; ttmp; ttmp = ttmp->next) {
+        fprintf(stderr, "1811 imageTracks ttmp length = %d, posflagnum = %d \n", ttmp->length, ttmp->posflagnum);
+    }
+    for (_curve *ttmp = allSolutions->first; ttmp; ttmp = ttmp->next) {
+        fprintf(stderr, "1815 allSolutions ttmp length = %d, posflagnum = %d \n", ttmp->length, ttmp->posflagnum);
+    }
+#endif
+
+    if (allSolutions->length == 0)  {
+        for (Prov = imageTracks->first; Prov; Prov = Prov->next) {
+            _Prov_parity
+        }
+        Prov2 = NULL;
+        Prov = NULL;
+        delete Prov2;
+        delete Prov;
+        delete allSolutions;
+        return (imageTracks);
+    }
+
 
 
     //
@@ -1392,73 +1846,731 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     complex z, zs;
     int mixedTracks = 0; // number of mixed tracks
     _curve *tempcurve;
-    Prov2 = imageTracks->first;
 
-    int trueImages = 0, falseImages = 0;
+
+    int trueImages = 0, falseImages = 0, total_scaned, pos_scaned, scan_percentage;
     int firstTime = 1;
-    int disfirstTime = 1;
+    int disfirstTime = 1, flagPrevious;
     int previousImage = 0;
     // int Parity;  // within the same curve, we require the parity to be the same
     // double ratio;
-    double muPrevious, disPrevious;//mu
-    for (Prov = allSolutions->first; Prov;  Prov = Prov->next) {
+    double muPrevious , disPrevious;//mu
+    scan_percentage = fmin(20, 0.05 * pntnum); // 10% of toal length
+
+
+
+//     //  ************************************** begin version 1 *************************************** //
+//     // Prov2 = imageTracks->first;
+//     tempcurve = new _curve;
+//     imageTracks->append(tempcurve);
+//     // use a new _curve to store the remaining segments
+//     Prov2 = imageTracks->last;
+//     Prov = allSolutions->first;
+//     int fistpls = 1;
+//     double helpangcos = 0.0;
+//     while (Prov) {
+// #ifdef VERBOSE
+//         fprintf(stderr, "now you only need to proceed this posflagnum %d, posflagnum/length %f, first->flag %d, mu %f \n", Prov->posflagnum, 1.0 * Prov->posflagnum / Prov->length, Prov->first->flag, Prov->first->mu);
+// #endif
+//         trueImages = 0;
+//         falseImages = 0;
+//         firstTime = 1;
+//         disfirstTime = 1;
+//         previousImage = 0;
+//         for (_point *p = Prov->first; p; p = p->next) {
+//             if (p->flag == 1) { // true solutions, should return identical source radius
+//                 trueImages++;
+//                 if (firstTime) {  // we enter the track the first time
+//                     firstTime = 0;
+//                     flagPrevious = p->flag;
+//                     muPrevious = p->mu;
+//                 } else {
+//                     // parity has changed, start a new curve
+//                     // actually there should be a furthur more test: test that whether p and p->next is close enough, sometimes they will be very far away from each other, in this case we should break the current Prov and start a new one.
+//                     // now this situation is done by adding a testing afterwards, see the "imageTracks_checked" below
+//                     // if (flagPrevious * p->flag < 0.0 && muPrevious * p->mu < 0.0)  {
+//                     if ( muPrevious * p->mu < 0.0)  {
+//                         // add one more condition about the angle, when crossing the caustics
+//                         helpangcos = 1;
+//                         if (p->next && p->prev) {
+//                             if (p->next->next && p->prev->prev) {
+//                                 helpangcos = angcos(p->prev->prev, p->prev, p->next, p->next->next);
+//                             }
+//                         }
+//                         fprintf(stderr, "\t and p->prev->x1 x2 = %f, %f, parity = %d, mu = %f\n", p->prev->x1, p->prev->x2, p->prev->flag, p->prev->mu);
+//                         fprintf(stderr, "\t break segment, helpangcos = %f, p->x1 x2 = %f, %f, parity = %d, mu = %f\n", helpangcos, p->x1, p->x2, p->flag, p->mu);
+//                         fprintf(stderr, "\t and p->next->x1 x2 = %f, %f, parity = %d, mu = %f\n", p->next->x1, p->next->x2, p->next->flag, p->next->mu);
+
+//                         // maybe we can also use the sign information of helpangcos ?
+//                         if (  abs(helpangcos) < 0.95) {
+//                             printf("\t --> start a new segment\n");
+//                             if (!Prov2->next) {
+//                                 tempcurve = new _curve;
+//                                 imageTracks->append(tempcurve);
+//                             }
+//                             Prov2 = Prov2->next;
+//                             flagPrevious = p->flag;
+//                             p->mu = muPrevious > 0 ? abs(p->mu):-abs(p->mu); //
+//                             // muPrevious = p->mu;
+//                             disfirstTime = 1;
+//                         }
+//                     }
+//                     // begin ************************
+//                     if (disfirstTime && Prov2->length > 1) {
+//                         disPrevious = *(Prov2->last) - *(Prov2->last->prev); // sqrt(dis)
+//                         disfirstTime = 0;
+//                     }
+//                     if (Prov2->length > 1 && ((*(p) - * (Prov2->last)) >=  1e8 * disPrevious) ) {
+//                         if (!Prov2->next) {
+//                             tempcurve = new _curve;
+//                             imageTracks->append(tempcurve);
+//                         }
+//                         Prov2 = Prov2->next;
+//                         flagPrevious = p->flag;
+//                         muPrevious = p->mu;
+//                         disfirstTime = 1;
+//                     }
+//                     // end ************************
+//                 }
+
+//                 addPoint(Prov2, p); // add point p to the track
+//                 //2021.06.11 you need to update:
+//                 flagPrevious = p->flag;
+//                 muPrevious = p->mu;
+//                 previousImage = TRUE_IMAGE;
+//             } else {
+//                 falseImages++;
+//                 //first time that we enter this
+//                 if (firstTime) {
+//                     previousImage = FALSE_IMAGE;
+//                     firstTime = 0;
+//                     flagPrevious = p->flag; // 2021.06.10
+//                     muPrevious = p->mu;
+//                 }
+//                 // already a true segment existing, we cut the segment, and start a new one
+//                 if (previousImage == TRUE_IMAGE) { // previously we had true images, now we are encountering on false solutions
+//                     if (!Prov2->next) {
+//                         tempcurve = new _curve;
+//                         imageTracks->append(tempcurve);
+//                         disfirstTime = 1;
+//                     }
+//                     Prov2 = Prov2->next;  // we start a new image track
+//                     previousImage = FALSE_IMAGE;
+//                 }
+//             }
+//         }
+//         if (trueImages) {
+//             if (!Prov2->next) {
+//                 tempcurve = new _curve;
+//                 imageTracks->append(tempcurve);
+//                 disfirstTime = 1;
+//             }
+//             Prov2 = Prov2->next;
+//         }
+//         if (trueImages && falseImages) mixedTracks += 1; // there are tracks that are mixed
+//         fprintf(stderr, "can you here 1911 \n");
+//         Prov = Prov->next;
+//     }
+//     // finish spliting the segments.
+
+//     //  ****************************************** end version 1 ************************************************* //
+
+
+    //rewrite the split procedure, 2021.06.11
+//     //  ****************************************** begin version 2 ************************************************* //
+//     _point *p2;
+//     // Prov2 = imageTracks->first;
+//     tempcurve = new _curve;
+//     imageTracks->append(tempcurve);
+//     // use a new _curve to store the remaining segments
+//     Prov2 = imageTracks->last;
+//     Prov = allSolutions->first;
+//     // for (Prov = allSolutions->first; Prov;  Prov = Prov->next) {
+//     int fistpls = 1, enterfirstTime = 1 , need_new_seg, currentTrueOrFalse; // when currentTrueOrFalse = 1, we add the point p,  otherwise we just ignore p
+//     double helpangcos = 0.0;
+//     _point *runner, *anchor;
+//     int can_percentage;
+//     while (Prov) {
+//         mixedTracks = 1; // if you can go inside this loop, means you have _curve in allSolutions that contains both +1 and -1 parity points
+// #ifdef VERBOSE
+//         fprintf(stderr, "now you only need to proceed this posflagnum %d, posflagnum/length %f \n", Prov->posflagnum, 1.0 * Prov->posflagnum / Prov->length);
+// #endif
+//         firstTime = 1;
+//         need_new_seg = 0;
+//         disfirstTime = 1;
+//         previousImage = 0;
+//         currentTrueOrFalse = 0; // currently, we are scan at a point with +1 flag or -1 flag
+//         p2 = Prov->first;
+//         // fprintf(stderr, "can you here 2076, p2->flag = %d?\n", p2->flag);
+//         while (p2->next && p2->flag != 1) {
+//             p2 = p2->next;
+//         }
+//         while (p2) {
+//             if (need_new_seg == 1 && firstTime == 0) {
+//                 if (!Prov2->next) {
+//                     tempcurve = new _curve;
+//                     imageTracks->append(tempcurve);
+//                 }
+//                 Prov2 = Prov2->next;
+//             }
+//             if (firstTime) {  // we enter the track the first time
+//                 firstTime = 0;
+//                 flagPrevious = p2->flag;
+//                 muPrevious = p2->mu;
+//                 currentTrueOrFalse = 1;//p2->flag > 0 ? 1 : 0; // this must be 1
+//             } else {
+//                 currentTrueOrFalse = 1;
+//                 // parity has changed, start a new curve
+//                 // actually there should be a furthur more test: test that whether p and p->next is close enough, sometimes they will be very far away from each other, in this case we should break the current Prov and start a new one.
+//                 // now this situation is done by adding a testing afterwards, see the "imageTracks_checked" below
+//                 if (flagPrevious * p2->flag < 0.0 || muPrevious * p2->mu < 0.0)  { // use or, because sometimes +1 flag has neg mu!!!
+//                     // if previously we have a true segment, and now p satisfy the condition to break
+
+//                     // we need to decide whether this is a real place to break
+//                     // we test by check whether most of the following points have  parity -1
+//                     total_scaned = 0; // total number of scanned point
+//                     pos_scaned = 0; // total number of positive flag in it;
+//                     anchor = p2;
+
+//                     while (p2->next) {
+//                         if (total_scaned < scan_percentage) {
+//                             total_scaned += 1;
+//                             pos_scaned += ( p2->flag == 1 ? 1 : 0 );
+//                             p2 = p2->next;
+//                         } else {break;}
+//                     }
+
+//                     if (!(p2 ->next )) {
+//                         #ifdef VERBOSE
+//                         fprintf(stderr, "2124 break from here\n");
+//                         #endif
+//                         break;
+//                     }
+
+//                     #ifdef VERBOSE
+//                     fprintf(stderr, "\t total_scaned = %d, pos_scaned = %d, percentage = %f\n", total_scaned, pos_scaned,  1.0 * pos_scaned / total_scaned * 100);
+//                     #endif
+//                     if (pos_scaned == total_scaned){
+//                         // we can add all these points to Prov2
+//                         while(anchor != p2->prev){ // leave p2 to add by the below code
+//                             addPoint(Prov2, anchor);
+//                             need_new_seg = 0;
+//                             anchor = anchor->next;
+//                         }
+
+//                         // p2 = p2->next; //
+//                         flagPrevious = 1;
+//                         muPrevious = p2->mu;
+//                         currentTrueOrFalse = 1;
+//                         #ifdef VERBOSE
+//                         fprintf(stderr, "2149 here\n");
+//                         #endif
+
+//                         // continue;
+//                     }else if (pos_scaned == 0){
+//                         // we can discard them totally
+//                         #ifdef VERBOSE
+//                         fprintf(stderr, "2154 here\n");
+//                         #endif
+//                         currentTrueOrFalse = 0;
+//                         // p2 = p2->next; // this will do in the following if    currentTrueOrFalse = 0;
+//                         // do not need to update flagPrevious and muPrevious
+//                         // continue;// do not continue, you can do better, you can scan from p2 to check whether the whole segments are -1 flag
+//                         // muPrevious, flagPrevious remains the same?
+//                         flagPrevious = -1; // must be 1 -- bug !!!!
+//                         muPrevious = p2->mu;
+//                     }else if (1.0 * pos_scaned / total_scaned > 0.8) {
+//                         #ifdef VERBOSE
+//                         fprintf(stderr, "2163 here\n");
+//                         #endif
+//                         // this point is safe
+//                         currentTrueOrFalse = 1;
+//                         p2 = anchor; // this go first
+//                         muPrevious = p2->mu;
+//                         flagPrevious = p2->flag; // assuming we have +1 flag
+//                     } else { // we check from this point until it reaches another place of a true segments
+//                         // we should break at here
+//                         #ifdef VERBOSE
+//                         fprintf(stderr, "2171 here\n");
+//                         #endif
+//                         currentTrueOrFalse = 0;
+//                         p2 = anchor;
+//                         muPrevious = p2->mu;
+//                         flagPrevious = p2->flag;
+//                     }
+// //                     // add one more condition about the angle, when crossing the caustics
+// //                     helpangcos = 1;
+// //                     if (p2->next && p2->prev) {
+// //                         if (p2->next->next && p2->prev->prev) {
+// //                             helpangcos = angcos(p2->prev->prev, p2->prev, p2->next, p2->next->next);
+// //                         }
+// //                     }
+// // #ifdef VERBOSE
+// //                     fprintf(stderr, "\t helpangcos = %f\n", helpangcos);
+// //                     fprintf(stderr, "\t and p->prev->x1 x2 = %f, %f, parity = %d, mu = %f, phi = %f \n", p2->prev->x1, p2->prev->x2, p2->prev->flag, p2->prev->mu, p2->prev->phi * 180 / M_PI);
+// //                     fprintf(stderr, "\t break segment, p->x1 x2 = %f, %f, parity = %d, mu = %f, phi = %f \n", p2->x1, p2->x2, p2->flag, p2->mu, p2->phi * 180 / M_PI);
+// //                     fprintf(stderr, "\t and p->next->x1 x2 = %f, %f, parity = %d, mu = %f, phi = %f \n", p2->next->x1, p2->next->x2, p2->next->flag, p2->next->mu, p2->next->phi * 180 / M_PI);
+// // #endif
+
+// //                     if (p2->prev->flag == 1 && p2->flag == -1 && p2->next->flag == 1) {
+// //                         fprintf(stderr, "\t save one at 2128, \n");
+// //                         currentTrueOrFalse = 1;
+// //                         // this point can connect, although it has a flag -1;
+// //                         flagPrevious = 1;
+// //                         muPrevious = p2->next->mu; // use p2->next rather than p2
+// //                     } else if (p2->prev->flag == -1 && p2->flag == 1 && p2->next->flag == -1 && helpangcos > 0.8) {
+// //                         fprintf(stderr, "\t save one at 2128, \n");
+// //                         currentTrueOrFalse = 1;
+// //                         // this point can connect, although it has a flag -1;
+// //                         flagPrevious = -1;
+// //                         muPrevious = p2->next->mu; // use p2->next rather than p2
+// //                     }
+// //                     // maybe we can also use the sign information of helpangcos ?
+// //                     else if (  abs(helpangcos) < 0.95 && p2->next->flag != 1) { // sometime its is just one flag@-1 point between two flad@1 point
+// //                         // if p2->flag == -1, this means that now it is very dangerous
+
+// //                         // if (1) {
+// // // #ifdef VERBOSE
+// // //                         fprintf(stderr, "\t and p->prev->x1 x2 = %f, %f, parity = %d, mu = %f\n", p2->prev->x1, p2->prev->x2, p2->prev->flag, p2->prev->mu);
+// // //                         fprintf(stderr, "\tbreak segment, helpangcos = %f, p->x1 x2 = %f, %f, parity = %d, mu = %f\n", helpangcos, p2->x1, p2->x2, p2->flag, p2->mu);
+// // //                         fprintf(stderr, "\t and p->next->x1 x2 = %f, %f, parity = %d, mu = %f\n", p2->next->x1, p2->next->x2, p2->next->flag, p2->next->mu);
+// // // #endif
+// //                         if (!Prov2->next) {
+// //                             tempcurve = new _curve;
+// //                             imageTracks->append(tempcurve);
+// //                         }
+// //                         Prov2 = Prov2->next;
+// //                         flagPrevious = p2->flag;
+// //                         muPrevious = p2->mu;
+// //                         disfirstTime = 1;
+// //                         currentTrueOrFalse = 0; // now we are at a false segment
+// //                     }
+//                 } else {
+//                     // begin ************************
+//                     if (disfirstTime && Prov2->length > 1) {
+//                         disPrevious = *(Prov2->last) - *(Prov2->last->prev); // sqrt(dis)
+//                         disfirstTime = 0;
+//                     }
+//                     if (Prov2->length > 1 && ((*(p2) - * (Prov2->last)) >=  1e8 * disPrevious) ) { // if the next point is too far, we also break it
+//                         fprintf(stderr, "\t special case 2158\n");
+//                         if (!Prov2->next) {
+//                             tempcurve = new _curve;
+//                             imageTracks->append(tempcurve);
+//                         }
+//                         Prov2 = Prov2->next;
+//                         flagPrevious = p2->flag;
+//                         muPrevious = p2->mu;
+//                         disfirstTime = 1;
+//                         currentTrueOrFalse = p2->flag > 0 ? 1 : 0;
+//                     }
+//                     // end ************************
+//                 }
+//             }
+//             if (currentTrueOrFalse) {
+//                 addPoint(Prov2, p2);
+//                 need_new_seg = 0;
+//                 p2 = p2->next;
+//                 continue;
+//             } // add point p to the track only when we are at a true segment
+//             else {
+//                 need_new_seg = 1; // some point can not be add to current segment, so you need a new Prov2 to store the follwing segments.
+//                 // now since you have enconter a "fasle" point, you can scan and check where you can jump to
+
+//                 // fprintf(stderr, "2221, p->flag %d, flagPrevious %d, p2->next->flag %d\n", p2->flag, flagPrevious, p2->next->flag);
+
+
+//                 while (p2->next) { // not while (p2), because otherwise you will end in inquiring p2->flag, i.e. 0->flag, which is wrong
+//                     // if (p2->flag == muPrevious){ // wrong , not muPrevious!
+//                     // fprintf(stderr, "p2->flag %d, p2->mu %fm flagPrevious = %d\n", p2->flag, p2->mu, flagPrevious);
+//                     p2 = p2->next;
+//                     if (p2->flag != flagPrevious) {
+//                         #ifdef VERBOSE
+//                         fprintf(stderr, "2251, p->flag %d, flagPrevious %d\n", p2->flag, flagPrevious);
+//                         #endif
+//                         flagPrevious = p2->flag;
+//                         muPrevious = p2->mu;
+//                         break;
+//                     }
+//                 }
+//                 // flagPrevious = 1; // p2->flag;
+//                 // muPrevious = 1; //p2->mu;
+//                 // continue;
+//             }
+
+//             if (!(p2 ->next )) {
+//                 #ifdef VERBOSE
+//                 fprintf(stderr, "2241 break from here\n");
+//                 #endif
+//                 break;
+//             }
+//             // }
+//             // else {
+//             //     falseImages++;
+//             //     //first time that we enter this
+//             //     if (firstTime) {
+//             //         previousImage = FALSE_IMAGE;
+//             //         firstTime = 0;
+//             //         flagPrevious = p->flag; // 2021.06.10
+//             //         muPrevious = p->mu;
+//             //     }
+//             //     // already a true segment existing, we cut the segment, and start a new one
+//             //     if (previousImage == TRUE_IMAGE) { // previously we had true images, now we are encountering on false solutions
+//             //         if (!Prov2->next) {
+//             //             tempcurve = new _curve;
+//             //             imageTracks->append(tempcurve);
+//             //             disfirstTime = 1;
+//             //         }
+//             //         Prov2 = Prov2->next;  // we start a new image track
+//             //         previousImage = FALSE_IMAGE;
+//             //     }
+//             // }
+//         }
+//         // if (trueImages) {
+//         //     if (!Prov2->next) {
+//         //         tempcurve = new _curve;
+//         //         imageTracks->append(tempcurve);
+//         //         disfirstTime = 1;
+//         //     }
+//         //     Prov2 = Prov2->next;
+//         // }
+
+//         // if (trueImages && falseImages) mixedTracks += 1; // there are tracks that are mixed
+
+//         Prov = Prov->next;
+//         // a Prov is checked, start a new Prov2 to store
+//         if (!Prov2->next) {
+//             tempcurve = new _curve;
+//             imageTracks->append(tempcurve);
+//         }
+//         Prov2 = Prov2->next;
+//     }
+// finish spliting the segments.
+//     //  ****************************************** end version 2 ************************************************* //
+
+
+
+    //  ************************************** begin version 3 *************************************** //
+#ifdef VERBOSE
+    Prov = allSolutions->first;
+    k = 0;
+    while (Prov) {
+        fprintf(stderr, ">>>>>><<<<<<<>>>>>>> %d, first->flag, mu = %d, %f, last->flag, mu = %d, %f\n", k,  Prov->first->flag, Prov->first->mu, Prov->last->flag, Prov->last->mu);
+        fprintf(stderr, ">>>>>><<<<<<<>>>>>>> %d, first->x1,x2 %f, %f, last->x1, x2 = %f, %f\n", k,  Prov->first->x1, Prov->first->x2, Prov->last->x1, Prov->last->x2);
+        k += 1;
+        Prov = Prov->next;
+    }
+#endif
+
+    tempcurve = new _curve;
+    imageTracks->append(tempcurve);
+    // use a new _curve to store the remaining segments
+    Prov2 = imageTracks->last;
+    Prov = allSolutions->first;
+    _point *anchor, *p2;
+    int  have_add = 0, currentTrueOrFalse = 1; //fistpls = 1,
+    double helpangcos = 0.0;
+    while (Prov) {
+#ifdef VERBOSE
+        fprintf(stderr, "now you only need to proceed this posflagnum %d, posflagnum/length %f, first->flag %d, mu %f, x1 x2 = %f, %f \n", Prov->posflagnum, 1.0 * Prov->posflagnum / Prov->length, Prov->first->flag, Prov->first->mu, Prov->first->x1, Prov->first->x2);
+#endif
         trueImages = 0;
         falseImages = 0;
         firstTime = 1;
         disfirstTime = 1;
         previousImage = 0;
-        for (_point *p = Prov->first; p; p = p->next) {
-            z = complex(p->x1, p->x2);
-            if (p->flag == 1) { // true solutions, should return identical source radius
-                trueImages++;
-                if (firstTime) {  // we enter the track the first time
-                    firstTime = 0;
-                    muPrevious = p->mu;
+        p2 = Prov->first;
+        while (p2) {
+            if (firstTime) {  // we enter the track the first time
+                firstTime = 0;
+                flagPrevious = p2->flag;
+                muPrevious = p2->mu;
+                if (flagPrevious == 1) {
+                    addPoint(Prov2, p2); // add point p to the track
+                    previousImage = TRUE_IMAGE;
+                    have_add = 1;
+                    if (p2->next) {
+                        muPrevious = p2->mu;
+                        p2 = p2->next;
+                        continue;
+                    } else {
+                        break;
+                    }
                 } else {
-                    // parity has changed, start a new curve
-                    // actually there should be a furthur more test: test that whether p and p->next is close enough, sometimes they will be very far away from each other, in this case we should break the current Prov and start a new one.
-                    // now this situation is done by adding a testing afterwards, see the "imageTracks_checked" below
-                    if (muPrevious * p->mu < 0.0)  {
-                        if (!Prov2->next) {
-                            tempcurve = new _curve;
-                            imageTracks->append(tempcurve);
+                    if (1.0 * Prov->posflagnum / Prov->length > 0.85) { // this is also not safe
+                        addPoint(Prov2, p2); // add point p to the track
+                        //2021.06.11 you need to update:
+                        flagPrevious = 1;
+                        previousImage = TRUE_IMAGE;
+                        have_add = 1;
+                        if (p2->next) {
+                            muPrevious = p2->mu;
+                            p2 = p2->next;
+                            continue;
+                        } else {
+                            break;
                         }
-                        Prov2 = Prov2->next;
-                        muPrevious = p->mu;
-                        disfirstTime = 1;
-                    }
 
-                    // begin ************************
-                    if (disfirstTime && Prov2->length > 1) {
-                        disPrevious = *(Prov2->last) - *(Prov2->last->prev); // sqrt(dis)
-                        disfirstTime = 0;
-                    }
-
-                    if (Prov2->length > 1 && ((*(p) - * (Prov2->last)) >=  1e8 * disPrevious) ) {
-                        if (!Prov2->next) {
-                            tempcurve = new _curve;
-                            imageTracks->append(tempcurve);
+                    } else {
+                        firstTime = 1;
+                        have_add = 0;
+                        previousImage = FALSE_IMAGE;
+                        while (p2->next && p2->next->flag == -1) {
+                            p2 = p2->next;
                         }
-                        Prov2 = Prov2->next;
-                        muPrevious = p->mu;
-                        disfirstTime = 1;
+                        muPrevious = p2->mu;
                     }
-                    // end ************************
+                }
+            } else {
+                currentTrueOrFalse = 1;
+                // parity has changed, start a new curve
+                // actually there should be a furthur more test: test that whether p and p2->next is close enough, sometimes they will be very far away from each other, in this case we should break the current Prov and start a new one.
+                // now this situation is done by adding a testing afterwards, see the "imageTracks_checked" below
+                if (flagPrevious * p2->flag < 0.0) {
+                    if (muPrevious * p2->mu < 0.0) {
+                        // add one more condition about the angle, when crossing the caustics
+                        helpangcos = 1;
+                        if (p2->next && p2->prev) {
+                            if (p2->next->next && p2->prev->prev) {
+                                helpangcos = angcos(p2->prev->prev, p2->prev, p2->next, p2->next->next);
+#ifdef VERBOSE
+                                fprintf(stderr, "\t 2433 and p2->prev->x1 x2 = %f, %f, parity = %d, mu = %f\n", p2->prev->x1, p2->prev->x2, p2->prev->flag, p2->prev->mu);
+                                fprintf(stderr, "\t break segment, helpangcos = %f, p2->x1 x2 = %f, %f, parity = %d, mu = %f\n", helpangcos, p2->x1, p2->x2, p2->flag, p2->mu);
+                                fprintf(stderr, "\t and p2->next->x1 x2 = %f, %f, parity = %d, mu = %f\n", p2->next->x1, p2->next->x2, p2->next->flag, p2->next->mu);
+#endif
+
+                                // maybe we can also use the sign information of helpangcos ?
+                                if (  abs(helpangcos) < 0.95) {
+#ifdef VERBOSE
+                                    printf("\t 2441 --> start a new segment\n");
+#endif
+                                    if (Prov2->length > 0 && !Prov2->next) {
+                                        tempcurve = new _curve;
+                                        imageTracks->append(tempcurve);
+                                        Prov2 = Prov2->next;
+                                    }
+
+                                    // 在这做个额外的处理，后面大概率是false image，哪怕有也是只有几个了，可利用 Prov->posflagnum 的信息大概判断这是 大segment 还是 小 segment
+                                    if (1.0 * Prov->posflagnum / Prov->length < 0.3 && flagPrevious == 1 && p2->flag == -1) {
+                                        // you can be aggressive and drop more here
+                                        // by scan more
+                                        total_scaned = 0;
+                                        pos_scaned = 0;
+
+                                        anchor = p2;
+                                        while (p2->next) {
+                                            if (total_scaned < scan_percentage) {
+                                                total_scaned += 1;
+                                                pos_scaned += ( p2->flag == 1 ? 1 : 0 );
+                                                p2 = p2->next;
+                                            } else {break;}
+                                        }
+                                        if (!(p2 ->next )) {
+                                            break;
+                                        }
+                                        if (1.0 * pos_scaned / total_scaned < 0.8) {
+
+                                            while (p2->next && p2->next->flag == -1) {
+                                                p2 = p2->next;
+                                            }
+                                            flagPrevious = -1; // now p2->next->flag = 1; but p2->flag still -1
+                                            muPrevious = p2->mu;
+                                        }
+                                    }
+
+
+                                    flagPrevious = p2->flag;
+                                    muPrevious = p2->mu;
+                                    disfirstTime = 1;
+                                    firstTime = 1;
+                                    if (p2->next) {
+                                        p2 = p2->next;
+                                        continue;
+                                    } else {
+                                        break;
+                                    }
+                                }
+
+                            }
+                        } else {
+                            break;
+                        }
+                    } else {
+                        // same flags, but opposite mu
+                        // now flag from 1 --> -1, but mu is the same, we need to judge whether this point is a false negtive or true negtive
+#ifdef VERBOSE
+                        fprintf(stderr, "\t 2392 p2->flag = %d, p2->mu %f, p2->x1 x2 = %f, %f, p2->absdzs %.5e\n", p2->flag, p2->mu, p2->x1, p2->x2, p2->absdzs);
+#endif
+                        total_scaned = 0;
+                        pos_scaned = 0;
+
+                        anchor = p2;
+                        while (p2->next) {
+                            if (total_scaned < scan_percentage) {
+                                total_scaned += 1;
+                                pos_scaned += ( p2->flag == 1 ? 1 : 0 );
+                                p2 = p2->next;
+                            } else {break;}
+                        }
+                        if (!(p2 ->next )) {
+                            break;
+                        }
+#ifdef VERBOSE
+                        fprintf(stderr, "\t total_scaned = %d, pos_scaned = %d, percentage = %f\n", total_scaned, pos_scaned,  1.0 * pos_scaned / total_scaned * 100);
+#endif
+                        if (pos_scaned == total_scaned) {
+                            // we can add all these points to Prov2
+                            while (anchor != p2) { // leave p to add by the below code
+                                addPoint(Prov2, anchor);
+                                anchor = anchor->next;
+                            }
+                            while (p2->next && p2->next->flag == 1) {
+                                addPoint(Prov2, p2);
+                                p2 = p2->next;
+                            }
+
+                            if (p2 == Prov->last && p2->flag == 1) {
+                                addPoint(Prov2, p2);
+                            }
+                            flagPrevious = 1;
+                            // muPrevious = p2->prev->mu;
+                            currentTrueOrFalse = 1;
+                            if (p2->next) {
+                                muPrevious = p2->mu;
+                                p2 = p2->next;
+                                continue;
+                            } else {
+                                break;
+                            }
+                        } else if (pos_scaned == 0) {
+                            // we can discard them totally
+                            // you can check whether from here, the segments is mainly positive or negative.
+                            // scan from -1 to next point with flag +1
+                            while (p2->next && p2->next->flag == -1) {
+                                p2 = p2->next;
+                            }
+
+
+//                             if (p2 == Prov->last && p2->flag == -1) {
+// #ifdef VERBOSE
+//                                 fprintf(stderr, "2587 the last point has flag == -1 \n");
+// #endif
+//                             }
+
+                            // now you should initiate a new Prov2:
+                            if (Prov2->length > 0 &&  !Prov2->next) {
+                                tempcurve = new _curve;
+                                imageTracks->append(tempcurve);
+                                disfirstTime = 1;
+                                Prov2 = Prov2->next;
+                            }
+
+                            currentTrueOrFalse = 0;
+                            flagPrevious = -1;
+                            muPrevious = p2->mu;
+                            if (p2->next) {
+                                p2 = p2->next;
+                                continue;
+                            } else {
+                                break;
+                            }
+                        } else if (1.0 * pos_scaned / total_scaned > 0.8) {
+
+                            // this point is safe
+                            currentTrueOrFalse = 1;
+
+                            addPoint(Prov2, anchor);
+
+                            p2 = anchor; // this go first
+                            muPrevious = p2->mu;
+                            flagPrevious = p2->flag; // assuming we have +1 flag
+                            if (p2->next) {
+                                p2 = p2->next;
+                                continue;
+                            } else {
+                                break;
+                            }
+                        } else { // we check from this point until it reaches another place of a true segments
+                            // we should break at here
+
+                            currentTrueOrFalse = 0;
+
+
+                            // be aggresive
+                            if (1.0 * Prov->posflagnum / Prov->length < 0.3 && flagPrevious == 1 && p2->flag == -1) {
+                                while (p2->next && p2->next->flag == -1) {
+                                    p2 = p2->next;
+                                }
+                                flagPrevious = -1; // now p2->next->flag = 1; but p2->flag still -1
+                                muPrevious = p2->mu;
+                            } else {
+                                p2 = anchor;
+                                muPrevious = p2->mu;
+                                flagPrevious = p2->flag;
+                            }
+
+                            if (Prov2->length > 0 &&  !Prov2->next) {
+                                tempcurve = new _curve;
+                                imageTracks->append(tempcurve);
+                                disfirstTime = 1;
+                                Prov2 = Prov2->next;
+                            }
+
+                            if (p2->next) {
+                                p2 = p2->next;
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                }
+                // begin ************************
+                if (disfirstTime && Prov2->length > 1) {
+                    disPrevious = *(Prov2->last) - *(Prov2->last->prev); // sqrt(dis)
+                    disfirstTime = 0;
+                }
+                if (Prov2->length > 1 && ((*(p2) - * (Prov2->last)) >=  1e8 * disPrevious) ) {
+                    if (!Prov2->next) {
+                        tempcurve = new _curve;
+                        imageTracks->append(tempcurve);
+                    }
+                    Prov2 = Prov2->next;
+                    flagPrevious = p2->flag;
+                    muPrevious = p2->mu;
+                    disfirstTime = 1;
+                    p2 = p2->next;
+                }
+                // end ************************
+
+
+                if (currentTrueOrFalse) {
+                    addPoint(Prov2, p2); // add point p to the track
+                    //2021.06.11 you need to update:
+                    flagPrevious = 1; //p2->flag;
+                    muPrevious = p2->mu;
+                    previousImage = TRUE_IMAGE;
+                    have_add = 1;
                 }
 
-                addPoint(Prov2, p); // add point p to the track
 
-                previousImage = TRUE_IMAGE;
+            }
+
+            if ( have_add ) {
+                if (p2->next) {
+                    p2 = p2->next;
+                    continue;
+                } else {
+                    break;
+                }
             } else {
-
                 falseImages++;
-
                 //first time that we enter this
                 if (firstTime) {
                     previousImage = FALSE_IMAGE;
                     firstTime = 0;
+                    flagPrevious = p2->flag; // 2021.06.10
+                    muPrevious = p2->mu;
                 }
-
                 // already a true segment existing, we cut the segment, and start a new one
                 if (previousImage == TRUE_IMAGE) { // previously we had true images, now we are encountering on false solutions
                     if (!Prov2->next) {
@@ -1466,54 +2578,224 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                         imageTracks->append(tempcurve);
                         disfirstTime = 1;
                     }
-
                     Prov2 = Prov2->next;  // we start a new image track
-
                     previousImage = FALSE_IMAGE;
+                }
+                if (p2->next) {
+                    p2 = p2->next;
+                } else {
+                    break;
                 }
             }
         }
+        Prov = Prov->next;
 
-        if (trueImages) {
-            if (!Prov2->next) {
-                tempcurve = new _curve;
-                imageTracks->append(tempcurve);
-                disfirstTime = 1;
-            }
+        if (Prov2->length > 0 &&  !Prov2->next) {
+            tempcurve = new _curve;
+            imageTracks->append(tempcurve);
+            disfirstTime = 1;
             Prov2 = Prov2->next;
         }
 
-        if (trueImages && falseImages) mixedTracks += 1; // there are tracks that are mixed
-    }
 
+    }
+    mixedTracks = 1;
+    // finish spliting the segments.
+    //  ****************************************** end version 3 ************************************************* //
 
     tempcurve = NULL;
     delete tempcurve;
+    int badscaned = 0;
 
-
+    // drop empty _curve
     Prov = imageTracks->first;
     while (Prov) {
         Prov2 = Prov->next;
-        if (!Prov->first || !Prov->last) { // add one more condition
+        pos_scaned = 0;
+        // count how many +1 flag points here
+        for (_point *scan = Prov->first; scan; scan = scan->next) {
+            pos_scaned += ( scan->flag == 1 ? 1 : 0 );
+        }
+        Prov->posflagnum = pos_scaned;
+        total_scaned = Prov->length;
 
+        if (!Prov->first || !Prov->last) { // add one more condition
             imageTracks->drop(Prov);
             delete Prov;
             Prov = Prov2;
-        } else {Prov = Prov->next;}
+        }
+        else if (1.0 * pos_scaned / total_scaned < 0.05) {
+            imageTracks->drop(Prov);
+            delete Prov;
+            Prov = Prov2;
+        } else if ( total_scaned < 0.01 * pntnum ) {
+            // we are dealing with a tiny segment, probably a bad one
 
+            badscaned = 0;
+            // count how many +1 flag points here
+            for (_point *scan = Prov->first; scan; scan = scan->next) { // remove tiny bad segments
+                badscaned += ( scan->absdzs > 1e-7 ? 1 : 0 );
+            }
+
+            if (badscaned > 0.9 * Prov->length) {
+                imageTracks->drop(Prov);
+                delete Prov;
+                Prov = Prov2;
+            } else {
+                // 2021.08.06
+                // this tiny segments is ok
+                Prov = Prov->next;
+            }
+        }
+        else {
+            Prov = Prov->next;
+        }
+    }
+
+    Prov = imageTracks->first;
+    while (Prov) {
+#ifdef VERBOSE
+        fprintf(stderr, "---> Prov->length %d, first->absdzs %.5e\n", Prov->length, Prov->first->absdzs);
+#endif
+        Prov = Prov->next;
+    }
+
+
+
+//2021.06.13 // now we do pruning: remove false images from these segments
+// 查找头，尾部 prung_depth 范围内有没有 absdzs ~ 0 的一对点
+    int littlecnt = 0;
+    int prung_depth = 0;
+    double absdzsPrevious = 0;
+    int prung_flag = 0;
+    bool muPrevious2;
+    Prov = imageTracks->first;
+    while (Prov) {
+// check head first
+        // 如果 track 全部 flag 都 = 1，则不用处理
+        if (Prov->posflagnum == Prov->length) {
+            Prov = Prov->next;
+            continue;
+        }
+
+        // Prov->length - Prov->posflagnum 表示有多少个 flag = -1 的点
+
+        prung_depth = int( 1.5 * (Prov->length - Prov->posflagnum) );
+
+        if (Prov->first->absdzs > 1e-7) {
+            // we need to find out the separation between bad and good points
+            littlecnt = 1; // counter for the number of bad images
+            p2 = Prov->first;
+            muPrevious2 = p2->mu > 0 ? true : false; // do not need update
+            absdzsPrevious = p2->absdzs;
+            prung_flag = 0;
+            if (p2->next) {p2 = p2->next;}
+            else break;
+            while (p2 && ( littlecnt < prung_depth)) {
+                if ( ( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) ) ) {
+                    // this means now p2 is normal
+                    absdzsPrevious = p2->absdzs;
+                    if (p2->next) {p2 = p2->next;}
+                    else break;
+                    littlecnt += 1;
+                } else {
+                    prung_flag = 1;
+                    break;
+                }
+            }
+            // now p2 should be the new head
+            if (!( littlecnt == prung_depth || p2 == Prov->last ) && prung_flag) {
+                Prov->first = p2;
+                p2->prev = 0;
+                Prov->length -= littlecnt;
+            }
+        } else {
+            // the head is good
+        }
+        if (Prov->last->absdzs > 1e-7) {
+            // we need to find out the separation between bad and good points
+            littlecnt = 1; // counter for the number of bad images
+            p2 = Prov->last;
+            muPrevious2 = p2->mu > 0 ? true : false; // do not need update
+            absdzsPrevious = p2->absdzs;
+            prung_flag = 0;
+            if (p2->prev) {p2 = p2->prev;}
+            else break;
+            while (p2 && ( littlecnt < prung_depth)) {
+                if (( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) )) {
+                    // this means now p2 is normal
+                    absdzsPrevious = p2->absdzs;
+                    if (p2->prev) {p2 = p2->prev;}
+                    else break;
+                    littlecnt += 1;
+                } else {
+                    prung_flag = 1;
+                    break;
+                }
+            }
+            // now p2 should be the new head
+            if (!( littlecnt == prung_depth || p2 == Prov->first ) && prung_flag) {
+                Prov->last = p2;
+                p2->next = 0;
+                Prov->length -= littlecnt;
+            }
+        } else {
+            // the head is good
+        }
+        Prov = Prov->next;
     }
 
 #ifdef VERBOSE
-    saveTracks_before(imageTracks);
+    int ctk = 0, ctk2 = 0 ,  maxprint = 10;
+    for (_curve *scan = imageTracks->first; scan; scan = scan->next) {
+#ifdef VERBOSE
+        printf("\n\n-----> track %d, length %d\n", ctk, scan->length);
+        printf("\n\n-----> head\n");
+#endif
+        ctk2 = 0;
+        for (_point *p = scan->first; p; p = p->next) {
+            if (ctk2 < maxprint) {
+#ifdef VERBOSE
+                printf("p->flag %d, p->mu %f, p->absdzs = %.5e\n", p->flag, p->mu , p->absdzs );
+#endif
+                ctk2 += 1;
+            } else {
+                break;
+            }
+        }
+#ifdef VERBOSE
+        printf("\n\n-----> tail\n");
+#endif
+        ctk2 = 0;
+        for (_point *p = scan->last; p; p = p->prev) {
+            if (ctk2 < maxprint) {
+#ifdef VERBOSE
+                printf("p->flag %d, p->mu %f, p->absdzs = %.5e\n", p->flag, p->mu , p->absdzs);
+#endif
+                ctk2 += 1;
+            } else {
+                break;
+            }
+        }
+        ctk += 1;
+    }
+#endif
+
+
+
+#ifdef VERBOSE
+    saveTracks_before(imageTracks, pntnum);
 #endif
 
 #ifdef VERBOSE
     fprintf(stderr, "\nimageTracks->length %d before linking to closed continuous track\n", imageTracks->length);//for debug
 #endif
+
+
+    // now the following is actually no longer needed,
     // The easy case: every curve is self-closed without caustics-crossing, we are done
     if (mixedTracks == 0)  {
         if ( (imageTracks->length - (NLENS + 1)) % 2 == 0) { // double check the number of tracks should be 4 + 2*n in this case
-
             for (Prov = imageTracks->first; Prov; Prov = Prov->next) {
                 _Prov_parity
             }
@@ -1524,7 +2806,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             delete allSolutions;
             return (imageTracks);
         } else {
-
 #ifdef VERBOSE
             fprintf(stderr, "image tracks should be %d, but is %d\n", NLENS + 1, imageTracks->length);
 #endif
@@ -1561,42 +2842,45 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     //
     int selfClosed = 0;
     Prov = imageTracks->first;
-    // Prov2 = connected->first;
-    // _curve *tempProv;
     tempProv = NULL;
     while (Prov) {
         SD = *(Prov->first) - *(Prov->last);
-        if (SD < EPS * EPS && Prov->length > 3) { // closed tracks
+        // if (SD < EPS * EPS && Prov->length > 3) { // closed tracks
+        if (SD < EPS * EPS && Prov->length > 3) { // add on 2021.06.10
             tempProv = Prov->next;
             imageTracks->drop(Prov);
-            // tempfinal = Prov;
-            connected->append(Prov);
 
-
-
-            selfClosed++;
+            if (Prov->first->mu < 0 && abs(Prov->first->mu) < 1e-5 ) {
+                // this is a tiny image
 #ifdef VERBOSE
-            printf("entered, pointInTrack=%d imageTracks->length %d\n", Prov->length, imageTracks->length);
+                fprintf(stderr, "A TINY image with length %d, final->mu = %.5e, last->mu = %.5e\n", Prov->length, Prov->first->mu, Prov->last->mu);
 #endif
+            } else {
+                connected->append(Prov);
+                connected->last->parity = connected->last->first->mu > 0 ? 1 : -1;
+                selfClosed++;
+#ifdef VERBOSE
+                printf("entered, pointInTrack=%d imageTracks->length %d\n", Prov->length, imageTracks->length);
+#endif
+
+            }
+
+
+
             //
             // such image tracks must have number of points == number of points on the source circle
             //
             // special case may be there is only one single point around a narrow cusp, / we probably
             // need to increase the number of points to solve the problem
             //
+#ifdef VERBOSE
             if (Prov->length != pntnum) {
-#ifdef VERBOSE
                 fprintf(stderr, "the number of points is %d, should be equal to pntnum=%d!\n", Prov->length, pntnum);
-#endif
             }
-            // drop the already connected curve from imageTracks
-#ifdef VERBOSE
-            fprintf(stderr, "imageTracks->length after drop of a self-closed track %d\n", imageTracks->length);
 #endif
-            // delete Prov;
+            // drop the already connected curve from imageTracks
             Prov = tempProv;
-
-        }else{
+        } else {
             Prov = Prov->next;
         }
     }
@@ -1616,10 +2900,25 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     } else {
 #ifdef VERBOSE
         for (_curve *scan = imageTracks->first; scan; scan = scan->next) {
-            fprintf(stderr, "\t\t scan length %d\n", scan->length);
+            fprintf(stderr, "\t\t scan length %d, scan->first->mu = %f\n", scan->length, scan->first->mu);
         }
 #endif
     }
+
+
+    // 2021.06.10
+    // before proceed, add a sort procedure to make the longer track go first
+    imageTracks->sort();
+
+
+#ifdef VERBOSE
+    k = 0;
+    for (_curve *scan = imageTracks->first; scan; scan = scan->next) {
+        fprintf(stderr, "\t\t %d, after sort scan length %d, scan->first->mu = %f\n", k, scan->length, scan->first->mu);
+        k += 1;
+    }
+
+#endif
 
     //
     // now we deal with the final image track that are non-closed, presumbly associated with caustic crossing
@@ -1634,503 +2933,236 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     //
     complex zhead, ztail;//dz
     int ifcontinue = 0;
+    int ifkeep_connect = 0;
+
+    int ifcontinue_Fromjump = 0;
+    int ifkeep_jumping = 0;
+
+    int one_more_life = 0;
 
     // use another way, less reverse
     int head = 0, tail = 0;
-    _curve *markedCurve;
+    _curve *markedCurve = nullptr;
     while ( imageTracks->length >= 1) {
+        _final_parity // add on 2021.06.13
+#ifdef VERBOSE
+        // fprintf(stderr, "can not jump, reversing final and then check if connectWithHead or connectWithTail, or jump over caustics\n");
+        fprintf(stderr, "\t right below while, imageTracks->length %d, final->length %d, final->parity = %d\n", imageTracks->length, final->length, final->parity);
+#endif
+
+
+        // be cautious, if current "final" has length 1, you can not tell its parity
+        // because, when trying to connect or jump, the direction can go both way from just one point, and the parity might be messed up,
+
         _final_parity
-        final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected);
+        ifkeep_connect = 1;
+        while (ifkeep_connect) {
+            final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, false, &ifkeep_connect);
+        }
         if (ifcontinue) continue;
         else {
-
 #ifdef VERBOSE
             // fprintf(stderr, "can not jump, reversing final and then check if connectWithHead or connectWithTail, or jump over caustics\n");
-            fprintf(stderr, "can not connect, checking whether the head of final can connect or jump over caustics\n");
+            fprintf(stderr, "1933, 1st connect null, check head\n");
 #endif
-            final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, true);
+            ifkeep_connect = 1;
+            while (ifkeep_connect) {
+                final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, true, &ifkeep_connect);
+            }
             if (ifcontinue) continue;
             else {
-                markedCurve = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve, true);
-// here we jump over caustics
-                if (head == 1) {               // jumped over caustics to the head of a curve
-#ifdef VERBOSE
-                    printf("jumped to head of a curve: %f %f %f %f, phi=%.15f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu, markedCurve->first->phi * 180 / M_PI);
-                    printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
-#endif
 
-                    // markedCurve->first->closepairparity = (markedCurve->first->mu)>0?1:-1;
-                    ifjump = 1;
+                // 2021.06.11, before jump, we need to check whether the remaining _curve has only 1 point
+                if (imageTracks->first->length == 1) {
+                    // because we have sort imageTracks by length, this mean all remaining curve has lengh = 1
+                    // we just link them to final according to distance?
 
+                    // what if some points can connect to previous connected "final", due to we ignore them?
 
-#ifdef VERBOSE
-                    fprintf(stderr, "imageTracks->length before drop %d\n", imageTracks->length);
-#endif
-                    imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
-#ifdef VERBOSE
-                    fprintf(stderr, "imageTracks->length after drop %d\n", imageTracks->length);
-#endif
-
-                    _final_parity
-                    markedCurve->reverse();
-                    final->first->closepairparity = (final->first->mu) > 0 ? 1 : -1;
-                    markedCurve->last->closepairparity = (markedCurve->last->mu) > 0 ? 1 : -1;
-                    markedCurve->last->next = final->first;
-                    final->first->prev = markedCurve->last;
-                    markedCurve->last = final->last;
-                    markedCurve->length += final->length;
-                    markedCurve->parity = final->parity;
-                    final = markedCurve;
-
-                } else if (tail == 1) { // jumped over caustics to the tail of a curve
-#ifdef VERBOSE
-                    printf("jumped to tail of a curve: %f %f %f %f, phi=%.15f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu, markedCurve->last->phi * 180 / M_PI);
-                    printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
-#endif
-                    
-                    final->first->closepairparity = final->first->mu > 0 ? 1 : -1;
-                    markedCurve->last->closepairparity = (markedCurve->last->mu) > 0 ? 1 : -1;
-                    ifjump = 1;
-
-
-
-#ifdef VERBOSE
-                    fprintf(stderr, "imageTracks->length before drop %d\n", imageTracks->length);
-#endif
-                    imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
-#ifdef VERBOSE
-                    fprintf(stderr, "imageTracks->length after drop %d\n", imageTracks->length);
-#endif
-
-                    markedCurve->last->next = final->first;
-                    final->first->prev = markedCurve->last;
-                    markedCurve->last = final->last;
-                    markedCurve->length += final->length;
-                    markedCurve->parity = final->parity;
-                    final = markedCurve;
-
-                } else {      // we failed to jump at head
-
-
-                    // we are not yet self closed, we need  to jump over caustics, we seek a point with the same source position but opposite parity, and smallest magnification ratio
-                    muPrevious = final->last->mu;
-                    markedCurve = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve);
-                    // here we jump over caustics
-                    if (head == 1) {               // jumped over caustics to the head of a curve
-#ifdef VERBOSE
-                        printf("jumped to head of a curve: %f %f %f %f, final->last->mu %f, phi=%.15f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu, final->last->mu, markedCurve->first->phi * 180 / M_PI);
-                        printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
-#endif
-                        
-                        final->last->closepairparity = (final->last->mu) > 0 ? 1 : -1;
-                        markedCurve->first->closepairparity = (markedCurve->first->mu) > 0 ? 1 : -1;
-                        ifjump = 1;
-
-#ifdef VERBOSE
-                        fprintf(stderr, "markedCurve->length %d\n", markedCurve->length);
-                        fprintf(stderr, "imageTracks->length before drop %d, connected->length = %d\n", imageTracks->length, connected->length);
-#endif
-                        imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
-#ifdef VERBOSE
-                        fprintf(stderr, "imageTracks->length after drop %d, connected->length = %d\n", imageTracks->length, connected->length);
-#endif
-
-                        // 2020.07.17, attach two segments directly instead of for loop above, to speed up the code.
-                        _final_parity
-                        final->last->next = markedCurve->first;
-                        markedCurve->first->prev = final->last;
-                        final->last = markedCurve->last;
-                        final->length += markedCurve->length;
-
-
-                    } else if (tail == 1) { // jumped over caustics to the tail of a curve
-#ifdef VERBOSE
-                        printf("jumped to tail of a curve: %f %f %f %f, final->last->mu %f, phi=%.15f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu, final->last->mu, markedCurve->last->phi * 180 / M_PI);
-                        printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
-#endif
-                        
-                        final->last->closepairparity = (final->last->mu) > 0 ? 1 : -1;
-
-                        ifjump = 1;
-
-#ifdef VERBOSE
-                        fprintf(stderr, "imageTracks->length before drop %d, connected->length = %d\n", imageTracks->length, connected->length);
-#endif
-                        imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
-#ifdef VERBOSE
-                        fprintf(stderr, "imageTracks->length after drop %d, connected->length = %d\n", imageTracks->length, connected->length);
-#endif
-
-                        
-                        _final_parity
-                        markedCurve->reverse();
-                        markedCurve->first->closepairparity = (markedCurve->first->mu) > 0 ? 1 : -1;
-                        final->last->next = markedCurve->first;
-                        markedCurve->first->prev = final->last;
-                        final->last = markedCurve->last;
-                        final->length += markedCurve->length;
-
-                    } else {      // we failed to connect, something went wrong
-
-#ifdef VERBOSE
-                        fprintf(stderr, "connected with neither head nor tail, something went wrong, append final anyway\n");
-#endif
-                        _final_parity
-#ifdef VERBOSE
-                        fprintf(stderr, "\t >>>connected->append(final) place 5, final->length = %d\n", final->length);
-#endif
-                        connected->append(final);
-
-#ifdef VERBOSE
-                        fprintf(stderr, "due to may be small mass ratio (lack solution), some image tracks is not closed, just drop it, the area is small anyway, imageTracks.length = %d, connected.length = %d, final->length = %d\n", imageTracks->length, connected->length, final->length);
-#endif
-
-                        if (imageTracks->length > 0) {
-                            connected->append(final);
-                            final = NULL;
-                            delete final;
-#ifdef VERBOSE
-                            fprintf(stderr, "deleting final\n");
-#endif
-                            _newSegment
-                        }
-                        continue;
-
-                    }
-
+                    // do not handle here, handle when you jump to that point,
+                    //
+                }
+                ifkeep_jumping = 1;
+                // final = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve, false, &ifcontinue_Fromjump, connected, &ifkeep_jumping);
+                while (ifkeep_jumping) {
+                    final = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve, false, &ifcontinue_Fromjump, connected, &ifkeep_jumping);
                     if (head || tail) {
+                        one_more_life = 1; // 中间只要有一次跳了，就能再获得一次机会
+                        // and we now should check connectivity first, rather than jump
 
-#ifdef VERBOSE
-                        fprintf(stderr, "jumped, checking whether head and tail connects, ");
-                        fprintf(stderr, "and continue the cycle to see weather we could attach to final a new subtrack\n");
-#endif
-                    } else {
-#ifdef VERBOSE
-                        fprintf(stderr, "not jumped, checking whether head and tail connects\n");
-#endif
+// #ifdef VERBOSE
+//                         printf("--> 2901, final->last->x1,x2 = %f, %f\n", final->last->x1, final->last->x2);
+//                         for (_curve *tt = imageTracks->first; tt; tt = tt->next) {
+//                             printf("--> 2901, tt length = %d\n", tt->length);
+//                             printf("--> 2901, tt head->x1,x2 = %f, %f, dzs = %.5e\n", tt->first->x1, tt->first->x2, abs( complex(tt->first->x1, tt->first->x2) - complex(final->last->x1, final->last->x2) ));
+//                             printf("--> 2901, tt tail->x1,x2 = %f, %f, dzs = %.5e\n", tt->last->x1, tt->last->x2, abs( complex(tt->last->x1, tt->last->x2) - complex(final->last->x1, final->last->x2)) );
+//                         }
+// #endif
+
+                        final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, false, &ifkeep_connect);
+                        if (ifcontinue) continue;
                     }
+                }
+                if (ifcontinue_Fromjump) continue;
+                else {      // we failed to jump at head, check whether we can jump from tail
+                    // we are not yet self closed, we need  to jump over caustics, we seek a point with the same source position but opposite parity, and smallest magnification ratio
+                    ifkeep_jumping = 1;
+                    while (ifkeep_jumping) {
+                        final = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve, true, &ifcontinue_Fromjump, connected, &ifkeep_jumping);
+                        if (head || tail) {
+                            one_more_life = 1; // 中间只要有一次跳了，就能再获得一次机会
 
-//    After jumping, we now check whether the tail and head of the current curve actually connect.
-                    SD = *(final->first) - *(final->last);
+                            final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, true, &ifkeep_connect);
+                            if (ifcontinue) continue;
 
-                    if (SD < EPS * EPS) { // we are already connected
-
-#ifdef VERBOSE
-                        fprintf(stderr, "jumped, head and tail connected!\n");
-#endif
-                        _final_parity
-#ifdef VERBOSE
-                        fprintf(stderr, "\t >>>connected->append(final) place 6, final->length = %d, imageTracks->length = %d\n", final->length, imageTracks->length);
-#endif
-                        connected->append(final);
-
-                        //all segments connected, we are done
-                        if (imageTracks->length == 0) {
-                            delete allSolutions;
-                            delete imageTracks;
-                            Prov2 = NULL;
-                            Prov = NULL;
-                            delete Prov;
-                            delete Prov2;
-                            // delete markedCurve;
-                            delete tempProv;
-                            return (connected);
                         }
-                        _newSegment
-                        continue;
                     }
+                    if (ifcontinue_Fromjump) continue;
                     else {
+                        // the most difficult part, we can neither connect or jump
+
+                        // 2021.06.10, jumper by searching deeper, it might be that they can connect when we search a little bit deeper
+                        if (final->length > JUMP_SEARCH_DEPTH ) {
+                            // ifkeep_jumping = 1;
+
+                            // do not use while here, this is not a channel that we can use unlimitedly, only try when the previous steps are fail
+
+                            // while (ifkeep_jumping) {
+                            final = jump_over_caustics_deeper(final, imageTracks, &head, &tail, markedCurve, false, &ifcontinue_Fromjump, connected, &ifkeep_jumping);
+                            if (head || tail) {
+                                one_more_life = 1; //
+                            }
+                            // }
+                            if (ifcontinue_Fromjump) continue;
+                            else {
+                                if (final->length > JUMP_SEARCH_DEPTH ) { // it is possible that after jump_over_caustics_deeper, final is even shorter
+                                    // ifkeep_jumping = 1;
+                                    // while (ifkeep_jumping) {
+                                    final = jump_over_caustics_deeper(final, imageTracks, &head, &tail, markedCurve, true, &ifcontinue_Fromjump, connected, &ifkeep_jumping);
+                                    if (head || tail) {
+                                        one_more_life = 1; // 中间只要有一次跳了，就能再获得一次机会
+                                    }
+                                    // }
+                                    if (ifcontinue_Fromjump) continue;
+                                    else {
+                                        // I have noting to do, go to error correction part.
+                                    }
+                                }
+                            }
+                        }
+
+
+                        //ERROR correction begin. We forgot to check the case when the track is already closed when
+                        //the first and last points share the same source position.
+                        dzs = final->first->zs - final->last->zs;
+                        if (abs(dzs) < EPS) {
+                            if (final->length >= PHI->length && imageTracks->length == 0) { // this is wrong?
+                                _final_parity
+                                connected->append(final);
+                                return connected;
+                            }
+                        }
+
+                        //
+                        if (one_more_life) {
+
+// #ifdef VERBOSE
+//                             fprintf(stderr, "\t\t I have one more chance \n");
+
+//                             fprintf(stderr, "final->length = %d, final->first place = %f, %f\n", final->length, final->first->x1, final->first->x2);
+//                             fprintf(stderr, "                     final->last place = %f, %f\n", final->last->x1, final->last->x2);
+
+//                             for (_curve *ttmp = imageTracks->first; ttmp; ttmp = ttmp->next) {
+//                                 fprintf(stderr, "curve remains length %d first place = %f, %f\n", ttmp->length, ttmp->first->x1, ttmp->last->x2);
+//                                 fprintf(stderr, "                         last place = %f, %f\n", ttmp->last->x1, ttmp->last->x2);
+//                             }
+// #endif
+
+
+                            one_more_life = 0;
+                            continue;
+                        }
+
+                        // one possible scenario,
+
                         if ( ( abs(final->first->phi - final->last->phi) < EPS ||  abs( abs(final->first->phi - final->last->phi) - 2.0 * M_PI) < EPS) ) {
 
                             // we check whether the slope changes are smooth using four previous points
                             int i = 0;
                             double slope[2], slope_if_jumped;
                             double scatter;
-
 #ifdef VERBOSE
                             fprintf(stderr, "number of points so far %d\n", final->length);
 #endif
+                            if (final->length < 3) { // final->length might even be 1
 
-                            if (final->length < 3) {
-#ifdef VERBOSE
-                                fprintf(stderr, "too few points in determing slope ratios and scatters: needs to increase the number of points\n");
-#endif
-
-                                delete allSolutions;
-                                delete imageTracks;
-                                delete connected;
-                                Prov2 = NULL;
-                                Prov = NULL;
-
-                                delete Prov;
-                                delete tempProv;
-                                delete Prov2;
-                                delete final;
-                                // delete markedCurve;
-                                return (NULL);
-                            }
-
-                            for (_point *p = final->last;  i <= 1; i++, p = p->prev) {
-                                slope[i] = (p->prev->x2 - p->x2) / (p->prev->x1 -  p->x1);
-#ifdef VERBOSE
-                                printf("slope: %f %f %d %f\n", p->x1, p->x2, i, slope[i]);
-                                printf("slope=%f\n", tan(p->thetaJ));
-#endif
-                            }
-
-                            scatter = abs( log10(abs(slope[1] / slope[0])) );
-                            slope_if_jumped = (final->last->x2 - final->first->x2) / (final->last->x1 - final->first->x1);
-
-                            if (abs(log10(abs(slope[0] / slope_if_jumped))) < 2.0 * scatter) {
-#ifdef VERBOSE
-                                printf("finally dropped %d\n", final->length);
-#endif
-
-                                if (final->length > 10 && imageTracks->length == 0) {
-                                    addPoint(final, final->first); // we simply connect the first and last points
-                                } else {
-                                    continue;
-                                }
-
-                            } else {    // slopes changed too much, we should not jump; this is somewhat ambigious here
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-
-
-                    }
-
-
-                    //ERROR correction begin. We forgot to check the case when the track is already closed when
-                    //the first and last points share the same source position.
-                    //
-                    dzs = final->first->zs - final->last->zs;
-#ifdef VERBOSE
-                    printf("first and last source position difference %e\n", abs(dzs));
-#endif
-                    if (abs(dzs) < EPS) {
-
-                        if (final->length >= PHI->length && imageTracks->length == 0) {
-                            _final_parity
-
-#ifdef VERBOSE
-                            fprintf(stderr, "\t >>>connected->append(final) place 7, final->length = %d\n", final->length);
-#endif
-                            connected->append(final);
-
-                            //we start a new curve
-                            if (imageTracks->length != 0) {
+                                // just ingnore current "final"
                                 _newSegment
+                                _final_parity
+                            } else {
+                                for (_point *p = final->last;  i <= 1; i++, p = p->prev) {
+                                    slope[i] = (p->prev->x2 - p->x2) / (p->prev->x1 -  p->x1);
+#ifdef VERBOSE
+                                    printf("slope: %f %f %d %f\n", p->x1, p->x2, i, slope[i]);
+                                    printf("slope=%f\n", tan(p->thetaJ));
+#endif
+                                }
+                                scatter = abs( log10(abs(slope[1] / slope[0])) );
+                                slope_if_jumped = (final->last->x2 - final->first->x2) / (final->last->x1 - final->first->x1);
+                                if (abs(log10(abs(slope[0] / slope_if_jumped))) < 2.0 * scatter) {
+                                    if (final->length > 10 && imageTracks->length == 0) {
+                                        connected->append(final);
+                                        if (imageTracks->length > 0) {
+                                            _newSegment
+                                            _final_parity
+                                        }
 
+                                    }
 
-                            } // we already incorporated the new curve, and so drop it
-                            continue;
-                        } else {
-                            continue;
+                                }
+                            }
                         }
 
-                    } else {
-                        if (imageTracks->length == 0) {
-                            delete allSolutions;
-                            delete imageTracks;
-                            Prov2 = NULL;
-                            Prov = NULL;
-                            delete Prov;
-                            delete tempProv;
-                            delete Prov2;
-                            return (connected); // we are done
-                        } else {      // start a new curve
+                        // final check, what if
+
+#ifdef VERBOSE
+                        fprintf(stderr, "we can do nothing with this segment, something went wrong, append final anyway\n");
+                        fprintf(stderr, "\t >>>2028 connected->append(final) place 5, final->length = %d\n", final->length);
+                        fprintf(stderr, "2029 due to may be small mass ratio (lack solution), some image tracks is not closed, just drop it, the area is small anyway, \n \t\t imageTracks.length = %d, connected.length = %d, final->length = %d\n", imageTracks->length, connected->length, final->length);
+#endif
+                        _final_parity
+                        connected->append(final);
+
+                        if (imageTracks->length > 0) {
+                            connected->append(final);
                             _newSegment
-
-                            continue;
+                            _final_parity
                         }
-
+                        continue;
                     }
                     //ERROR correction end
                 }
-
-                if (head || tail) {
-
-#ifdef VERBOSE
-                    fprintf(stderr, "jumped, checking whether head and tail connects, ");
-                    fprintf(stderr, "and continue the cycle to see weather we could attach to final a new subtrack\n");
-#endif
-                } else {
-#ifdef VERBOSE
-                    fprintf(stderr, "not jumped, checking whether head and tail connects\n");
-#endif
-                }
-
-//    After jumping, we now check whether the tail and head of the current curve actually connect.
-                SD = *(final->first) - *(final->last);
-
-                if (SD < EPS * EPS) { // we are already connected
-
-#ifdef VERBOSE
-                    fprintf(stderr, "jumped, head and tail connected!\n");
-#endif
-                    _final_parity
-#ifdef VERBOSE
-                    fprintf(stderr, "\t >>>connected->append(final) place 6, final->length = %d, imageTracks->length = %d\n", final->length, imageTracks->length);
-#endif
-                    connected->append(final);
-
-                    //all segments connected, we are done
-                    if (imageTracks->length == 0) {
-                        delete allSolutions;
-                        delete imageTracks;
-                        Prov2 = NULL;
-                        Prov = NULL;
-                        delete Prov;
-                        delete Prov2;
-                        // delete markedCurve;
-                        delete tempProv;
-                        return (connected);
-                    }
-
-                    //we still have segments remaining, start a new curve
-                    _newSegment
-
-                    continue;
-                }
-                else {            
-                    if ( ( abs(final->first->phi - final->last->phi) < EPS ||  abs( abs(final->first->phi - final->last->phi) - 2.0 * M_PI) < EPS) ) {
-
-                        // we check whether the slope changes are smooth using four previous points
-                        int i = 0;
-                        double slope[2], slope_if_jumped;
-                        double scatter;
-
-#ifdef VERBOSE
-                        fprintf(stderr, "number of points so far %d\n", final->length);
-#endif
-
-                        if (final->length < 3) {
-#ifdef VERBOSE
-                            fprintf(stderr, "too few points in determing slope ratios and scatters: needs to increase the number of points\n");
-#endif
-                            delete allSolutions;
-                            delete imageTracks;
-                            delete connected;
-                            Prov2 = NULL;
-                            Prov = NULL;
-
-                            delete Prov;
-                            delete tempProv;
-                            delete Prov2;
-                            delete final;
-                            return (NULL);
-                        }
-
-                        for (_point *p = final->last;  i <= 1; i++, p = p->prev) {
-                            slope[i] = (p->prev->x2 - p->x2) / (p->prev->x1 -  p->x1);
-#ifdef VERBOSE
-                            printf("slope: %f %f %d %f\n", p->x1, p->x2, i, slope[i]);
-                            printf("slope=%f\n", tan(p->thetaJ));
-#endif
-                        }
-
-                        scatter = abs( log10(abs(slope[1] / slope[0])) );
-                        slope_if_jumped = (final->last->x2 - final->first->x2) / (final->last->x1 - final->first->x1);
-
-                        if (abs(log10(abs(slope[0] / slope_if_jumped))) < 2.0 * scatter) {
-#ifdef VERBOSE
-                            printf("finally dropped %d\n", final->length);
-#endif
-                            if (final->length > 10 && imageTracks->length == 0) {
-                                addPoint(final, final->first); // we simply connect the first and last points
-                            }
-                            else {
-                                continue;
-                            }
-
-                        }
-                        else {    // slopes changed too much, we should not jump; this is somewhat ambigious here
-                            continue;
-                        }
-                    } else {
-                        continue;
-                    }
-
-
-                }
-
-
-                //ERROR correction begin. We forgot to check the case when the track is already closed when
-                //the first and last points share the same source position.
-                //
-                dzs = final->first->zs - final->last->zs;
-#ifdef VERBOSE
-                printf("first and last source position difference %e\n", abs(dzs));
-#endif
-                if (abs(dzs) < EPS) {
-
-                    if (final->length >= PHI->length && imageTracks->length == 0) {
-                        _final_parity
-
-#ifdef VERBOSE
-                        fprintf(stderr, "\t >>>connected->append(final) place 7, final->length = %d\n", final->length);
-#endif
-                        connected->append(final);
-
-                        //we start a new curve
-                        if (imageTracks->length != 0) {
-
-                            _newSegment
-
-                        } // we already incorporated the new curve, and so drop it
-                        continue;
-                    } else {
-                        continue;
-                    }
-
-                } else {
-                    if (imageTracks->length == 0) {
-                        delete allSolutions;
-                        delete imageTracks;
-                        Prov2 = NULL;
-                        Prov = NULL;
-                        delete Prov;
-                        delete tempProv;
-                        delete Prov2;
-                        return (connected); // we are done
-                    } else {      // start a new curve
-                        _newSegment
-
-
-                    }
-
-                }
-                //ERROR correction end
             }
-
         }
     }
 
 
 //check whether the first and last points are connected, if not, join the first and last points
     SD = *(final->first) - *(final->last);
-
 #ifdef VERBOSE
+    fprintf(stderr, "2047 imageTracks->length %d, connected->length %d\n", imageTracks->length, connected->length );
     printf("final->length = %d, joining the first and last point %f %f %f %f %f %f\n", final->length, final->first->x1, final->first->x2, final->first->phi,
            final->last->x1, final->last->x2, final->last->phi);
     fprintf(stderr, "SD = %.3e\n", SD);
 #endif
 
 
-
-
     if (connected->last != final && final->length > 1) {
         _final_parity
-
-        // this should comment out: on 2020.03.12 ?
 #ifdef VERBOSE
         fprintf(stderr, "\t >>>connected->append(final) place 8, final->length = %d\n", final->length);
 #endif
         connected->append(final); // attach the final curve
-
     }
     delete allSolutions;
     delete imageTracks;
@@ -2143,476 +3175,302 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 }
 
 
-// _sols *TripleLensing::outputTracks
-_sols *TripleLensing::outputTracks(double xsCenter, double ysCenter, double rs, int nphi, double phi0)
+
+#undef TRUE_IMAGE
+#undef FALSE_IMAGE
+
+
+
+_curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head, int *tail, _curve * markedCurve, bool checkfinalhead, int *ifcontinue_Fromjump, _sols * connected, int *ifkeep_jumping)
 {
-    nsolution = 0;
-    _sols *allSolutions, *imageTracks;
-    _curve *Prov = new _curve;
-    _curve *Prov2 = new _curve;
+    *tail = 0;
+    *head = 0;
+    int cnt1, cnt2, mark_reduced_final, mark_reduced_sub;
+    _point *pntscan, *pntscan_inner1, *pntscan_inner2, *markpnt_final, *markpnt_tobetrunc;
+    int JUMP_SEARCH_DEPTH_FINAL = 5;
+    int JUMP_SEARCH_DEPTH_OTHER = 5;
 
-    _point *pisso;
-    double SD;//, MD, CD;
-
-    // connect all images, including fake images
-    allSolutions = new _sols;
-    for (int i = 0; i < DEGREE; i++) {
-        Prov = new _curve;
-        allSolutions->append(Prov);
+    double ratio, ratioMin = 1.0e10, muPrevious, disimg, mu;
+    complex zs, dzs;
+    complex zsPrevious, imgPrevious;
+    if (checkfinalhead == false) {
+        // 从 final 的 末尾开始找
+        pntscan = final->last;
+    } else {
+        pntscan = final->first;
     }
-    dphi = 2.0 * M_PI / (nphi - 1);
-    phi = -dphi + phi0;
+    JUMP_SEARCH_DEPTH_FINAL = fmin( fmax(int(0.1 * final->length ), JUMP_SEARCH_DEPTH), 20 * JUMP_SEARCH_DEPTH );
+    for (cnt1 = 0; cnt1 < JUMP_SEARCH_DEPTH_FINAL; cnt1++) {
+        zsPrevious = pntscan->zs;
+        muPrevious = pntscan->mu;
+        imgPrevious = complex(pntscan->x1, pntscan->x2);
 
-    for (int j = 0; j < nphi; j++) {
-        phi += dphi;
-        xs = xsCenter + rs * cos(phi);
-        ys = ysCenter + rs * sin(phi);
+        for (_curve *Prov2 = imageTracks->first; Prov2; Prov2 = Prov2->next) {
+            JUMP_SEARCH_DEPTH_OTHER =  fmin( fmax(int(0.1 * Prov2->length) ,  JUMP_SEARCH_DEPTH), 20 * JUMP_SEARCH_DEPTH );
+            pntscan_inner1 = Prov2->first;
+            pntscan_inner2 = Prov2->last;
+            for (cnt2 = 0; cnt2 < JUMP_SEARCH_DEPTH_OTHER && (pntscan_inner1 || pntscan_inner2); cnt2++) {
+                // we first test whether the last end point connects with the head of some curve
+                zs = pntscan_inner1->zs;
+                mu = pntscan_inner1->mu;
 
-        // polynomialCoefficients(mlens, zlens, xs, ys, coefficients, NLENS, DEGREE);
-        polynomialCoefficients(xs, ys, coefficients);
-        VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+                dzs = zs - zsPrevious;
 
-        if (j == 0) {   // first point in all solution tracks
-            Prov = allSolutions->first;
+                disimg = abs(complex(pntscan_inner1->x1, pntscan_inner1->x2) - imgPrevious);
 
-            nimages = 0;
-            for (int i = 0; i < DEGREE; i++) {
-                // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
-                flag = trueSolution(xs, ys, zr[i]);
-                nimages += flag;
+                // this condition is not safe enough, sometime it will link from just a normal place, so do not use this deeper search multiple times, just once (works after all previous trail fails), i.e. do not use while
+                if (abs(dzs) < EPS && muPrevious * mu < 0.0 && abs(pntscan->phi - pntscan_inner1->phi) < EPS  && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the head with opposite parity
+                    // phi is exactly the same
 
-                Prov->append(zr[i].re, zr[i].im);
-                Prov->last->phi = phi;
-                Prov->last->mu = mu;
-                Prov->last->zs = complex(xs, ys);
-                Prov->last->thetaJ = thetaJ;
+                    ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
+                    //  printf("head - ratio, ratioMin=%f %f\n", ratio, ratioMin);
+                    if (ratio < ratioMin) {
+                        ratioMin = ratio;
+                        markedCurve = Prov2;
+                        *head = 1;   // head has the minimum
+                        *tail = 0;
+                        markpnt_tobetrunc = pntscan_inner1;
+                        mark_reduced_sub = cnt2;
 
-                if (flag == 1) {      // true solution
-                    Prov->last->flag = 1 ;
-                } else {    // false solution
-                    Prov->last->flag = -1 ;
-                }
-
-                Prov = Prov->next;
-            }
-            // check image numbers
-            if ((nimages - NLENS - 1) % 2 != 0) {
-                fprintf(stderr, "warning: image number is wrong: %d\n", nimages);
-            }
-        } else {
-            delete Prov2;
-            Prov2 = new _curve;
-            nimages = 0;
-            for (int i = 0; i < DEGREE; i++) {
-                // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
-                flag = trueSolution(xs, ys, zr[i]);
-                nimages += flag;
-
-                Prov2->append(zr[i].re, zr[i].im);
-                Prov2->last->phi = phi;
-                Prov2->last->mu = mu;
-                Prov2->last->zs = complex(xs, ys);
-                Prov2->last->thetaJ = thetaJ;
-                if (flag == 1) {      // true solution
-                    Prov2->last->flag = +1 ;
-                } else {
-                    Prov2->last->flag = -1;
-                }
-            }
-
-            //check image numbers
-            if ((nimages - NLENS - 1) % 2 != 0) {
-                fprintf(stderr, "warning: image number is wrong: %d\n", nimages);
-            }
-
-            // attach the current solutions positions to last ones with the closest distance
-            for (Prov = allSolutions->first; Prov;  Prov = Prov->next) {
-                Prov2->closest(Prov->last, &pisso);
-                Prov2->drop(pisso);
-                Prov->append(pisso);
-                
-            }
-        }
-    }
-
-    //allocate memory for potentially true image tracks, we make a factor four more segments just in case
-    imageTracks = new _sols;
-    for (int i = 0; i < 4 * DEGREE; i++) {
-        Prov = new _curve;
-        imageTracks->append(Prov);
-    }
-    //
-    // Solution tracks may contain only true images, some only false solutions, while some may be mixed
-    //
-    complex z, zs;
-    int mixedTracks = 0; // number of mixed tracks
-
-    Prov2 = imageTracks->first;
-    for (Prov = allSolutions->first; Prov;  Prov = Prov->next) {
-        int trueImages = 0, falseImages = 0;
-
-        int firstTime = 1;
-        int previousImage = 0;
-
-        // int Parity;   // within the same curve, we require the parity to be the same
-        double muPrevious;
-
-        for (_point *p = Prov->first; p; p = p->next) {
-            z = complex(p->x1, p->x2);
-
-            if (p->flag == 1) { // true solutions, should return identical source radius
-                trueImages++;
-
-                if (firstTime) {  // we enter the track the first time
-                    firstTime = 0;
-                    muPrevious = p->mu;
-                } else {
-                    // parity has changed, start a new curve
-                    if (muPrevious * p->mu < 0.0)  {
-                        Prov2 = Prov2->next;
-                        muPrevious = p->mu;
+                        markpnt_final = pntscan;
+                        mark_reduced_final = cnt1; // mark how many points will be dropped from the "final"
                     }
                 }
 
-                addPoint(Prov2, p); // add point p to the track
+                // we now test whether the last end point connects with the tail of the next curve
+                zs = pntscan_inner2->zs;
+                mu = pntscan_inner2->mu;
+                dzs = zs - zsPrevious;
 
-                previousImage = TRUE_IMAGE;
+                disimg = abs(complex(pntscan_inner2->x1, pntscan_inner2->x2) - imgPrevious);
+                if (abs(dzs) < EPS && muPrevious * mu < 0.0 && abs( pntscan->phi - pntscan_inner2->phi) < EPS && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the tail // remove on 2020.07.17
+                    ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
+                    if (ratio < ratioMin) {
+                        ratioMin = ratio;
+                        markedCurve = Prov2;
+                        *tail = 1;   // tail has the minimum
+                        *head = 0;
+                        markpnt_tobetrunc = pntscan_inner2;
+                        mark_reduced_sub = cnt2;
+
+                        markpnt_final = pntscan;
+                        mark_reduced_final = cnt1; // mark how many points will be dropped from the "final"
+
+                    }
+                }
+                pntscan_inner1 = pntscan_inner1->next;
+                pntscan_inner2 = pntscan_inner2->prev;
+            }
+        }
+
+
+        if (checkfinalhead == false) {
+            pntscan = pntscan->prev;
+        } else {
+            pntscan = pntscan->next;
+        }
+    }
+
+#ifdef VERBOSE
+    if (*head || *tail) {
+        fprintf(stderr, "in jump_over_caustics_deeper, find a pair to jump from the tail of final\n");
+        fprintf(stderr, "\t\t head = %d, tail = %d, checkfinalhead = %d \n", *head, *tail, checkfinalhead);
+
+        fprintf(stderr, "\t\t mark_reduced_final %d, mark_reduced_sub %d\n", mark_reduced_final, mark_reduced_sub);
+        fprintf(stderr, "\t\t at: final @ phi = %f, mu = %.5e, xy = %f, %f\n", markpnt_final->phi, markpnt_final->mu, markpnt_final->x1, markpnt_final->x2);
+        fprintf(stderr, "\t\t at:   sub @ phi = %f, mu = %.5e, xy = %f, %f\n", markpnt_tobetrunc->phi, markpnt_tobetrunc->mu, markpnt_tobetrunc->x1, markpnt_tobetrunc->x2);
+    }
+#endif
+
+    if (checkfinalhead == true) {
+        // 用 final 的 head 去连
+
+
+        if (*head == 1) {              // jumped over caustics to the head of a curve
+#ifdef VERBOSE
+            printf("2167 jumped to head of a curve: %f %f %f %f, phi=%.15f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu, markedCurve->first->phi * 180 / M_PI);
+            printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
+            fprintf(stderr, "final->length before drop %d, connected->length = %d\n", final->length, connected->length);
+            printf("jump_dis %.2e, final-head-tail-dis %.2e\n", abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)), abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ));
+#endif
+
+            // 2021.08.06 不仅要 head == 1, 而且要 连完之后，连接处的长度，不能比 原来 final 的首尾距离  长太多，如 10倍
+            if ( abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)) <
+                    10 *   abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ) ) {
+
+                imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+                // final head 连 head
+                // _final_parity
+                // 首先更新 parity and final:
+                // final->parity = markpnt_final->mu > 0 ? 1 : -1; // wrong
+                // or         -(markpnt_tobetrunc->mu > 0 ? 1:-1);
+                final->first->next = markpnt_final->next;
+                final->first = markpnt_final;
+                markpnt_final->prev = 0;
+                final->length -= mark_reduced_final;
+
+                // 更新 marked:
+                markedCurve->first->next = markpnt_tobetrunc->next;
+                markedCurve->first = markpnt_tobetrunc;
+                markpnt_tobetrunc->prev = 0;
+                markedCurve->length -= mark_reduced_sub;
+
+
+                markedCurve->reverse();
+                final->first->closepairparity = (final->first->mu) > 0 ? 1 : -1;
+                markedCurve->last->closepairparity = (markedCurve->last->mu) > 0 ? 1 : -1;
+                markedCurve->last->next = final->first;
+                final->first->prev = markedCurve->last;
+                markedCurve->last = final->last;
+                markedCurve->length += final->length;
+                markedCurve->parity = final->parity;
+                final = markedCurve;
             } else {
 
-                falseImages++;
-
-                //first time that we enter this
-                if (firstTime) {
-                    previousImage = FALSE_IMAGE;
-
-                    firstTime = 0;
-                }
-
-                // already a true segment existing, we cut the segment, and start a new one
-                if (previousImage == TRUE_IMAGE) { // previously we had true images, now we are encountering on false solutions
-
-                    Prov2 = Prov2->next;  // we start a new image track
-
-                    previousImage = FALSE_IMAGE;
-                }
+                *head = 0;
             }
-        }
-
-        if (trueImages) Prov2 = Prov2->next;
-
-        if (trueImages && falseImages) mixedTracks += 1; // there are tracks that are mixed
-    }
-
-    // prune empty image tracks first before proceeding
-    for (Prov = imageTracks->first; Prov;  Prov = Prov->next) {
-        // if (!Prov->first || !Prov->last) { // no points in curve and so drop the empty curve
-        if (!Prov->first || !Prov->last || Prov->length < 2) { // no points in curve and so drop the empty curve
-            imageTracks->drop(Prov);
-        }
-    }
 
 
-    // The easy case: every curve is self-closed without caustics-crossing, we are done
-    if (mixedTracks == 0)  {
-        if ( (imageTracks->length - (NLENS + 1)) % 2 == 0) { // double check the number of tracks should be 4 + 2*n in this case
-            // delete allSolutions;
-            fprintf(stderr, "return from plc1\n");
-
-            for (Prov = imageTracks->first; Prov; Prov = Prov->next) {
-                if (Prov->first->mu > 0) {
-                    Prov->parity = 1;
-                }
-                else {
-                    Prov->parity = -1;
-                }
-
-            }
-            delete allSolutions;
-            return (imageTracks);
-        } else {
-            fprintf(stderr, "image tracks should be %d, but is %d\n", NLENS + 1, imageTracks->length);
-            delete allSolutions;
-            delete imageTracks;
-            return (NULL);
-        }
-    }
-
-    //
-    // The hard case, we have caustic crossing and mixed tracks
-    //
+        } else if (*tail == 1) { // jumped over caustics to the tail of a curve
 #ifdef VERBOSE
-    if (mixedTracks) printf("we have mixed tracks\n");
-#endif
-
-    //
-    // We first connect all self-closed, non-caustic crossing image tracks
-    //
-    _sols *connected;   // connected image tracks
-    connected = new _sols;
-    for (int i = 0; i < imageTracks->length; i++) {
-        Prov = new _curve;
-        connected->append(Prov);
-    }
-
-    //
-    //now attach self-closed, non-caustic crossing image tracks
-    //
-    int selfClosed = 0;
-
-    for (Prov2 = connected->first, Prov = imageTracks->first; Prov;  Prov = Prov->next) {
-        SD = *(Prov->first) - *(Prov->last);
-        if (SD < EPS * EPS) { // closed tracks
-
-            int pointInTrack = 0; // how many points in track
-            for (_point *p = Prov->first; p; p = p->next) {
-                addPoint(Prov2, p); // add point p to the track
-
-                pointInTrack++;
-            }
-
-            selfClosed++;
-#ifdef VERBOSE
-            printf("entered: pointInTrack %d, imageTracks->length %d\n", pointInTrack, imageTracks->length);
-#endif
-            //
-            // such image tracks must have number of points == number of points on the source circle
-            //
-            // special case may be there is only one single point around a narrow cusp, / we probably
-            // need to increase the number of points to solve the problem
-            //
-            if (pointInTrack != nphi) {
-#ifdef VERBOSE
-                fprintf(stderr, "the number of points is %d, should be equal to nphi=%d!\n", pointInTrack, nphi);
-#endif
-            }
-
-            Prov2 = Prov2->next;  // go the next closed curve
-            imageTracks->drop(Prov);  // drop the already connected curve from imageTracks
-        }
-    }
-
-
-    // prune empty curves in the connected image track array
-    for (Prov = connected->first; Prov;  Prov = Prov->next) {
-        if (!Prov->first || !Prov->last) { // drop any empty curve
-            connected->drop(Prov);            
-        }
-        else {
-            if (Prov->first->mu > 0) {
-                Prov->parity = 1;
-            }
-            else {
-                Prov->parity = -1;
-            }
-
-        }
-    }
-
-
-    // check is there some segments which actually need to separate into two subsegments
-    _sols *imageTracks_checked;
-    imageTracks_checked = new _sols;
-    for (int i = 0; i < 2 * imageTracks->length; i++) {
-        Prov = new _curve;
-        imageTracks_checked->append(Prov);
-    }
-    int reach = 0;
-    _point *head_or_tail_pnt, *p;
-
-    Prov2 = imageTracks_checked->first;
-    Prov = imageTracks->first;
-    while (Prov) {
-        p = Prov->first;
-        while (p) {
-            // no need check p = Prov.first and Prov.last # 注意不要检查 p = Prov.first 和 Prov.last
-            if (p == Prov->first || p == Prov->last) {
-                addPoint(Prov2, p);
-            }
-            else {
-                head_or_tail_pnt = pnt_reach_head_or_tail(p, Prov, imageTracks, &reach);
-                if (!reach) {                                        addPoint(Prov2, p);}
-                else {
-                    fprintf(stderr, "special case!!!\n\n\n\n");
-                    addPoint(Prov2, p);
-                    addPoint(Prov2, head_or_tail_pnt);
-                    Prov2 = Prov2->next;
-                }
-            }
-            p = p->next;
-        }
-        Prov = Prov->next;
-        Prov2 = Prov2->next;
-    }
-
-    // prune empty curves in the connected image track array
-    for (Prov = imageTracks_checked->first; Prov;  Prov = Prov->next) {
-        if (!Prov->first || !Prov->last) { // drop any empty curve
-            imageTracks_checked->drop(Prov);
-        }
-    }
-    imageTracks = imageTracks_checked;
-
-
-
-    //
-    // now we deal with the final image track that are non-closed, presumbly associated with caustic crossing
-    //
-    _curve *final;
-
-    _newSegment
-    //
-    //we first connect identical image positions and then try identical source positions
-    //
-    complex dz, zhead, ztail;
-    int ifcontinue = 0;
-
-    while ( imageTracks->length >= 1) {
-        final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected);
-
-        if (ifcontinue) continue;
-        else {
-            if (!final->parity) {
-                if (final->first->mu > 0) {
-                    final->parity = 1;
-                }
-                else {
-                    final->parity = -1;
-                }
-            }
-#ifdef VERBOSE
-            fprintf(stderr, "reversing final to see if connectWithHead or connectWithTail\n");
-#endif
-
-            final->reverse();
-            final->parity *= -1;
-
-            final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected);
-            if (ifcontinue) continue;
-        }
-        //
-        //ERROR correction begin. We forgot to check the case when the track is already closed when
-        //the first and last points share the same source position.
-        //
-        dzs = final->first->zs - final->last->zs;
-#ifdef VERBOSE
-        printf("first and last source position difference %e\n", abs(dzs));
-#endif
-        if (abs(dzs) < EPS) {
-            if (!final->parity) {
-                if (final->first->mu > 0) {
-                    final->parity = 1;
-                }
-                else {
-                    final->parity = -1;
-                }
-            }
-            connected->append(final);
-
-            printf("entered 99999e10\n");
-
-            //we start a new curve
-            if (imageTracks->length != 0) {
-
-                // final = new _curve;
-                // final = newSegment(imageTracks);
-                // // temp = imageTracks->first;
-                // imageTracks->drop(imageTracks->first);
-
-                _newSegment
-
-            } // we already incorporated the new curve, and so drop it
-            continue;
-        }
-        //ERROR correction end
-
-
-        // we are not yet self closed, we need  to jump over caustics, we seek a point with the same source position but opposite parity, and smallest magnification ratio
-        int head = 0, tail = 0;
-        double  muPrevious;
-        muPrevious = final->last->mu;
-
-        _curve *markedCurve = nullptr;
-        // markedCurve = new _curve;
-        markedCurve = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve);
-        fprintf(stderr, "head tail outside func: %d %d\n", head, tail);
-
-        // here we jump over caustics
-        if (head == 1) {               // jumped over caustics to the head of a curve
-#ifdef VERBOSE
-            fprintf(stderr, "can you go here??\n");
-            printf("jumped to head of a curve: %f %f %f %f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu);
-            printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
-#endif
-
-            for (_point *p = markedCurve->first; p; p = p->next) { //  jumped over caustics to the head of a curve, attach the points in natural order
-                addPoint(final, p);
-            }
-        } else if (tail == 1) { // jumped over caustics to the tail of a curve
-#ifdef VERBOSE
-            printf("jumped to tail of a curve: %f %f %f %f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu);
+            printf("2323 jumped to tail of a curve: %f %f %f %f, phi=%.15f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu, markedCurve->last->phi * 180 / M_PI);
             printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
+            fprintf(stderr, "1984 imageTracks->length before drop %d, final->length %d, final->parity %d\n", imageTracks->length, final->length, final->parity);
+            printf("jump_dis %.2e, final-head-tail-dis %.2e\n", abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)), abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ));
 #endif
 
-            for (_point *p = markedCurve->last; p; p = p->prev) { //  jumped over caustics to the tail of a curve, attach the points in reverse order
-                addPoint(final, p);
+            if ( abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)) <
+                    10 *   abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ) ) {
+
+                final->first->closepairparity = final->first->mu > 0 ? 1 : -1;
+                markedCurve->last->closepairparity = (markedCurve->last->mu) > 0 ? 1 : -1;
+
+                imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+
+                // final->parity = markpnt_final->mu > 0 ? 1 : -1; // wrong
+                // or         -(markpnt_tobetrunc->mu > 0 ? 1:-1);
+                final->first->next = markpnt_final->next;
+                final->first = markpnt_final;
+                markpnt_final->prev = 0;
+                final->length -= mark_reduced_final;
+
+
+                markedCurve->last->prev = markpnt_tobetrunc->prev;
+                markedCurve->last = markpnt_tobetrunc;
+                markpnt_tobetrunc->next = 0;
+                markedCurve->length -= mark_reduced_sub;
+
+
+                markedCurve->last->next = final->first;
+                final->first->prev = markedCurve->last;
+                markedCurve->last = final->last;
+                markedCurve->length += final->length;
+                markedCurve->parity = final->parity;
+                final = markedCurve;
+
+            } else {
+                *tail = 0;
             }
-        } else {      // we failed to connect, something went wrong
-            fprintf(stderr, "connected with neither head nor tail, something went wrong\nreversing final and then jump over caustics\n");
 
-            if (!final->parity) {
-                if (final->first->mu > 0) {
-                    final->parity = 1;
-                }
-                else {
-                    final->parity = -1;
-                }
-            }
-            final->reverse();
-            final->parity *= -1;
-
-            markedCurve = jump_over_caustics(final, imageTracks, &head, &tail, markedCurve);
-
-// here we jump over caustics
-            if (head == 1) {               // jumped over caustics to the head of a curve
-#ifdef VERBOSE
-                printf("jumped to head of a curve: %f %f %f %f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu);
-                printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
-#endif
-
-                for (_point *p = markedCurve->first; p; p = p->next) { //  jumped over caustics to the head of a curve, attach the points in natural order
-                    addPoint(final, p);
-                }
-            } else if (tail == 1) { // jumped over caustics to the tail of a curve
-#ifdef VERBOSE
-                printf("jumped to tail of a curve: %f %f %f %f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu);
-                printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
-#endif
-
-                for (_point *p = markedCurve->last; p; p = p->prev) { //  jumped over caustics to the tail of a curve, attach the points in reverse order
-                    addPoint(final, p);
-                }
-            } else {      // we failed to connect, something went wrong
-                fprintf(stderr, "connected with neither head nor tail, something went wrong\nreversing final and then jump over caustics\n");
-                delete allSolutions;
-                delete imageTracks;
-                delete Prov;
-                delete Prov2;
-                delete final;
-                return (NULL);
-            }
         }
 
-        imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
-        fprintf(stderr, "dropping and deleting markedCurve\n");
-        // delete markedCurve; // 2020.03.13
-        if (head || tail) {
-#ifdef VERBOSE
-            fprintf(stderr, "jumped, checking whether head and tail connects\n");
-            fprintf(stderr, "and continue the cycle to see weather we could attach to final a new subtrack\n");
-#endif
-            continue;
-        }
+    }
 
+    if (checkfinalhead == false) {
+        // here we jump over caustics from the tail of "final"
+
+        if (*head == 1) {               // jumped over caustics to the head of a curve
+#ifdef VERBOSE
+            printf("2394 jumped to head of a curve: %f %f %f %f, final->last->mu %f, phi=%.15f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu, final->last->mu, markedCurve->first->phi * 180 / M_PI);
+            printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
+            printf("jump_dis %.2e, final-head-tail-dis %.2e\n", abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)), abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ));
+#endif
+
+            if ( abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)) <
+                    10 *   abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ) ) {
+
+
+                imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+                // drop point from tail
+                final->last->prev = markpnt_final->prev;
+                final->last = markpnt_final;
+                markpnt_final->next = 0;
+                final->length -= mark_reduced_final;
+
+                // 更新 marked:
+                markedCurve->first->next = markpnt_tobetrunc->next;
+                markedCurve->first = markpnt_tobetrunc;
+                markpnt_tobetrunc->prev = 0;
+                markedCurve->length -= mark_reduced_sub;
+
+                final->last->closepairparity = (final->last->mu) > 0 ? 1 : -1;
+                markedCurve->first->closepairparity = (markedCurve->first->mu) > 0 ? 1 : -1;
+
+                // 2020.07.17, attach two segments directly instead of for loop above, to speed up the code.
+                // _final_parity
+                final->last->next = markedCurve->first;
+                markedCurve->first->prev = final->last;
+                final->last = markedCurve->last;
+                final->length += markedCurve->length;
+
+            } else {
+
+                *head = 0;
+            }
+
+
+        } else if (*tail == 1) { // jumped over caustics to the tail of a curve
+#ifdef VERBOSE
+            printf("2441 jumped to tail of a curve: %f %f %f %f, final->last->mu %f, phi=%.15f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu, final->last->mu, markedCurve->last->phi * 180 / M_PI);
+            printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
+            printf("jump_dis %.2e, final-head-tail-dis %.2e\n", abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)), abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ));
+
+#endif
+            if ( abs(complex(markpnt_final->x1, markpnt_final->x2) -   complex(markpnt_tobetrunc->x1, markpnt_tobetrunc->x2)) <
+                    10 * abs(complex(final->first->x1, final->first->x2) -   complex(final->last->x1, final->last->x2)  ) ) {
+
+
+                imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+
+                // jump from tail to tail;
+                final->last->prev = markpnt_final->prev;
+                final->last = markpnt_final;
+                markpnt_final->next = 0;
+                final->length -= mark_reduced_final;
+
+
+                // drop points from tail of the markedCurve
+                markedCurve->last->prev = markpnt_tobetrunc->prev;
+                markedCurve->last = markpnt_tobetrunc;
+                markpnt_tobetrunc->next = 0;
+                markedCurve->length -= mark_reduced_sub;
+
+
+
+                final->last->closepairparity = (final->last->mu) > 0 ? 1 : -1;
+                // _final_parity
+                markedCurve->reverse();
+                markedCurve->first->closepairparity = (markedCurve->first->mu) > 0 ? 1 : -1;
+                final->last->next = markedCurve->first;
+                markedCurve->first->prev = final->last;
+                final->last = markedCurve->last;
+                final->length += markedCurve->length;
+
+            } else {
+
+                *tail = 0;
+            }
+        }
+    }
+
+
+    if (*head || *tail) {
+
+        *ifkeep_jumping = 0; // we have jumped once, let's check whether we can keep jumping
+        return final;
+    } else  {
+        *ifkeep_jumping = 0;
+        double SD;
         //    After jumping, we now check whether the tail and head of the current curve actually connect.
         SD = *(final->first) - *(final->last);
 
@@ -2621,212 +3479,29 @@ _sols *TripleLensing::outputTracks(double xsCenter, double ysCenter, double rs, 
 #ifdef VERBOSE
             fprintf(stderr, "jumped, head and tail connected!\n");
 #endif
-
-            if (!final->parity) {
-                if (final->first->mu > 0) {
-                    final->parity = 1;
-                }
-                else {
-                    final->parity = -1;
-                }
-            }
-
+            _final_parity
+#ifdef VERBOSE
+            fprintf(stderr, "\t >>>connected->append(final) place 6, final->length = %d, imageTracks->length = %d\n", final->length, imageTracks->length);
+#endif
             connected->append(final);
 
             //all segments connected, we are done
-            if (imageTracks->length == 0) {
-                fprintf(stderr, "I am deleting......\n");
-                delete allSolutions;
-                delete imageTracks;
-                delete Prov;
-                delete Prov2;
-                delete markedCurve;
-                return (connected);
-            }
-
-            //we still have segments remaining, start a new curve
-            // final = new _curve;
-            // final = newSegment(imageTracks);
-            // // temp = imageTracks->first;
-            // imageTracks->drop(imageTracks->first);
-
-            _newSegment
-
-
-            continue;
-        }  else if ( ( abs(final->first->phi - final->last->phi) < EPS ||  abs( abs(final->first->phi - final->last->phi) - 2.0 * M_PI) < EPS) ) {
-
-            // we check whether the slope changes are smooth using four previous points
-            int i = 0;
-            double slope[2], slope_if_jumped;
-            double scatter;
-
-#ifdef VERBOSE
-            fprintf(stderr, "number of points so far %d\n", final->length);
-#endif
-
-            if (final->length < 3) {
-                fprintf(stderr, "too few points in determing slope ratios and scatters: needs to increase the number of points\n");
-                delete allSolutions;
-                delete imageTracks;
-                delete connected;
-                delete Prov;
-                delete Prov2;
-                delete final;
-                delete markedCurve;
-                return (NULL);
-            }
-
-            for (_point *p = final->last;  i <= 1; i++, p = p->prev) {
-                slope[i] = (p->prev->x2 - p->x2) / (p->prev->x1 -  p->x1);
-#ifdef VERBOSE
-                printf("slope: %f %f %d %f\n", p->x1, p->x2, i, slope[i]);
-                printf("slope=%f\n", tan(p->thetaJ));
-#endif
-            }
-            //      return(NULL);
-
-            scatter = abs( log10(abs(slope[1] / slope[0])) );
-            slope_if_jumped = (final->last->x2 - final->first->x2) / (final->last->x1 - final->first->x1);
-
-            if (abs(log10(abs(slope[0] / slope_if_jumped))) < 2.0 * scatter) {
-#ifdef VERBOSE
-                printf("finally dropped %d\n", final->length);
-
-                // for (_point *pp = final->last;  pp;  pp = pp->prev) {
-                // printf("%f %f %e\n", pp->x1, pp->x2, pp->phi);
-                // }
-                //  return(NULL);
-#endif
-
-                if (final->length > 10) {
-                    addPoint(final, final->first); // we simply connect the first and last points
-                }
-            } else {    // slopes changed too much, we should not jump; this is somewhat ambigious here
-                continue;
-            }
-        }
-        else {
-#ifdef VERBOSE
-            printf("continue the cycle\n");
-#endif
-
-
-
-            mindis = 1e9;
-            for (_curve * Prov3 = imageTracks->first; Prov3; Prov3 = Prov3->next) {
-
-                tempdis = *(final->first) - *(Prov3->first);
-                if (tempdis <= mindis) {
-                    mindis = tempdis;
-                }
-
-                tempdis = *(final->first) - *(Prov3->last);
-                if (tempdis <= mindis) {
-                    mindis = tempdis;
-                }
-
-                tempdis = *(final->last) - *(Prov3->first);
-                if (tempdis <= mindis) {
-                    mindis = tempdis;
-                }
-
-                tempdis = *(final->last) - *(Prov3->last);
-                if (tempdis <= mindis) {
-                    mindis = tempdis;
-                }
-            }
-            if (mindis > SD) {
-#ifdef VERBOSE
-                fprintf(stderr, "No more track will be in final, start a new one and continue\n");
-#endif
-                // if (final->parity == 0) {
-                //     if (final->first->mu > 0) {
-                //         final->parity = 1;
-                //     }
-                //     else {
-                //         final->parity = -1;
-                //     }
-                // }
+            if (imageTracks->length > 0) {
+                _newSegment
                 _final_parity
-                connected->append(final);
-                if (imageTracks->length != 0) {
-                    // final = newSegment(imageTracks);
-                    // imageTracks->drop(imageTracks->first, 1);
-                    _newSegment
-                }
-            } else {
-                continue;   // not yet connected, we should continue the cycle
-            }
-
-        }
-
-        if (!final->parity) {
-            if (final->first->mu > 0) {
-                final->parity = 1;
-            }
-            else {
-                final->parity = -1;
+                *ifcontinue_Fromjump = 1;
             }
         }
-
-        connected->append(final);
-
-        if (imageTracks->length == 0) {
-            delete allSolutions;
-            delete imageTracks;
-            delete Prov;
-            delete Prov2;
-            delete markedCurve;
-            return (connected); // we are done
-        } else {      // start a new curve
-            // final = new _curve;
-            // final = newSegment(imageTracks);
-            // // temp = imageTracks->first;
-            // imageTracks->drop(imageTracks->first); // we already incorporated the new curve, and so drop it
-
-            _newSegment
-
-        }
-    }
-
-//check whether the first and last points are connected, if not, join the first and last points
-#ifdef VERBOSE
-    printf("joining the first and last point %f %f %f %f %f %f\n", final->first->x1, final->first->x2, final->first->phi,
-           final->last->x1, final->last->x2, final->last->phi);
-#endif
-
-    SD = *(final->first) - *(final->last);
-    final->append(final->first->x1, final->first->x2);
-
-
-    if (connected->last != final) {
-        if (!final->parity) {
-            if (final->first->mu > 0) {
-                final->parity = 1;
-            }
-            else {
-                final->parity = -1;
-            }
-        }
-
-        // this should comment out: on 2020.03.12 ?
-        connected->append(final); // attach the final curve
 
     }
-    printf("about to return\n");
-    // delete allSolutions;
-    // delete imageTracks;
-    return (connected);
+// this "final" is tough, needs to be further handle, so *ifcontinue_Fromjump should be 0, to let the code keep run, rather than "continue" the while loop
+    *ifcontinue_Fromjump = 0;
+    return final;
 }
-
-#undef TRUE_IMAGE
-#undef FALSE_IMAGE
-
 
 
 // head, tail, markedCurve = jump_over_caustics(final, imageTracks)
-_curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *tail, _curve * markedCurve, bool checkfinalhead)
+_curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *tail, _curve * markedCurve, bool checkfinalhead, int *ifcontinue_Fromjump, _sols * connected, int *ifkeep_jumping)
 {
     // int jumpOverCaustics = 0;
     *tail = 0;
@@ -2839,41 +3514,40 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
         muPrevious = final->last->mu;
         imgPrevious = complex(final->last->x1, final->last->x2);
 #ifdef VERBOSE
-        printf("I am in jump_over_caustics(), need to jump over caustics at: %f %f %f, phi=%.15f, zs: %f, %f, imageTracks-length = %d\n", final->last->x1, final->last->x2,  muPrevious, final->last->phi * 180 / M_PI, zsPrevious.re, zsPrevious.im , imageTracks->length);
+        printf("2542, use final tail , I am in jump_over_caustics(), need to jump over caustics at: %f %f final->last->mu %f, phi=%.15f, zs: %f, %f, imageTracks-length = %d\n", final->last->x1, final->last->x2,  final->last->mu, final->last->phi * 180 / M_PI, zsPrevious.re, zsPrevious.im , imageTracks->length);
 #endif
-
-
     } else {
         // check the head of final instead of tail of final. // 2020.07.17
         zsPrevious = final->first->zs;
         muPrevious = final->first->mu;
         imgPrevious = complex(final->first->x1, final->first->x2);
 #ifdef VERBOSE
-        printf("I am in jump_over_caustics(), need to jump over caustics at first point of final: %f %f %f, phi=%.15f, zs: %f, %f, imageTracks-length = %d\n", final->first->x1, final->first->x2,  muPrevious, final->first->phi * 180 / M_PI, zsPrevious.re, zsPrevious.im, imageTracks->length);
+        printf("2550, use final head , I am in jump_over_caustics(), need to jump over caustics at first point of final: %f %f final->first->mu %f, phi=%.15f, zs: %f, %f, imageTracks-length = %d\n", final->first->x1, final->first->x2,  muPrevious, final->first->phi * 180 / M_PI, zsPrevious.re, zsPrevious.im, imageTracks->length);
 #endif
     }
 
     for (_curve *Prov2 = imageTracks->first; Prov2; Prov2 = Prov2->next) {
-        // we first test whether the last end point connects with the head of the next curve
+        // we first test whether the last end point connects with the head of some curve
         zs = Prov2->first->zs;
         mu = Prov2->first->mu;
         dzs = zs - zsPrevious;
-#ifdef VERBOSE
-        printf("\t\t head x1 x2 mu: %f %f %f, zs: %f, %f\n", Prov2->first->x1, Prov2->first->x2, mu, zs.re, zs.im);
-#endif
+
         disimg = abs(complex(Prov2->first->x1, Prov2->first->x2) - imgPrevious);
-        if (abs(dzs) < EPS && muPrevious * mu < 0.0) { // connected with the head with opposite parity
+        // 这里 一刀切 abs(dzs) < EPS，不是最佳的策略，但不加也不行？
+        // && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) )<2.5 ) -- add on 2020.06.10
+
+        // 2021.06.11, actually, if you can jump, you should have exactlly the same source positions.
+
+        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the head with opposite parity
             // if (abs(dzs) < EPS) { // connected with the head with opposite parity // remove on 2020.07.17
             ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
             //  printf("head - ratio, ratioMin=%f %f\n", ratio, ratioMin);
             if (ratio < ratioMin) {
                 ratioMin = ratio;
                 markedCurve = Prov2;
-                // fprintf(stderr, "head???\n");
                 *head = 1;   // head has the minimum
                 *tail = 0;
             }
-            // continue;
         }
 
         // we now test whether the last end point connects with the tail of the next curve
@@ -2881,13 +3555,8 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
         mu = Prov2->last->mu;
         dzs = zs - zsPrevious;
 
-#ifdef VERBOSE
-        printf("\t\t tail x1 x2 mu: %f %f %f, zs: %f, %f\n", Prov2->last->x1, Prov2->last->x2, mu, zs.re, zs.im);
-#endif
-
         disimg = abs(complex(Prov2->last->x1, Prov2->last->x2) - imgPrevious);
-        if (abs(dzs) < EPS && muPrevious * mu < 0.0) { // connected with the tail // remove on 2020.07.17
-            // if (abs(dzs) < EPS) { // connected with the tail
+        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the tail // remove on 2020.07.17
             ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
             //  printf("tail - ratio, ratioMin=%f %f\n", ratio, ratioMin);
             if (ratio < ratioMin) {
@@ -2897,25 +3566,152 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
                 *tail = 1;   // tail has the minimum
                 *head = 0;
             }
-            // continue;
         }
     }
 
-    return markedCurve;
+
+    if (checkfinalhead == true) {
+        // 用 final 的 tail 去连
+        if (*head == 1) {               // jumped over caustics to the head of a curve
+#ifdef VERBOSE
+            printf("2167 jumped to head of a curve: %f %f %f %f, phi=%.15f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu, markedCurve->first->phi * 180 / M_PI);
+            printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
+            fprintf(stderr, "final->length before drop %d, connected->length = %d\n", final->length, connected->length);
+#endif
+            imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+
+            _final_parity
+            markedCurve->reverse();
+            final->first->closepairparity = (final->first->mu) > 0 ? 1 : -1;
+            markedCurve->last->closepairparity = (markedCurve->last->mu) > 0 ? 1 : -1;
+            markedCurve->last->next = final->first;
+            final->first->prev = markedCurve->last;
+            markedCurve->last = final->last;
+            markedCurve->length += final->length;
+            markedCurve->parity = final->parity;
+            final = markedCurve;
+#ifdef VERBOSE
+            fprintf(stderr, "3531 imageTracks->length after drop %d, final->length %d, final->parity %d\n", imageTracks->length, final->length, final->parity);
+#endif
+        } else if (*tail == 1) { // jumped over caustics to the tail of a curve
+#ifdef VERBOSE
+            printf("2196 jumped to tail of a curve: %f %f %f %f, phi=%.15f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu, markedCurve->last->phi * 180 / M_PI);
+            printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
+#endif
+            final->first->closepairparity = final->first->mu > 0 ? 1 : -1;
+            markedCurve->last->closepairparity = (markedCurve->last->mu) > 0 ? 1 : -1;
+            imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+            markedCurve->last->next = final->first;
+            final->first->prev = markedCurve->last;
+            markedCurve->last = final->last;
+            markedCurve->length += final->length;
+            markedCurve->parity = final->parity;
+            final = markedCurve;
+
+#ifdef VERBOSE
+            fprintf(stderr, "3552 imageTracks->length after drop %d, final->length %d, final->parity %d\n", imageTracks->length, final->length, final->parity);
+#endif
+        }
+    }
+
+    if (checkfinalhead == false) {
+        // here we jump over caustics from the tail of "final"
+        if (*head == 1) {               // jumped over caustics to the head of a curve
+#ifdef VERBOSE
+            printf("2226 jumped to head of a curve: %f %f muPrev %f markedCurve->mu %f, phi=%.15f\n", markedCurve->first->x1, markedCurve->first->x2, muPrevious, markedCurve->first->mu, markedCurve->first->phi * 180 / M_PI);
+            printf("\t\t abs(dzs) = %.5e \n", abs(  final->last->zs - markedCurve->first->zs  ) );
+            printf("jumped to head and going to tail at: %f %f\n", markedCurve->last->x1, markedCurve->last->x2);
+
+#endif
+
+            final->last->closepairparity = (final->last->mu) > 0 ? 1 : -1;
+            markedCurve->first->closepairparity = (markedCurve->first->mu) > 0 ? 1 : -1;
+#ifdef VERBOSE
+            fprintf(stderr, "markedCurve->length %d\n", markedCurve->length);
+            fprintf(stderr, "final->length before drop %d, connected->length = %d\n", final->length, connected->length);
+#endif
+            imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+            // 2020.07.17, attach two segments directly instead of for loop above, to speed up the code.
+            // _final_parity
+            final->last->next = markedCurve->first;
+            markedCurve->first->prev = final->last;
+            final->last = markedCurve->last;
+            final->length += markedCurve->length;
+#ifdef VERBOSE
+            fprintf(stderr, "3585 imageTracks->length after drop %d, final->length %d, final->parity %d\n", imageTracks->length, final->length, final->parity);
+#endif
+        } else if (*tail == 1) { // jumped over caustics to the tail of a curve
+#ifdef VERBOSE
+            printf("2248 jumped to tail of a curve: %f %f muPrevious: %f markedCurve->last->mu: %f, final->last->mu %f, phi=%.15f\n", markedCurve->last->x1, markedCurve->last->x2, muPrevious, markedCurve->last->mu, final->last->mu, markedCurve->last->phi * 180 / M_PI);
+            printf("jumped to tail and going to head: %f %f\n", markedCurve->first->x1, markedCurve->first->x2);
+#endif
+
+            final->last->closepairparity = (final->last->mu) > 0 ? 1 : -1;
+
+            imageTracks->drop(markedCurve); // drop the already connected, marked curve from the linked list
+
+            // _final_parity
+            markedCurve->reverse();
+            markedCurve->first->closepairparity = (markedCurve->first->mu) > 0 ? 1 : -1;
+            final->last->next = markedCurve->first;
+            markedCurve->first->prev = final->last;
+            final->last = markedCurve->last;
+            final->length += markedCurve->length;
+#ifdef VERBOSE
+            fprintf(stderr, "3605 imageTracks->length after drop %d, final->length %d, final->parity %d\n", imageTracks->length, final->length, final->parity);
+#endif
+        }
+    }
+
+
+    if (*head || *tail) {
+#ifdef VERBOSE
+        fprintf(stderr, "2269 jumped, and I am tring to keep jumping!\n");
+#endif
+        *ifkeep_jumping = 1; // we have jumped once, let's check whether we can keep jumping
+        return final;
+    } else  {
+        *ifkeep_jumping = 0;
+        double SD;
+        //    After jumping, we now check whether the tail and head of the current curve actually connect.
+        SD = *(final->first) - *(final->last);
+
+        if (SD < EPS * EPS) { // we are already connected
+
+#ifdef VERBOSE
+            fprintf(stderr, "jumped, head and tail connected!\n");
+#endif
+            _final_parity
+#ifdef VERBOSE
+            fprintf(stderr, "\t >>>connected->append(final) place 6, final->length = %d, imageTracks->length = %d\n", final->length, imageTracks->length);
+#endif
+            connected->append(final);
+
+            //all segments connected, we are done
+            if (imageTracks->length > 0) {
+                _newSegment
+                _final_parity
+                *ifcontinue_Fromjump = 1;
+            }
+        }
+
+    }
+    // this "final" is tough, needs to be further handle, so *ifcontinue_Fromjump should be 0, to let the code keep run, rather than "continue" the while loop
+    *ifcontinue_Fromjump = 0;
+    return final;
 }
 
-_curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTracks, _sols * connected, bool checkfinalhead)
+_curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTracks, _sols * connected, bool checkfinalhead, int *ifkeep_connect)
 {
     *ifcontinue = 0;
     int connectWithHead = 0, connectWithTail = 0;
     complex zsPrevious, z, zhead, ztail, dz;
     // double muPrevious, mindis, tempdis, SD;
-    double SD;
+    double SD = 0;
     _curve *Prov2, *Prov;
     if (checkfinalhead == false) {
 
-        // zsPrevious = final->last->zs;
-        // muPrevious = final->last->mu;
+        // check whether final->last can connect to other segments.
         z = complex(final->last->x1, final->last->x2); // last point in the last segment
         Prov2 = imageTracks->first;
         // see whether its image position overlaps with the head or tail of another segment, if yes, we connect it
@@ -2923,18 +3719,16 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
             // fprintf(stderr, "can you here 5, imageTracks->length = %d\n", imageTracks->length);
             // see whether the image position overlaps with the head position
             zhead = complex(Prov2->first->x1, Prov2->first->x2);
-            z = complex(final->last->x1, final->last->x2); // last point in the last segment
+            z = complex(final->last->x1, final->last->x2); // because final might be updated in the following, so z needs to be updated
             dz = zhead - z;
-            if (abs(dz) < EPS) {
+            if (abs(dz) < EPS ) {
                 connectWithHead = 1;
 
-                // for (_point *p = Prov2->first; p; p = p->next)  addPoint(final, p);
+                // // connect the tail of final with the head of Prov 2:
+
                 imageTracks->drop(Prov2); // we are already connected, drop this curve from the linked list
-
                 Prov = Prov2->next;
-
-                // 2020.07.17
-                _final_parity
+                Prov2->parity = 0; // remove the parity information of Prov2, since now it is part of "final"
                 final->last->next = Prov2->first;
                 Prov2->first->prev = final->last;
                 final->last = Prov2->last;
@@ -2948,23 +3742,22 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
                 z = complex(final->last->x1, final->last->x2); // last point in the last segment
 
                 dz = ztail - z;
-                if (abs(dz) < EPS) {
+                if (abs(dz) < EPS ) {
                     connectWithTail = 1;
+
+                    // connect with the tail of Prov
 
                     Prov = Prov2->next;
                     imageTracks->drop(Prov2); // we are already connected, drop this curve from the linked list
 
                     Prov2->reverse();
 
-                    _final_parity
                     final->last->next = Prov2->first;
                     Prov2->first->prev = final->last;
-
                     final->last = Prov2->last;
                     final->length += Prov2->length;
 
                     Prov2 = Prov;
-                    // continue;
                 } else {
                     Prov2 = Prov2->next;
                 }
@@ -2974,7 +3767,7 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
 
     } else {
         // check head of final instead of check tail of final
-        z = complex(final->first->x1, final->first->x2); // first point in the last segment
+        // z = complex(final->first->x1, final->first->x2); // first point in the last segment
         Prov2 = imageTracks->first;
         // see whether its image position overlaps with the head or tail of another segment, if yes, we connect it
         while (Prov2) {
@@ -2982,7 +3775,7 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
             zhead = complex(Prov2->first->x1, Prov2->first->x2);
             z = complex(final->first->x1, final->first->x2); // last point in the last segment
             dz = zhead - z;
-            if (abs(dz) < EPS) {
+            if (abs(dz) < EPS ) {
                 connectWithHead = 1;
 
                 imageTracks->drop(Prov2); // we are already connected, drop this curve from the linked list
@@ -3005,18 +3798,15 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
                 ztail = complex(Prov2->last->x1, Prov2->last->x2);
                 z = complex(final->first->x1, final->first->x2); // last point in the last segment
                 dz = ztail - z;
-                if (abs(dz) < EPS) {
+                if (abs(dz) < EPS ) {
                     connectWithTail = 1;
                     Prov = Prov2->next;
-                    // for (_point *p = Prov2->last; p; p = p->prev)  addPoint(final, p); // attach the points in reverse order
 
                     imageTracks->drop(Prov2); // we are already connected, drop this curve from the linked list
 
                     _final_parity
                     Prov2->parity = final->parity;
 
-                    // final->parity = 0;
-                    // _Prov2_parity
                     Prov2->last->next = final->first;
                     final->first->prev = Prov2->last;
                     Prov2->last = final->last;
@@ -3032,30 +3822,38 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
 
     }
 
+#ifdef VERBOSE
+    fprintf(stderr, "2444 connectWithHead = %d, connectWithTail = %d, imageTracks.length=%d,\n first and last image position difference:%.2e, final->length = %d\n", connectWithHead, connectWithTail , imageTracks->length, sqrt(*(final->first) - * (final->last)), final->length);
+#endif
 
-    if ((connectWithHead || connectWithTail) && final->length > 2 ) {
-        SD = *(final->first) - *(final->last);
-#ifdef VERBOSE
-        fprintf(stderr, "I am in connectWithHead = %d or connectWithTail = %d, imageTracks.length=%d,\n first and last image position difference:%f, final->length = %d\n", connectWithHead, connectWithTail , imageTracks->length, sqrt(SD), final->length);
-#endif
-        if (SD < EPS * EPS) {
-            _final_parity
-#ifdef VERBOSE
-            fprintf(stderr, "\n\nI am in connectWithHead or connectWithTail, add a new closed curve\n\n");
-#endif
-            connected->append(final);
-            if (imageTracks->length != 0) {
-                _newSegment
-            }
-        }
-        *ifcontinue = 1;
+    if (connectWithHead || connectWithTail) {
+        *ifkeep_connect = 1;
+        return final;
     } else {
+        *ifkeep_connect = 0;
+        if (final->length > 2 ) {
+            SD = *(final->first) - *(final->last);
+            if (SD < EPS * EPS) {
+                connected->append(final);
+                if (imageTracks->length != 0) {
+                    _newSegment
+                    _final_parity
 #ifdef VERBOSE
-        fprintf(stderr, "I am in connect_head_or_tail, imageTracks->length = %d, connectWithHead = %d, connectWithTail = %d \n", imageTracks->length, connectWithHead, connectWithTail);
+                    fprintf(stderr, "\n\nIn connectWithHead or connectWithTail, add a new closed curve, 'final' is updated\n\n");
 #endif
-    }
-    return final;
+                }
+                *ifcontinue = 1; // this means final is updated (a new one), so should continue in the outer loop
+            } else {
+            }
 
+        } else {
+#ifdef VERBOSE
+            fprintf(stderr, "\t 3340 in connect_head_or_tail, imageTracks->length = %d, no head and tail can connect \n", imageTracks->length);
+#endif
+        }
+        *ifcontinue = 0;
+        return final;
+    }
 }
 
 _point *pnt_reach_head_or_tail(_point * p, _curve * Prov, _sols * imageTracks, int *reach)
@@ -3113,7 +3911,7 @@ _point *pnt_reach_head_or_tail(_point * p, _curve * Prov, _sols * imageTracks, i
 // check whether an image z is a true solution of the lens equation, and return the two eigenvalues of the Jacobian matrix and the angle of the ellipse
 //
 // int trueSolution(double mlens[], complex zlens[], double xs, double ys, complex z, double * mu, double * lambda1, double * lambda2, double * thetaJ, int nlens, complex *J1, complex *J2, complex * dJ, complex *J3)
-int TripleLensing::trueSolution(double xs, double ys, complex z)
+int TripleLensing::trueSolution(double xs, double ys, complex z, double * mu)
 {
 
     flag = 0; //
@@ -3131,13 +3929,13 @@ int TripleLensing::trueSolution(double xs, double ys, complex z)
         imp = ys - y;
         x_xj = x - zlens[0].re;
         y_yj = y - zlens[0].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[0] * x_xj * xy_j2;
         imp += mlens[0] * y_yj * xy_j2;
 
         x_xj = x - zlens[1].re;
         y_yj = y - zlens[1].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[1] * x_xj * xy_j2;
         imp += mlens[1] * y_yj * xy_j2;
 
@@ -3147,25 +3945,24 @@ int TripleLensing::trueSolution(double xs, double ys, complex z)
 
     case 3:
         // triple lens
-        // binary lens
 
         rep = xs - x;// real part
         imp = ys - y;
         x_xj = x - zlens[0].re;
         y_yj = y - zlens[0].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[0] * x_xj * xy_j2;
         imp += mlens[0] * y_yj * xy_j2;
 
         x_xj = x - zlens[1].re;
         y_yj = y - zlens[1].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[1] * x_xj * xy_j2;
         imp += mlens[1] * y_yj * xy_j2;
 
         x_xj = x - zlens[2].re;
         y_yj = y - zlens[2].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[2] * x_xj * xy_j2;
         imp += mlens[2] * y_yj * xy_j2;
 
@@ -3190,41 +3987,69 @@ int TripleLensing::trueSolution(double xs, double ys, complex z)
     J3 = complex(0, 0);
     dJ = complex(0, 0);
 
-    if (abs(dzs) < EPS)  {
+    // 只有 在 满足 设定的 SOLEPS 时，才计算 mu，所以 之前 并没有算  "false solution" 的 magnification，那么算 PointSource 的 magnification 时，也依赖于你设定的 阈值 --> 我们想要的是不管 flag 是多少，都算出一个 mu 以备用
+//     if (absdzs < SOLEPS)  {
+//         flag = 1;
+//         for (int i = 0; i < NLENS; i++) {
+//             dx_db = x - zlens[i].re;
+//             dy_db = y - zlens[i].im;
+//             dx_db2 = dx_db * dx_db;
+//             dy_db2 = dy_db * dy_db;
+
+//             r2_1 = dx_db2 + dy_db2 + TINY; // avoid zero in the denominator
+//             r2_2 = 1 / (r2_1 * r2_1);
+//             Jxx += mlens[i] * (dx_db2 - dy_db2) * r2_2;
+//             Jxy += 2.0 * mlens[i] * dx_db * dy_db * r2_2;
+// #ifdef parabcorr
+//             tempzc = complex(z - zlens[i]);
+//             tempzc2 = tempzc * tempzc;
+//             tempzc3 = tempzc2 * tempzc;
+//             J1 = J1 + mlens[i] / tempzc2;
+//             J2 = J2 - 2 * ( mlens[i] / tempzc3 );
+// #endif
+
+//         }
+// #ifdef parabcorr
+//         J1c = conj(J1);
+//         dJ = 1 - (J1) * J1c;
+// #endif
+
+
+
+    for (int i = 0; i < NLENS; i++) {
+        dx_db = x - zlens[i].re;
+        dy_db = y - zlens[i].im;
+        dx_db2 = dx_db * dx_db;
+        dy_db2 = dy_db * dy_db;
+
+        r2_1 = dx_db2 + dy_db2 + TINY; // avoid zero in the denominator
+        r2_2 = 1.0 / (r2_1 * r2_1);
+        Jxx += mlens[i] * (dx_db2 - dy_db2) * r2_2;
+        Jxy += 2.0 * mlens[i] * dx_db * dy_db * r2_2;
+#ifdef parabcorr
+        tempzc = complex(z - zlens[i]);
+        tempzc2 = tempzc * tempzc;
+        tempzc3 = tempzc2 * tempzc;
+        J1 = J1 + mlens[i] / tempzc2;
+        J2 = J2 - 2 * ( mlens[i] / tempzc3 );
+#endif
+    }
+#ifdef parabcorr
+    J1c = conj(J1);
+    dJ = 1 - (J1) * J1c;
+#endif
+
+
+
+    //
+    //analytical results for the other components of the Jacobian
+    //
+    Jyy = 2.0 - Jxx;
+    *mu = 1.0 / (Jxx * Jyy - Jxy * Jxy);
+
+    absdzs = abs(dzs);
+    if (absdzs < SOLEPS)  {
         flag = 1;
-        for (int i = 0; i < NLENS; i++) {
-            dx_db = x - zlens[i].re;
-            dy_db = y - zlens[i].im;
-            dx_db2 = dx_db * dx_db;
-            dy_db2 = dy_db * dy_db;
-
-            r2_1 = dx_db2 + dy_db2 + TINY; // avoid zero in the denominator
-            r2_2 = 1 / (r2_1 * r2_1);
-            Jxx += mlens[i] * (dx_db2 - dy_db2) * r2_2;
-            Jxy += 2.0 * mlens[i] * dx_db * dy_db * r2_2;
-#ifdef parabcorr
-            tempzc = complex(z - zlens[i]);
-            tempzc2 = tempzc * tempzc;
-            tempzc3 = tempzc2 * tempzc;
-            J1 = J1 + mlens[i] / tempzc2;
-            J2 = J2 - 2 * ( mlens[i] / tempzc3 );
-
-
-#endif
-
-        }
-#ifdef parabcorr
-        J1c = conj(J1);
-        dJ = 1 - (J1) * J1c;
-#endif
-
-        //
-        //analytical results for the other components of the Jacobian
-        //
-        Jyy = 2.0 - Jxx;
-        mu = 1.0 / (Jxx * Jyy - Jxy * Jxy);
-
-
     }
     return (flag);
 }
@@ -3250,13 +4075,13 @@ int TripleLensing::trueSolution_qtest(double xs, double ys, complex z)
         imp = ys - y;
         x_xj = x - zlens[0].re;
         y_yj = y - zlens[0].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[0] * x_xj * xy_j2;
         imp += mlens[0] * y_yj * xy_j2;
 
         x_xj = x - zlens[1].re;
         y_yj = y - zlens[1].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[1] * x_xj * xy_j2;
         imp += mlens[1] * y_yj * xy_j2;
 
@@ -3266,25 +4091,23 @@ int TripleLensing::trueSolution_qtest(double xs, double ys, complex z)
 
     case 3:
         // triple lens
-        // binary lens
-
         rep = xs - x;// real part
         imp = ys - y;
         x_xj = x - zlens[0].re;
         y_yj = y - zlens[0].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[0] * x_xj * xy_j2;
         imp += mlens[0] * y_yj * xy_j2;
 
         x_xj = x - zlens[1].re;
         y_yj = y - zlens[1].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[1] * x_xj * xy_j2;
         imp += mlens[1] * y_yj * xy_j2;
 
         x_xj = x - zlens[2].re;
         y_yj = y - zlens[2].im;
-        xy_j2 = 1 / (x_xj * x_xj + y_yj * y_yj);
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
         rep += mlens[2] * x_xj * xy_j2;
         imp += mlens[2] * y_yj * xy_j2;
 
@@ -3309,7 +4132,7 @@ int TripleLensing::trueSolution_qtest(double xs, double ys, complex z)
     J3 = complex(0, 0);
     dJ = complex(0, 0);
 
-    if (abs(dzs) < EPS)  {
+    if (abs(dzs) < SOLEPS)  {
         flag = 1;
         for (int i = 0; i < NLENS; i++) {
             dx_db = x - zlens[i].re;
@@ -3318,27 +4141,27 @@ int TripleLensing::trueSolution_qtest(double xs, double ys, complex z)
             dy_db2 = dy_db * dy_db;
 
             r2_1 = dx_db2 + dy_db2 + TINY; // avoid zero in the denominator
-            r2_2 = 1 / (r2_1 * r2_1);
-            Jxx += mlens[i] * (dx_db2 - dy_db2) * r2_2;
-            Jxy += 2.0 * mlens[i] * dx_db * dy_db * r2_2;
+            r2_2 = 1.0 / (r2_1 * r2_1);
+            Jxx = Jxx + mlens[i] * (dx_db2 - dy_db2) * r2_2;
+            Jxy = Jxy + 2.0 * mlens[i] * dx_db * dy_db * r2_2;
 
             tempzc = complex(z - zlens[i]);
             tempzc2 = tempzc * tempzc;
             tempzc3 = tempzc2 * tempzc;
+            tempzc4 = tempzc2 * tempzc2; // add on 2021.06.08
             J1 = J1 + mlens[i] / tempzc2;
-            J2 = J2 - 2 * ( mlens[i] / tempzc3 );
-            J3 = J3 + 6 * ( mlens[i] / tempzc4 ); 
-
+            J2 = J2 - 2.0 * ( mlens[i] / tempzc3 );
+            J3 = J3 + 6.0 * ( mlens[i] / tempzc4 );
         }
 
         J1c = conj(J1);
-        dJ = 1 - (J1) * J1c;
+        dJ = 1.0 - (J1) * J1c;
 
         //
         //analytical results for the other components of the Jacobian
         //
         Jyy = 2.0 - Jxx;
-        mu = 1.0 / (Jxx * Jyy - Jxy * Jxy);
+        mu = 1.0 / (Jxx * Jyy - Jxy * Jxy); // only when "abs(dzs) < SOLEPS"
 
     }
 
@@ -3361,27 +4184,73 @@ void printOneTrack(_curve * curve)
 //print out all image tracks
 void printAllTracks(_sols * track)
 {
+    // int i = 0;
+    // int itrack = 0;
+    // FILE *fp;
+    // fp = fopen("data/allImages.dat", "w");
+    // printf("entered printAllTracks\n");
+
+    // for (_curve *c = track->first; c; c = c->next) { //curves
+    //     for (_point *p = c->first; p; p = p->next) { //point
+    //         //      printf("%f %f %f %f #%d point in the %d-th image track\n", p->x1, p->x2, p->phi, p->mu, i, itrack);
+    //         fprintf(fp, "%.17g %.17g %.17g %.17g %d #%d point in the %d-th image track\n", p->x1, p->x2, p->phi, p->mu, p->flag, i, itrack);
+    //         i++;
+    //     }
+    //     itrack++;
+    // }
+    // fclose(fp);
+
     int i = 0;
     int itrack = 0;
     FILE *fp;
 
     fp = fopen("data/allImages.dat", "w");
-    printf("entered printAllTracks\n");
+    fprintf(fp, "%d\n", track->first->length);
 
+    for (_curve *c = track->first; c; c = c->next) { //curves
+        fprintf(fp, "%d ", c->length);
+    }
+    fprintf(fp, "\n");
 
     for (_curve *c = track->first; c; c = c->next) { //curves
         for (_point *p = c->first; p; p = p->next) { //point
-            //      printf("%f %f %f %f #%d point in the %d-th image track\n", p->x1, p->x2, p->phi, p->mu, i, itrack);
-            fprintf(fp, "%f %f %f %f #%d point in the %d-th image track\n", p->x1, p->x2, p->phi, p->mu, i, itrack);
+            // DBL_DECIMAL_DIG =  17
+            fprintf(fp, "%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%d,", p->x1, p->x2, p->phi, p->mu, p->zs.re, p->zs.im, p->flag);
             i++;
         }
         itrack++;
     }
-
     fclose(fp);
+
+
 }
 
-void saveTracks_before(_sols * track)
+// void saveTracks_before(_sols * track)
+// {
+//     int i = 0;
+//     int itrack = 0;
+//     FILE *fp;
+
+//     fp = fopen("data/allTracks_before.dat", "w");
+//     // fp = fopen(filename, "w");
+//     // printf("entered saveTracks\n\n\n");
+
+//     for (_curve *c = track->first; c; c = c->next) { //curves
+//         fprintf(fp, "%d ", c->length);
+//     }
+//     fprintf(fp, "\n");
+
+//     for (_curve *c = track->first; c; c = c->next) { //curves
+//         for (_point *p = c->first; p; p = p->next) { //point
+//             fprintf(fp, "%f %f %f %f ", p->x1, p->x2, p->phi, p->mu);
+//             i++;
+//         }
+//         itrack++;
+//     }
+//     fclose(fp);
+// }
+
+void saveTracks_before(_sols * track, int nphi)
 {
     int i = 0;
     int itrack = 0;
@@ -3391,22 +4260,29 @@ void saveTracks_before(_sols * track)
     // fp = fopen(filename, "w");
     // printf("entered saveTracks\n\n\n");
 
+    fprintf(fp, "%d\n", nphi);
+
     for (_curve *c = track->first; c; c = c->next) { //curves
+        // if (c->length >= 3) { // 下面也要改
         fprintf(fp, "%d ", c->length);
+        // }
     }
     fprintf(fp, "\n");
 
     for (_curve *c = track->first; c; c = c->next) { //curves
+        // if (c->length >= 3) {
         for (_point *p = c->first; p; p = p->next) { //point
-            fprintf(fp, "%f %f %f %f ", p->x1, p->x2, p->phi, p->mu);
+            // DBL_DECIMAL_DIG =  17
+            fprintf(fp, "%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%d,", p->x1, p->x2, p->phi, p->mu, p->zs.re, p->zs.im, p->flag);
             i++;
         }
         itrack++;
+        // }
     }
     fclose(fp);
 }
 
-void saveTracks(_sols * track)
+void saveTracks(_sols * track, int nphi)
 {
     int i = 0;
     int itrack = 0;
@@ -3416,46 +4292,51 @@ void saveTracks(_sols * track)
     // fp = fopen(filename, "w");
     // printf("entered saveTracks\n\n\n");
 
+    fprintf(fp, "%d\n", nphi);
+
     for (_curve *c = track->first; c; c = c->next) { //curves
-        fprintf(fp, "%d ", c->length);
+        if (c->length >= 3) { // 下面也要改
+            fprintf(fp, "%d ", c->length);
+        }
     }
     fprintf(fp, "\n");
 
     for (_curve *c = track->first; c; c = c->next) { //curves
-        for (_point *p = c->first; p; p = p->next) { //point
-            fprintf(fp, "%f %f %f %f ", p->x1, p->x2, p->phi, p->mu);
-            i++;
+        if (c->length >= 3) {
+            for (_point *p = c->first; p; p = p->next) { //point
+                // DBL_DECIMAL_DIG =  17
+                fprintf(fp, "%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%d,", p->x1, p->x2, p->phi, p->mu, p->zs.re, p->zs.im, p->flag);
+                i++;
+            }
+            itrack++;
         }
-        itrack++;
     }
     fclose(fp);
 }
 
 
+// void TripleLensing::outputImagesTriple(double xsCenter, double ysCenter, int nphi, double rs)
+// {
+//     _sols *imageTracks;
+//     imageTracks = outputTracks(xsCenter, ysCenter, rs, nphi, 1.5);
+//     if (!imageTracks)  return;
+// #ifdef VERBOSE
+//     printf("I am in outputImagesTriple, Number of image tracks: %d\n",  imageTracks->length);
+// #endif
+//     // Successful, print out image tracks
+//     FILE *fileImage;
+//     fileImage = fopen("data/images.dat", "w");
+//     fprintf(fileImage, "%f %f %f\n", xsCenter, ysCenter, rs);
+//     fprintf(fileImage, "%d\n", imageTracks->length);
 
-
-void TripleLensing::outputImagesTriple(double xsCenter, double ysCenter, int nphi, double rs)
-{
-    _sols *imageTracks;
-    imageTracks = outputTracks(xsCenter, ysCenter, rs, nphi, 1.5);
-    if (!imageTracks)  return;
-#ifdef VERBOSE
-    printf("I am in outputImagesTriple, Number of image tracks: %d\n",  imageTracks->length);
-#endif
-    // Successful, print out image tracks
-    FILE *fileImage;
-    fileImage = fopen("data/images.dat", "w");
-    fprintf(fileImage, "%f %f %f\n", xsCenter, ysCenter, rs);
-    fprintf(fileImage, "%d\n", imageTracks->length);
-
-    for (_curve *c = imageTracks->first; c; c = c->next) { //curves
-        fprintf(fileImage, "%d\n", c->length);
-        for (_point *p = c->first; p; p = p->next) { //point
-            fprintf(fileImage, "%f %f %f %f \n", p->x1, p->x2, p->phi, p->mu);
-        }
-    }
-    fclose(fileImage);
-}
+//     for (_curve *c = imageTracks->first; c; c = c->next) { //curves
+//         fprintf(fileImage, "%d\n", c->length);
+//         for (_point *p = c->first; p; p = p->next) { //point
+//             fprintf(fileImage, "%f %f %f %f \n", p->x1, p->x2, p->phi, p->mu);
+//         }
+//     }
+//     fclose(fileImage);
+// }
 
 void get_crit_caus(double mlens[], complex zlens[], int nlens, int NPS, double * criticalx, double * criticaly, double * causticsx, double * causticsy, int *numcritical) {
 
@@ -3597,33 +4478,66 @@ subArea +=  (0.5*( (y2 + y1) * (x2 - x1) ) - one_24*(ds1+ds2)*dphi3);\
 
 
 // double areaFunc(_sols * track, double rs,  int paracorr)
-double TripleLensing::areaFunc(_sols * track, double rs)
+double TripleLensing::areaFunc(_sols * track, double rs, int finalnphi, double muPS, double muPrev, int *quality)
 {
     area = 0.0;
     pos_area = 0.0;
     // int parity,
     trackcnt = 0;
     subArea = 0.0;
+    // int special_flag = 0; // special_flag when dealing with the parity
+    int parity_different_flag = 0;
+
+    // double max_normal_area = -1; // normal means parity is normal
+    // double max_abnormal_area = -1; //
 
 #ifdef VERBOSE
     int cnti = 0;
     for (_curve *c = track->first; c; c = c->next) {
-        fprintf(stderr, "\t a new curve, p->phi, p->mu: \n");
-        cnti = 0;
-        for (_point *p = c->first; p; p = p->next) {
-            fprintf(stderr, "%f %f\n", p->phi * 180 / M_PI, p->mu);
-            cnti ++;
-            if (cnti == 10) {
-                break;
+
+        if ( c->length > finalnphi * 0.25 ) { // just pring long tracks
+
+            fprintf(stderr, "\t a new curve (length = %d, original parity = %d), p->phi, p->mu: \n", c->length, c->parity);
+
+            cnti = 0;
+            for (_point *p = c->last; p; p = p->prev) {
+                fprintf(stderr, "%f %f, flag = %d, absdzs = %.5e\n", p->phi * 180 / M_PI, p->mu, p->flag, p->absdzs);
+                cnti ++;
+                if (cnti == 10) {
+                    break;
+                }
             }
+
+            fprintf(stderr, "\t\t --- tail above, head below  -- \n");
+
+            cnti = 0;
+            for (_point *p = c->first; p; p = p->next) {
+                fprintf(stderr, "%f %f, flag = %d, absdzs = %.5e\n", p->phi * 180 / M_PI, p->mu, p->flag, p->absdzs);
+                cnti ++;
+                if (cnti == 10) {
+                    break;
+                }
+            }
+
         }
+
+
     }
 #endif
 
+
     for (_curve *c = track->first; c; c = c->next) { //curves
-        if ( c->length < 3) {
+        special_flag = 0;
+        // before 2021.06.08
+        // if ( c->length < 3) { // ignore tracks that are short than 3
+        //     continue;
+        // }
+
+        // // after 2021.06.08
+        if ( c->length < finalnphi * 0.25 ) { // ignore tracks that are short than the expected value
             continue;
         }
+
 
         subArea = 0.0;
 
@@ -3631,18 +4545,25 @@ double TripleLensing::areaFunc(_sols * track, double rs)
         y1 = c->first->x2;
         phi1 = c->first->phi;
 
+
+        if (c->parity) {
+            parity = c->parity; // original parity
+        } else {
+            fprintf(stderr, "wrong, a track with length %d has no parity assigned \n", c->length);
+        }
+
         _c_parity;
         pscan = c->first;
-        while ( pscan->next && pscan->next->next && ((pscan->mu * pscan->next->mu < 0) || ( abs(abs(pscan->phi - pscan->next->phi) - M_PI2) < EPS ) || ( abs(abs(pscan->next->phi - pscan->next->next->phi) - M_PI2) < EPS )  )) {
+        while ( pscan->next && pscan->next->next && ((pscan->mu * pscan->next->mu < 0) || ( abs(abs(pscan->phi - pscan->next->phi) - M_PI2) < EPS ) || ( abs(abs(pscan->next->phi - pscan->next->next->phi) - M_PI2) < EPS ) || abs(pscan->phi - pscan->next->phi) < EPS )) {
             pscan = pscan->next;
         }
         ph1 = pscan->phi; ph2 = pscan->next->phi; ph3 = pscan->next->next->phi;
-        if ( ph1 > ph2 && ph2 > ph3) {
+        // if ( (special_flag==1) && (ph1 > ph2) && (ph2 > ph3)) {
+        if ( (ph1 > ph2) && (ph2 > ph3)) {
+            // fprintf(stderr, "phi1 > phi2 > phi3, c->parity before = %d \n", c->parity);
             c->parity *= -1;
         }
-   
 
-        parity = c->parity;
         for (_point *p = c->first->next; p; p = p->next) { //point
 
             x2 = p->x1; y2 = p->x2;
@@ -3660,14 +4581,49 @@ double TripleLensing::areaFunc(_sols * track, double rs)
         area += subArea * parity;
         pos_area += abs(subArea);
 #ifdef VERBOSE
-        fprintf(stderr, "track->length %d, c->length: %d, c->parity = %d, c->first->mu = %f, subArea * parity: %f\n", track->length, c->length, c->parity, c->first->mu , subArea * parity * 0.25);
+        fprintf(stderr, "track->length %d, c->length: %d, c->parity = %d, c->first->mu = %.5e, subArea = %f , subArea * parity: %.5e\n", track->length, c->length, parity, c->first->mu , subArea * 0.25 , subArea * parity * 0.25);
 #endif
+
+
+        if (parity != c->parity) {
+            parity_different_flag = 1;
+#ifdef VERBOSE
+            fprintf(stderr, "be cautious, the parity of a track with length %d might be wrong\n", c->length);
+#endif
+        }
+
+        // }
+
     }
+
+
     // somtimes parity may not work
     area = abs(area) * 0.25;
-    if (area < areaSource) {
-        return pos_area * 0.25;
+    pos_area *= 0.25;
+
+    // the parity is mainly used for handling the situation when a ring like image is formed, in such case the area of two boundaries should be - instead of +
+    // when a ring like structure is formed,
+
+    // case 1, if the parity of one track is wrong, the magnification should be different, but not so different with
+#ifdef VERBOSE
+    fprintf(stderr, "pos_mag = %f, parity mag = %f\n", pos_area / areaSource, area / areaSource); // 5.239782
+#endif
+
+
+    // if (area < areaSource || ( (pos_area/area < muPS || area/areaSource < muPS) && parity_different_flag && muPS < 50) ) { // if muPS > 50, a ring probably formed
+    if ( abs(area - pos_area) > EPS || (area < areaSource || ( parity_different_flag ) ))  { // if muPS > 50, a ring probably formed
+        // fprintf(stderr, "use abs area, pos_area/areaSource = %f\n", pos_area/areaSource);
+        // return pos_area * 0.25;
+        *quality = 0;
+        // return the area that are more close to the previous mu
+        // abs(muPS - muPrev) < EPS means if muPrev == muPS, we trust the pos_area more
+        if ( abs(area - areaSource * muPrev) > (pos_area - areaSource * muPrev) || (abs(muPS - muPrev) < EPS && parity_different_flag ) ) {
+            return pos_area;
+        } else {
+            return area;
+        }
     } else {
+        *quality = 1;
         return area;
     }
 }
@@ -3732,7 +4688,7 @@ double TripleLensing::areaFunc_parab(_sols * track, double rs)
             c->parity *= -1;
         }
 #ifdef VERBOSE
-        fprintf(stderr, "ph1 ph2 ph3 %f %f %f, ph2 - ph3 = %f , c->parity %d\n", ph1 * 180 / M_PI, ph2 * 180 / M_PI, ph3 * 180 / M_PI, (abs(ph2 - ph3) - M_PI2)* 180 / M_PI, c->parity);
+        fprintf(stderr, "ph1 ph2 ph3 %f %f %f, ph2 - ph3 = %f , c->parity %d\n", ph1 * 180 / M_PI, ph2 * 180 / M_PI, ph3 * 180 / M_PI, (abs(ph2 - ph3) - M_PI2) * 180 / M_PI, c->parity);
 #endif
         parity = c->parity;
         for (_point *p = c->first->next; p; p = p->next) { //point
@@ -3798,7 +4754,7 @@ double TripleLensing::areaFunc_parab(_sols * track, double rs)
                 }
                 dphi3 = abs(dphi);
                 dphi3 *= dphi;
-                dphi3 *= dphi; // 
+                dphi3 *= dphi; //
 
                 _addsubarea_parab
                 x1 = x2; y1 = y2;
@@ -3911,7 +4867,7 @@ _linkedarray *TripleLensing::getphis_v3(double xsCenter, double ysCenter, double
 
         if (mus[i] <= minmu) {
             minmu = mus[i];
-            maxmuidx = i;
+            maxmuidx = i; // the name is not important
         }
         if (mus[i] >= maxmu) {
             maxmu = mus[i];
@@ -3921,7 +4877,7 @@ _linkedarray *TripleLensing::getphis_v3(double xsCenter, double ysCenter, double
     }
 
 #ifdef VERBOSE
-    fprintf(stderr, "secnum_priv %d,basenum %d,  maxmuidx: %d\n", secnum_priv, basenum_priv, maxmuidx);
+    fprintf(stderr, "secnum_priv %d,basenum %d,  maxmuidx: %d, minmu = %f, maxmu = %f\n", secnum_priv, basenum_priv, maxmuidx, minmu, maxmu);
 #endif
     for (int i = 0; i < secnum_priv; i++) {
         mus[i] = (mus[i] / minmu);
@@ -4134,10 +5090,11 @@ void _linkedarray::extend() {
     if (length > 0) {
         Node *scan;
         Node *cc;
-
+        // fprintf(stderr, "%d: ", length);
         double midvalues[length - 1];
         scan = first;
         for (int i = 0; i < length - 1; i++) {
+            // fprintf(stderr, "%d, ", i);
             midvalues[i] = (scan->value + scan->next->value) / 2;
             scan = scan->next;
         }
@@ -4177,8 +5134,8 @@ void _linkedarray::print() {
     };
 }
 
-#undef EPS_CLOSE
-#undef MAXIT_NEWTON
+// #undef EPS_CLOSE
+// #undef MAXIT_NEWTON
 
 #define _toterr \
 toterr = def_err;
@@ -4195,8 +5152,8 @@ void TripleLensing::bisec(_curve * lightkv, _point * scan2, _point * scan3, doub
     for (int i3 = 0; i3 < np1; i3++) {
         curr_t = scan2->x1 + subdt * (i3 + 1);
         tn = (curr_t - t0) * tE_inv;
-        y1 = u0 * salpha + tn * calpha; // 
-        y2 = u0 * calpha - tn * salpha; // 
+        y1 = u0 * salpha + tn * calpha; //
+        y2 = u0 * calpha - tn * salpha; //
         curr_mag = subscan->area;
         pnt2beAdd = new _point(curr_t, curr_mag, 0);
         pnt2beAdd->next = subscan->next;
@@ -4235,7 +5192,7 @@ void TripleLensing::bisec(_curve * lightkv, _point * scan2, _point * scan3, doub
     scan = scan2;
     if (lightkv->length < MAXNPS) {
         while (scan != scan3) {
-            if(scan->error >= adaerrTol) {
+            if (scan->error >= adaerrTol) {
                 timerr = 1e100;
                 if (scan->prev && scan->next) {
                     timerr = fmax( fabs( (scan->x1 - scan->next->x1)),  fabs( (scan->x1 - scan->prev->x1)) );
@@ -4292,7 +5249,7 @@ void TripleLensing::TripleLkvAdap( double rs, _curve * lightkv, double t_start, 
             midtm_mag = pow(10, midtm_mag) + 1;
 
             midtm_mag_inter = (mag1 + mag2) * 0.5;
-            midtm_mag_inter = pow(10, midtm_mag_inter)+1;
+            midtm_mag_inter = pow(10, midtm_mag_inter) + 1;
             def_err = fabs( (midtm_mag_inter - midtm_mag) / midtm_mag );
             // def_err = fabs( (midtm_mag_lin - midtm_mag_inter)/midtm_mag_lin );
 

@@ -1252,14 +1252,14 @@ double VBBinaryLensing::BinaryMag2(double s, double q, double y1v, double y2v, d
 		corrquad2 *= (rho + 1.e-3);
 		if (corrquad < Tol && corrquad2 < 1 && (rho2 * s * s < q || safedist > 4 * rho2)) {
 			Mag = Mag0;
-		}else {
+		} else {
 			// VBBL.a1 = Gamma
 			ifFinite = 1;
 			Mag = BinaryMagDark(s, q, y1v, y2v, rho, a1, Tol);
 			// fprintf(stderr, "I am in VBBinaryLensing::BinaryMag2, using BinaryMagDark\n");
 		}
 		Mag0 = 0;// could be removed
-	}else {
+	} else {
 		Mag = 1;
 	}
 	return Mag;
@@ -1372,7 +1372,7 @@ double VBBinaryLensing::BinaryMagDark(double a, double q, double y1, double y2, 
 			scan->prev->f = first->f * (1 - a1 * (1 - scr2));//Bozza 2010 42
 			scan->prev->Mag = BinaryMag(a, q, y_1, y_2, RSv * cb, Tolv, &Images);
 
-			
+
 
 			totNPS += NPS;
 			scan->prev->nim = Images->length;
@@ -3956,6 +3956,7 @@ _curve::_curve(void) {
 	maxerr = 0;
 	second_maxerr = 0;
 	third_maxerr = 0;
+	posflagnum = 0;
 }
 
 _curve::_curve(_point *p1) {
@@ -3967,6 +3968,7 @@ _curve::_curve(_point *p1) {
 	maxerr = 0;
 	second_maxerr = 0;
 	third_maxerr = 0;
+	posflagnum = 0;
 }
 
 // _curve::~_curve(void) {
@@ -4215,8 +4217,7 @@ double _curve::closest2(_point *ref, _point **clos2) {
 	return (**clos2 - *ref);
 }
 
-// https://blog.csdn.net/majianfei1023/article/details/46629065
-// 二级指针作为函数参数的作用:在函数外部定义一个指针p，在函数内给指针赋值，函数结束后对指针p生效，那么我们就需要二级指针。
+
 double _curve::closest(_point *ref, _point **clos) {
 	double mi = 1.e100, FP;
 	_point *scan;
@@ -4385,6 +4386,91 @@ void _sols::drop(_curve *ref, int del) {
 	scan = NULL;
 	delete scan;
 }
+
+void _sols::sort(void) {
+	// sort as larger to smaller according to the length of each _curve element
+	int i;//, j;
+	_curve *scan, *tmp_prev, *tmp_next, *tmp_next2;
+
+	if (length > 2) {
+
+		for (i = 0; i < length; i++) {
+			scan = first;
+			while (scan->next) {
+				if (scan->length < scan->next->length) {
+					if (scan == first) {
+						// update first
+						tmp_prev = scan->prev;
+						tmp_next = scan->next;
+						tmp_next2 = scan->next->next;
+
+						tmp_next2->prev = scan;
+						scan->next = tmp_next2;
+
+						first = tmp_next;
+						tmp_next->prev = tmp_prev;
+
+						scan->prev = tmp_next;
+						tmp_next->next = scan;
+
+					} else if (scan->next == last) {
+
+						// update last
+						tmp_prev = scan->prev;
+						tmp_next = scan->next;
+						tmp_next2 = 0;
+
+						last = scan;
+						scan->next = tmp_next2;
+
+						tmp_prev->next = tmp_next;
+						tmp_next->prev = tmp_prev;
+
+						scan->prev = tmp_next;
+						tmp_next->next = scan;
+
+
+					} else {
+						tmp_prev = scan->prev;
+						tmp_next = scan->next;
+						tmp_next2 = scan->next->next;
+
+						tmp_next2->prev = scan;
+						scan->next = tmp_next2;
+
+						tmp_prev->next = tmp_next;
+						tmp_next->prev = tmp_prev;
+
+						scan->prev = tmp_next;
+						tmp_next->next = scan;
+					}
+
+
+				} else {
+					scan = scan->next;
+				}
+			}
+		}
+	} else if (length == 2){
+		// length  2
+		if (first->length < last->length && first->length == 1){
+			// exchange first and last
+			tmp_next = last;
+			last = first;
+			first = tmp_next;
+			first->next = last;
+			last->prev = first;
+			first->prev = 0;
+			last->next = 0;
+		}
+
+	}
+
+
+
+
+}
+
 
 void _sols::join(_sols *nc) {
 	if (length > 0) {
@@ -4841,7 +4927,7 @@ void VBBinaryLensing::cmplx_laguerre(complex *poly, int degree, complex *root, i
 	                                   }; // some random numbers
 
 	double faq; //jump length
-	double FRAC_ERR = 2.0e-15; //Fractional Error for double precision
+	// double FRAC_ERR = 2.0e-15; //Fractional Error for double precision
 	complex p, dp, d2p_half; //value of polynomial, 1st derivative, and 2nd derivative
 	// static int i, j, k;
 	static int i, k;
@@ -4992,7 +5078,7 @@ void VBBinaryLensing::cmplx_newton_spec(complex *poly, int degree, complex *root
 	const int FRAC_JUMP_LEN = 10;
 	double FRAC_JUMPS[FRAC_JUMP_LEN] = { 0.64109297, 0.91577881, 0.25921289, 0.50487203, 0.08177045, 0.13653241, 0.306162, 0.37794326, 0.04618805, 0.75132137 }; //some random numbers
 	double faq; //jump length
-	double FRAC_ERR = 2e-15;
+	// double FRAC_ERR = 2e-15;
 	complex p; //value of polynomial
 	complex dp; //value of 1st derivative
 	int i, k;
@@ -5006,7 +5092,7 @@ void VBBinaryLensing::cmplx_newton_spec(complex *poly, int degree, complex *root
 	success = true;
 
 	// //the next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version
-	// if (false) { //change false to true if you would like to use caustion about haveing first coefficient == 0
+	// // if (false) { //change false to true if you would like to use caustion about haveing first coefficient == 0
 	// 	if (degree < 0) {
 	// 		printf("Error: cmplx_newton_spec: degree<0");
 	// 		return;
@@ -5146,7 +5232,7 @@ void VBBinaryLensing::cmplx_laguerre2newton(complex *poly, int degree, complex *
 	double FRAC_JUMPS[FRAC_JUMP_LEN] = { 0.64109297, 0.91577881, 0.25921289, 0.50487203, 0.08177045, 0.13653241, 0.306162, 0.37794326, 0.04618805, 0.75132137 }; //some random numbers
 
 	double faq; //jump length
-	double FRAC_ERR = 2.0e-15;
+	// double FRAC_ERR = 2.0e-15;
 
 	complex p; //value of polynomial
 	complex dp; //value of 1st derivative

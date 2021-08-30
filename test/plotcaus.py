@@ -31,10 +31,10 @@ fig, ax = plt.subplots(figsize=(8,8))
 ax.tick_params(axis='both', labelsize = legend_tick_size, direction="in")
 
 cx, cy = readFile(datapath+"caustics.dat", 0, 1, expected_elem_each_row=2)
-ax.plot(cx, cy, '-', color='red', markersize=1)
+ax.scatter(cx, cy,marker = '.', color='red', s=1) # caustics
 
 x, y = readFile(datapath+"critical_curves.dat", 0, 1, expected_elem_each_row=2)
-ax.plot(x, y, '--', color='r', markersize=1)
+ax.scatter(x, y, marker = '.', color='g', s=1) # critical curves
 
 
 lensx, lensy = readFile(datapath+"lens_system.dat", 1, 2, expected_elem_each_row=3)

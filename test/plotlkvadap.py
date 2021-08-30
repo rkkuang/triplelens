@@ -39,13 +39,30 @@ def plot_1D_adap_samp():
 
     combinetimes = np.concatenate((adaptive_times, times))
     combinemags = np.concatenate((adaptive_mags, mags))
+
+    print(len(adaptive_times), len(times))
+    print(len(adaptive_mags), len(mags0))
+    print(combinetimes.shape)
+    print(min(adaptive_times), max(adaptive_times))
+    print(min(combinetimes), max(combinetimes))
+    # input(">>>")
+
     stidx = np.argsort(combinetimes)
     combinetimes = combinetimes[stidx]
     combinemags = combinemags[stidx]
 
     k = 1 # The degree of the spline fit
-    tck, fp, ier, msg = interpolate.splrep(adaptive_times, (adaptive_mags), s=0,k=k, full_output = 1)# Given degree of the spline (k=0) is not supported. (1<=k<=5)
-    yi = interpolate.splev(combinetimes, tck, der=0)
+    tck, fp, ier, msg = interpolate.splrep(adaptive_times, adaptive_mags, s=0,k=k, full_output = 1)# Given degree of the spline (k=0) is not supported. (1<=k<=5)
+
+    yi = interpolate.splev(combinetimes, tck)
+    print(yi.shape)
+    print(combinetimes.shape)
+    print(combinemags.shape)
+    print(combinetimes[:10])
+    print(yi[:10])
+    print(yi[-10:])
+    input("<<<<<")
+
 
     fig = plt.subplots(figsize=(14,7), dpi=100)
     gs = gridspec.GridSpec(2,1,height_ratios=[5,1])

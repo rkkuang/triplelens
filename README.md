@@ -153,7 +153,7 @@ The light curve with limb-darkening effect can also be calculated:
 Gamma = 0.51 # Gamma coefficient of the linear limb-darkening profile
 u = gamma_to_u(Gamma)
 # parameters controls the accuracy of limb-darkening calculation
-RelTolLimb, AbsTolLimb = 1e-3, 1e-4
+RelTolLimb, AbsTolLimb = 1e-2, 1e-2
 
 # source position
 ts = np.linspace(7470, 7510, 100)
@@ -162,6 +162,7 @@ y1s = u0 * salpha + tn * calpha;
 y2s = u0 * calpha - tn * salpha;
 rs = 0.1 # use a larger source radius to see the limb-darkening effect
 params[9] = rs
+secnum = 180 # for a large rho (=0.1), we need more samples
 
 print("generating light curve ...")
 mus = TRIL.TriLightCurve(mlens, zlens, y1s, y2s, rs, secnum, basenum, quaderr_Tol, relerr_Tol)
@@ -181,3 +182,11 @@ plt.show()
 Image topologies change as the source is moving (please see ./doc/top_lkv.mp4 for original movie):
 
 <img align="center" src="./doc/top_lkv.gif" width="900" height="400">
+
+
+
+### Usage
+
+This code is under more testing. One way is rerun MCMC optimization (use this code calculating magnifications) with the published solutions of triple events as initial guesses. Here is an example result on [OGLE-2012-BLG-0026](https://ui.adsabs.harvard.edu/abs/2013ApJ...762L..28H/abstract):
+
+![](./doc/ob120026-lkv.pdf)

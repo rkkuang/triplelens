@@ -189,4 +189,4 @@ Image topologies change as the source is moving (please see ./doc/top_lkv.mp4 fo
 
 This code is under more testing. One way is rerun MCMC optimization (use this code calculating magnifications) with the published solutions of triple events as initial guesses. Here is an example result on [OGLE-2012-BLG-0026](https://ui.adsabs.harvard.edu/abs/2013ApJ...762L..28H/abstract):
 
-![](./doc/ob120026-lkv.pdf)
+![](./doc/ob120026-lkv.png)

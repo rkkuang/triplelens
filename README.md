@@ -190,3 +190,7 @@ Image topologies change as the source is moving (please see ./doc/top_lkv.mp4 fo
 **This code is under more testing. We thank the feedbacks from the community and welcome more**. One way to test is rerun MCMC optimization (use this code to calculate magnifications) with the published solutions of triple events as initial guess. Here is an example result on [OGLE-2012-BLG-0026](https://ui.adsabs.harvard.edu/abs/2013ApJ...762L..28H/abstract):
 
 ![](./doc/ob120026-lkv.png)
+
+### Small mass ratio
+
+When the mass ratio is small (below ~ 1e-5), the solutions from the lens equation solver are more accurate when the origin of the coordinate system is set to be close to the smallest mass.

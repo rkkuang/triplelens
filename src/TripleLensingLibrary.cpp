@@ -2662,7 +2662,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 
 
 
-//2021.06.13 // now we do pruning: remove false images from these segments
+//2021.06.13+2021.09.01 // now we do pruning: remove false images from these segments
 // 查找头，尾部 prung_depth 范围内有没有 absdzs ~ 0 的一对点
     int littlecnt = 0;
     int prung_depth = 0;
@@ -2673,16 +2673,18 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     while (Prov) {
 // check head first
         // 如果 track 全部 flag 都 = 1，则不用处理
-        if (Prov->posflagnum == Prov->length) {
+        // if (Prov->posflagnum == Prov->length) {
+        if (Prov->posflagnum == Prov->length && (Prov->first->absdzs < SOLEPS * 1e-2) && (Prov->last->absdzs < SOLEPS * 1e-2) ) { // 2021.09.01
             Prov = Prov->next;
             continue;
         }
 
         // Prov->length - Prov->posflagnum 表示有多少个 flag = -1 的点
 
-        prung_depth = int( 1.5 * (Prov->length - Prov->posflagnum) );
+        // prung_depth = int( 1.5 * (Prov->length - Prov->posflagnum) );
+        prung_depth = fmax( int( 1.5 * (Prov->length - Prov->posflagnum) ), int(0.5 * Prov->length)  ) ;
 
-        if (Prov->first->absdzs > 1e-7) {
+        if (Prov->first->absdzs > SOLEPS * 1e-2) {
             // we need to find out the separation between bad and good points
             littlecnt = 1; // counter for the number of bad images
             p2 = Prov->first;
@@ -2691,7 +2693,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             prung_flag = 0;
             if (p2->next) {p2 = p2->next;}
             else break;
-            while (p2 && ( littlecnt < prung_depth)) {
+            // while (p2 && ( littlecnt < prung_depth)) {
+            while (p2) { // 2021.09.01
                 if ( ( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) ) ) {
                     // this means now p2 is normal
                     absdzsPrevious = p2->absdzs;
@@ -2704,7 +2707,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 }
             }
             // now p2 should be the new head
-            if (!( littlecnt == prung_depth || p2 == Prov->last ) && prung_flag) {
+            // if (!( littlecnt == prung_depth || p2 == Prov->last ) && prung_flag) {
+            if (prung_flag) { // 2021.09.01
                 Prov->first = p2;
                 p2->prev = 0;
                 Prov->length -= littlecnt;
@@ -2712,7 +2716,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         } else {
             // the head is good
         }
-        if (Prov->last->absdzs > 1e-7) {
+        if (Prov->last->absdzs > SOLEPS * 1e-2) {
             // we need to find out the separation between bad and good points
             littlecnt = 1; // counter for the number of bad images
             p2 = Prov->last;
@@ -2721,7 +2725,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             prung_flag = 0;
             if (p2->prev) {p2 = p2->prev;}
             else break;
-            while (p2 && ( littlecnt < prung_depth)) {
+            // while (p2 && ( littlecnt < prung_depth)) {
+            while (p2) { // 2021.09.01
                 if (( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) )) {
                     // this means now p2 is normal
                     absdzsPrevious = p2->absdzs;
@@ -2734,7 +2739,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 }
             }
             // now p2 should be the new head
-            if (!( littlecnt == prung_depth || p2 == Prov->first ) && prung_flag) {
+            // if (!( littlecnt == prung_depth || p2 == Prov->first ) && prung_flag) {
+            if (prung_flag) { // 2021.09.01
                 Prov->last = p2;
                 p2->next = 0;
                 Prov->length -= littlecnt;

@@ -17,8 +17,8 @@
 #define DEGREE (NLENS*NLENS+1)
 #define EPS 1.0e-5 // segment close threshold, 1.0e-5 is ok
 
+#define SOLEPS 1.0e-5 // threshold for judging whether a solution returned from the complex polynomial solver is true or false, try to set this to be smaller when the mass ratio is below ~1e-5
 
-#define SOLEPS 1.0e-4 // true or false solution of lens equation solving, 1.0e-5 is a bit too strict at some cases
 #define MISS_SOL_THRESHOLD 1
 
 #define JUMP_SEARCH_DEPTH 5 // search depth for the situation that we can not jump

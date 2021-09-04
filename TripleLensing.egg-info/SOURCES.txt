@@ -12,6 +12,7 @@ TripleLensing.egg-info/not-zip-safe
 TripleLensing.egg-info/requires.txt
 TripleLensing.egg-info/top_level.txt
 bin/testtriple
+data/allImages.dat
 data/allTracks.dat
 data/allTracks_before.dat
 data/caustics.dat
@@ -34,6 +35,7 @@ doc/demolkvs.npz
 doc/demolkvs_0.npz
 doc/lkv.png
 doc/lkvs.png
+doc/ob120026-lkv.png
 doc/top_lkv.gif
 doc/top_lkv.mp4
 include/TripleLensingLibrary.h

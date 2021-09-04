@@ -473,13 +473,22 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
     scanf("%c%*c", &arr[0]);
 #endif
 
-    if ( CQ * quad_err <= quaderr_Tol) {
+    if ( CQ * quad_err <= 1e-1 * quaderr_Tol) {
 #ifdef VERBOSE
         fprintf(stderr, "quad_err %f,using point source magnification, muPS = %f\n", quad_err, muPS);
 #endif
         ifFinite = 0;
         return muPS;
-    } else {
+    }
+    else if (CQ * quad_err <= quaderr_Tol){
+        muPS = gould(xsCenter, ysCenter, rs, 0);
+#ifdef VERBOSE
+        fprintf(stderr, "quad_err %f, using gould approximation, mu gould = %f\n", quad_err, muPS);
+#endif
+        ifFinite = 0;
+        return muPS;
+    }
+    else {
         ifFinite = 1;
 #ifdef VERBOSE
         fprintf(stderr, "quad_err %f,using caustics crossing computation\n", quad_err);

@@ -1,5 +1,5 @@
 GCC	= /usr/bin/g++
-CFLAGS	= -std=c++11 -O3
+CFLAGS	= -std=c++11
 #CFLAGS	= -O3 -std=c++11 -Wall -Wextra -pedantic -DNDEBUG
 BUILDDIR = build
 BINDIR = bin

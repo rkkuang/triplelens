@@ -218,7 +218,7 @@ public:
 class _point {
 public:
 	double phi;		//angle phi on the source circle
-	Node *nodephi;
+	// Node *nodephi;
 	double mu;	//signed magnification
 	short int flag;		// is this a true solution
 	complex zs;		// corresponding source position
@@ -234,6 +234,7 @@ public:
 	_theta *theta;
 	int closepairparity;//add on 20200414, used to mark the critical points at creation and destroy of images.
 	_point(double , double, _theta *);
+	~_point(void);
 	_point *next, *prev;
 	double operator-(_point);
 };
@@ -241,7 +242,7 @@ public:
 class _curve {
 public:
 	int length, parity;
-	_point *first, *last, *maxerr_pnt, *second_maxerr_pnt, *third_maxerr_pnt;
+	_point *first, *last;//, *maxerr_pnt, *second_maxerr_pnt, *third_maxerr_pnt;
 	unsigned short int jumped_flag;
 	_curve *next, *prev;
 	_curve *partneratstart, *partneratend;

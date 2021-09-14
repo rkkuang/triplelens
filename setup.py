@@ -3,8 +3,22 @@ from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
 import os
+
+'''
+before build
+please change the <path to pybind11.h> in pymodule/python_bindings.cpp
+
+
+
+
 # build python module by:
 # sudo python3 setup.py install
+
+# 
+# python3 setup.py install --user (if you do not have permission)
+
+
+'''
 __version__ = '1.0.1'
 
 

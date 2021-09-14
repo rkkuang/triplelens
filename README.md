@@ -61,7 +61,7 @@ Simply run:
 sudo python3 setup.py install
 ```
 
-to build the python module "TripleLensing"
+to build the python module "TripleLensing",
 
 then, the functionality of triple lens light curve calculation can be used as following:
 

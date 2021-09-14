@@ -3930,12 +3930,19 @@ _point::_point(double x, double y, _theta *theta1 ) {
 	// nodephi = new Node(0);
 	// Node *nodephi;
 }
-// _point::~_point(void) {
-// 	// delete this;
-// 	// delete next;
-// 	// delete prev;
-// 	free(this);
-// }
+_point::~_point(void) {
+	// delete this;
+	// delete next;
+	// delete prev;
+
+	// delete zs;
+	// delete d;
+	// delete J2;
+	// delete dz;
+	delete theta;
+
+	// free(this);
+}
 
 double _point::operator-(_point p2) {
 	return (x1 - p2.x1) * (x1 - p2.x1) + (x2 - p2.x2) * (x2 - p2.x2);

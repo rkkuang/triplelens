@@ -17,8 +17,8 @@
 #define DEGREE (NLENS*NLENS+1)
 #define EPS 1.0e-5 // segment close threshold, 1.0e-5 is ok
 
-#define SOLEPS 1.0e-5 // threshold for judging whether a solution returned from the complex polynomial solver is true or false, try to set this to be smaller when the mass ratio is below ~1e-5
 
+#define SOLEPS 1.0e-5 // true or false solution of lens equation solving, 1.0e-5 is a bit too strict at some cases
 #define MISS_SOL_THRESHOLD 1
 
 #define JUMP_SEARCH_DEPTH 5 // search depth for the situation that we can not jump
@@ -116,6 +116,8 @@ public:
 
     int trueSolution(double xs, double ys, complex z, double *mu);
     int trueSolution_qtest(double xs, double ys, complex z);
+    int trueSolution_nomu(double xs, double ys, complex z, double true_solution_threshold);
+    int trueSolution_withmu(double xs, double ys, complex z, double true_solution_threshold, double *mu);
 
     void outImgPoints(double xsCenter, double ysCenter, double rs, int nphi);
     _sols *outputTracks(double xsCenter, double ysCenter, double rs, int nphi, double phi0);
@@ -130,6 +132,9 @@ public:
 
     void tripleFS2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np) ; //core
     void tripleFSLimb2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np, double limba1, double RelTolLimb, double AbsTolLimb) ; //core
+    void triple_num_real_sol2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double true_solution_threshold , double numbers_mups[], int Np);
+
+
 };
 
 

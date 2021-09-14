@@ -32,9 +32,9 @@ PYBIND11_MODULE(TripleLensing, m) {
                    "Tolerance of quadrupole test.")
     .def_readwrite("relerr_mag", &TripleLensing::relerr_mag,
                    "Tolerance of quadrupole test.")
-    .def_readwrite("relerr_mag", &TripleLensing::RelTolLimb,
+    .def_readwrite("RelTolLimb", &TripleLensing::RelTolLimb,
                    "Tolerance of quadrupole test.")
-    .def_readwrite("relerr_mag", &TripleLensing::AbsTolLimb,
+    .def_readwrite("AbsTolLimb", &TripleLensing::AbsTolLimb,
                    "Tolerance of quadrupole test.")
 
     // .def("TripleMag",
@@ -96,6 +96,22 @@ PYBIND11_MODULE(TripleLensing, m) {
 
             Parameters
             ----------)mydelimiter")
+
+    .def("TriImgNum",
+         [](TripleLensing & self, std::vector<double> mlens,std::vector<double> Zlens,
+            std::vector<double> y1s, std::vector<double> y2s, double true_solution_threshold)
+    {
+        // std::vector<int> imgnums(y1s.size());
+        std::vector<double> imgnums_mups(2*y1s.size());
+        self.triple_num_real_sol2py(mlens.data(),Zlens.data(),
+                           y1s.data(), y2s.data(), true_solution_threshold, imgnums_mups.data(), y1s.size());
+        return imgnums_mups;
+    }, 
+    R"mydelimiter(
+            Number of true images for a given set of parameters.
+            Parameters
+            ----------)mydelimiter")
+
 
     .def("TriLightCurveLimb",
          [](TripleLensing & self, std::vector<double> mlens,std::vector<double> Zlens,

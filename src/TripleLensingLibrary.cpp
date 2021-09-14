@@ -350,6 +350,44 @@ void TripleLensing::tripleFS2py(double mlens[], double Zlens[], double xsCenters
 }
 
 
+// return the number of real solutions to python
+void TripleLensing::triple_num_real_sol2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double true_solution_threshold , double numbers_mups[], int Np)
+{
+    double mu = 0., muTotal = 0.;
+    int flag = 0;
+    complex zlens[NLENS];
+
+    complex zr[DEGREE];
+    complex coefficients[DEGREE + 1];
+    int true_imgnum_cnt = 0;
+
+    for (int i = 0; i < NLENS ; i++) {
+        zlens[i] = complex( Zlens[i * 2], Zlens[i * 2 + 1] );
+    }
+
+    reset3(mlens, zlens);
+
+    for (int i = 0; i < Np; i++) {
+        muTotal = 0.;
+
+        polynomialCoefficients(xsCenters[i], ysCenters[i], coefficients);
+        VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+
+        true_imgnum_cnt = 0;
+        for (int j = 0; j < DEGREE; j++) {
+            // true_imgnum_cnt += trueSolution_nomu(xsCenters[i], ysCenters[i], zr[j], true_solution_threshold);
+            flag =  trueSolution_withmu(xsCenters[i], ysCenters[i], zr[j], true_solution_threshold, &mu);
+            true_imgnum_cnt += flag;
+            muTotal += ( flag ? abs(mu) : 0  );
+
+        }
+        numbers_mups[i] = true_imgnum_cnt;
+        numbers_mups[i + Np] = muTotal;
+    }
+
+}
+
+
 
 // double TripleLensing::tripleFS2python(double mlens[], double Zlens[], double xsCenter, double ysCenter, double rs) {
 double TripleLensing::tripleFS2python(double xsCenter, double ysCenter, double rs) {
@@ -467,11 +505,11 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 
     muPS = tripleQuatrapoleTest(xsCenter, ysCenter, rs); // this is not robust, didn't check the number of true solution is 4, 6, 8, or 10
 
-#ifdef VERBOSE
-    char arr[1024];
-    fprintf(stderr, "please input >>> ");
-    scanf("%c%*c", &arr[0]);
-#endif
+// #ifdef VERBOSE
+//     char arr[1024];
+//     fprintf(stderr, "please input >>> ");
+//     scanf("%c%*c", &arr[0]);
+// #endif
 
     if ( CQ * quad_err <= 1e-1 * quaderr_Tol) {
 #ifdef VERBOSE
@@ -480,7 +518,7 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
         ifFinite = 0;
         return muPS;
     }
-    else if (CQ * quad_err <= quaderr_Tol){
+    else if (CQ * quad_err <= quaderr_Tol) {
         muPS = gould(xsCenter, ysCenter, rs, 0);
 #ifdef VERBOSE
         fprintf(stderr, "quad_err %f, using gould approximation, mu gould = %f\n", quad_err, muPS);
@@ -502,26 +540,28 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
         printf("point magnification: %f, relerr_priv = %.3e\n", mu0, _curr_relerr_priv);
 #endif
 
-        _sols *imageTracks  = new _sols;
-        _sols *prevstore  = new _sols;
-        _linkedarray *phis = new _linkedarray;
+        _sols *imageTracks;//  = new _sols;
+        _sols *prevstore;// = new _sols;
+        _linkedarray *phis;// = new _linkedarray;
         phis = getphis_v3(  xsCenter,  ysCenter,  rs);
 
         for (int i = 0; i < 10; i++) {
             if (i > 0) { // 2021.06.08
                 delete imageTracks;
                 imageTracks = new _sols;
+#ifdef VERBOSE
+                fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d, phis->length %d\n", prevstore->length, phis->length);
+#endif
             }
-#ifdef VERBOSE
-            fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d, phis->length %d\n", prevstore->length, phis->length);
-#endif
 
-#ifdef VERBOSE
-            fprintf(stderr, "\n\n\n\n\n\n\n\n\n\n\n \t\t\t\t\t %d-th into outputTracks_v2_savehalf, please input a char >>> ", i);
-            scanf("%c%*c", &arr[0]);
-#endif
+// #ifdef VERBOSE
+//             fprintf(stderr, "\n\n\n\n\n\n\n\n\n\n\n \t\t\t\t\t %d-th into outputTracks_v2_savehalf, please input a char >>> ", i);
+//             scanf("%c%*c", &arr[0]);
+// #endif
+
 
             imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
+
             finalnphi = phis->length;
 #ifdef VERBOSE
             saveTracks(imageTracks, finalnphi);// temp
@@ -1199,9 +1239,9 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     double mu;
 
     _sols *allSolutions, *imageTracks;
-    _curve *Prov = new _curve;
+    _curve *Prov;// = new _curve; // 21 Sep 11
     _curve *Prov2 = new _curve;
-    _curve *tempProv = new _curve;
+    _curve *tempProv;// = new _curve;
 
     _point *pisso, *missing_sol, *pscan1, *pscan2; // *worst_true_sol
     _point *scanpisso;
@@ -1546,7 +1586,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         // first point in all solution tracks
         tempProv = new _curve;
         tempcurrstore->append(tempProv);
-        Prov = new _curve;
+        //Prov = new _curve;
         Prov = allSolutions->first;
         nimages = 0;
         total_parity = 0;
@@ -1765,7 +1805,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 
         }
         delete (*prevstore);//200711
-        (*prevstore) = new _sols;;//200711
+        //(*prevstore) = new _sols;;//200711
 
         (*prevstore) = tempcurrstore;
         tempcurrstore = NULL;
@@ -1801,7 +1841,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     //     } else {Prov = Prov->next;}
     // }
 
-    _curve *tmp1802;//
+    //_curve *tmp1802;//
 
     Prov = allSolutions->first;
     while (Prov) {
@@ -1817,9 +1857,12 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             // append Prov to imageTracks
             Prov2 = Prov->next;
 
-            tmp1802 = Prov;
+            // tmp1802 = Prov;
+            // allSolutions->drop(Prov);
+            // imageTracks->append(tmp1802);
+
             allSolutions->drop(Prov);
-            imageTracks->append(tmp1802);
+            imageTracks->append(Prov);
 
             Prov = Prov2;
         }
@@ -2661,14 +2704,14 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         }
     }
 
+#ifdef VERBOSE
     Prov = imageTracks->first;
     while (Prov) {
-#ifdef VERBOSE
+
         fprintf(stderr, "---> Prov->length %d, first->absdzs %.5e\n", Prov->length, Prov->first->absdzs);
-#endif
         Prov = Prov->next;
     }
-
+#endif
 
 
 //2021.06.13+2021.09.01 // now we do pruning: remove false images from these segments
@@ -2718,6 +2761,13 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             // now p2 should be the new head
             // if (!( littlecnt == prung_depth || p2 == Prov->last ) && prung_flag) {
             if (prung_flag) { // 2021.09.01
+
+                // 2021.09.12, we shold delete points between Prov->first and p2
+                for (_point *tp = Prov->first; tp != p2; tp = tp->next) {
+                    delete tp;
+                    // printf("delete one point 2938");
+                }
+
                 Prov->first = p2;
                 p2->prev = 0;
                 Prov->length -= littlecnt;
@@ -2750,6 +2800,10 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             // now p2 should be the new head
             // if (!( littlecnt == prung_depth || p2 == Prov->first ) && prung_flag) {
             if (prung_flag) { // 2021.09.01
+                // 2021.09.12, we shold delete points between p2 and Prov->last
+                for (_point *tp = Prov->last; tp != p2; tp = tp->prev) {
+                    delete tp;
+                }
                 Prov->last = p2;
                 p2->next = 0;
                 Prov->length -= littlecnt;
@@ -2969,7 +3023,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         // be cautious, if current "final" has length 1, you can not tell its parity
         // because, when trying to connect or jump, the direction can go both way from just one point, and the parity might be messed up,
 
-        _final_parity
+        //_final_parity
         ifkeep_connect = 1;
         while (ifkeep_connect) {
             final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, false, &ifkeep_connect);
@@ -3074,6 +3128,15 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                             if (final->length >= PHI->length && imageTracks->length == 0) { // this is wrong?
                                 _final_parity
                                 connected->append(final);
+
+
+                                delete allSolutions;
+                                delete imageTracks;
+                                Prov2 = NULL;
+                                Prov = NULL;
+                                delete Prov;
+                                delete tempProv;
+                                delete Prov2;
                                 return connected;
                             }
                         }
@@ -3186,7 +3249,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     delete Prov;
     delete tempProv;
     delete Prov2;
-    return (connected);
+    return connected;
 }
 
 
@@ -3325,7 +3388,13 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
                 final->length -= mark_reduced_final;
 
                 // 更新 marked:
-                markedCurve->first->next = markpnt_tobetrunc->next;
+                // markedCurve->first->next = markpnt_tobetrunc->next;
+
+                // 2021.09.12
+                for (_point *tp = markedCurve->first; tp != markpnt_tobetrunc; tp = tp->next) {
+                    delete tp;
+                }
+
                 markedCurve->first = markpnt_tobetrunc;
                 markpnt_tobetrunc->prev = 0;
                 markedCurve->length -= mark_reduced_sub;
@@ -3370,7 +3439,11 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
                 final->length -= mark_reduced_final;
 
 
-                markedCurve->last->prev = markpnt_tobetrunc->prev;
+                // markedCurve->last->prev = markpnt_tobetrunc->prev;
+                // 2021.09.12, we shold delete points between Prov->last and p2
+                for (_point *tp = markedCurve->last; tp != markpnt_tobetrunc; tp = tp->prev) {
+                    delete tp;
+                }
                 markedCurve->last = markpnt_tobetrunc;
                 markpnt_tobetrunc->next = 0;
                 markedCurve->length -= mark_reduced_sub;
@@ -3413,7 +3486,10 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
                 final->length -= mark_reduced_final;
 
                 // 更新 marked:
-                markedCurve->first->next = markpnt_tobetrunc->next;
+                // markedCurve->first->next = markpnt_tobetrunc->next;
+                for (_point *tp = markedCurve->first; tp != markpnt_tobetrunc; tp = tp->next) {
+                    delete tp;
+                }
                 markedCurve->first = markpnt_tobetrunc;
                 markpnt_tobetrunc->prev = 0;
                 markedCurve->length -= mark_reduced_sub;
@@ -3455,7 +3531,10 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
 
 
                 // drop points from tail of the markedCurve
-                markedCurve->last->prev = markpnt_tobetrunc->prev;
+                // markedCurve->last->prev = markpnt_tobetrunc->prev;
+                for (_point *tp = markedCurve->last; tp != markpnt_tobetrunc; tp = tp->prev) {
+                    delete tp;
+                }
                 markedCurve->last = markpnt_tobetrunc;
                 markpnt_tobetrunc->next = 0;
                 markedCurve->length -= mark_reduced_sub;
@@ -4182,6 +4261,164 @@ int TripleLensing::trueSolution_qtest(double xs, double ys, complex z)
 
     return (flag);
 }
+
+int TripleLensing::trueSolution_nomu(double xs, double ys, complex z, double true_solution_threshold)
+{
+
+    flag = 0; //
+
+    x = z.re;
+    y = z.im;
+
+    switch (NLENS) {
+    case 2:
+        // binary lens
+        rep = xs - x;// real part
+        imp = ys - y;
+        x_xj = x - zlens[0].re;
+        y_yj = y - zlens[0].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[0] * x_xj * xy_j2;
+        imp += mlens[0] * y_yj * xy_j2;
+
+        x_xj = x - zlens[1].re;
+        y_yj = y - zlens[1].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[1] * x_xj * xy_j2;
+        imp += mlens[1] * y_yj * xy_j2;
+
+        dzs = complex(rep, imp);
+
+        break;
+
+    case 3:
+        // triple lens
+        rep = xs - x;// real part
+        imp = ys - y;
+        x_xj = x - zlens[0].re;
+        y_yj = y - zlens[0].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[0] * x_xj * xy_j2;
+        imp += mlens[0] * y_yj * xy_j2;
+
+        x_xj = x - zlens[1].re;
+        y_yj = y - zlens[1].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[1] * x_xj * xy_j2;
+        imp += mlens[1] * y_yj * xy_j2;
+
+        x_xj = x - zlens[2].re;
+        y_yj = y - zlens[2].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[2] * x_xj * xy_j2;
+        imp += mlens[2] * y_yj * xy_j2;
+
+        dzs = complex(rep, imp);
+        break;
+
+    default:
+        zs = complex(xs, ys);
+        dzs = zs - z;
+        for (int i = 0; i < NLENS; i++) {
+            dzs = dzs + mlens[i] / conj(z - zlens[i]);
+        }
+    }
+
+    if (abs(dzs) < true_solution_threshold) {
+        flag = 1;
+    }
+
+    return (flag);
+}
+
+
+int TripleLensing::trueSolution_withmu(double xs, double ys, complex z, double true_solution_threshold, double * mu)
+{
+    flag = 0; //
+    Jxx = 1.0;
+    Jyy = 0.0;
+    Jxy = 0.0;
+
+    x = z.re;
+    y = z.im;
+
+    switch (NLENS) {
+    case 2:
+        // binary lens
+        rep = xs - x;// real part
+        imp = ys - y;
+        x_xj = x - zlens[0].re;
+        y_yj = y - zlens[0].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[0] * x_xj * xy_j2;
+        imp += mlens[0] * y_yj * xy_j2;
+
+        x_xj = x - zlens[1].re;
+        y_yj = y - zlens[1].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[1] * x_xj * xy_j2;
+        imp += mlens[1] * y_yj * xy_j2;
+
+        dzs = complex(rep, imp);
+
+        break;
+
+    case 3:
+        // triple lens
+        rep = xs - x;// real part
+        imp = ys - y;
+        x_xj = x - zlens[0].re;
+        y_yj = y - zlens[0].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[0] * x_xj * xy_j2;
+        imp += mlens[0] * y_yj * xy_j2;
+
+        x_xj = x - zlens[1].re;
+        y_yj = y - zlens[1].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[1] * x_xj * xy_j2;
+        imp += mlens[1] * y_yj * xy_j2;
+
+        x_xj = x - zlens[2].re;
+        y_yj = y - zlens[2].im;
+        xy_j2 = 1.0 / (x_xj * x_xj + y_yj * y_yj);
+        rep += mlens[2] * x_xj * xy_j2;
+        imp += mlens[2] * y_yj * xy_j2;
+
+        dzs = complex(rep, imp);
+        break;
+
+    default:
+        zs = complex(xs, ys);
+        dzs = zs - z;
+        for (int i = 0; i < NLENS; i++) {
+            dzs = dzs + mlens[i] / conj(z - zlens[i]);
+        }
+    }
+
+    // 只有 在 满足 设定的 SOLEPS 时，才计算 mu，所以 之前 并没有算  "false solution" 的 magnification，那么你算 PointSource 的 magnification 时，也依赖于你设定的 阈值
+    if (abs(dzs) < true_solution_threshold)  {
+        flag = 1;
+        for (int i = 0; i < NLENS; i++) {
+            dx_db = x - zlens[i].re;
+            dy_db = y - zlens[i].im;
+            dx_db2 = dx_db * dx_db;
+            dy_db2 = dy_db * dy_db;
+
+            r2_1 = dx_db2 + dy_db2 + TINY; // avoid zero in the denominator
+            r2_2 = 1 / (r2_1 * r2_1);
+            Jxx += mlens[i] * (dx_db2 - dy_db2) * r2_2;
+            Jxy += 2.0 * mlens[i] * dx_db * dy_db * r2_2;
+        }
+    }
+
+    Jyy = 2.0 - Jxx;
+    *mu = 1.0 / (Jxx * Jyy - Jxy * Jxy);
+
+
+    return (flag);
+}
+
 
 //print out one image track
 void printOneTrack(_curve * curve)
@@ -5002,6 +5239,10 @@ _linkedarray::~_linkedarray(void) {
         delete scan1;
         scan1 = scan2;
     }
+    scan1 = NULL;
+    scan2 = NULL;
+    delete scan1;
+    delete scan2;
 }
 
 

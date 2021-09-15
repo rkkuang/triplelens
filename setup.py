@@ -19,7 +19,7 @@ please change the <path to pybind11.h> in pymodule/python_bindings.cpp
 
 
 '''
-__version__ = '1.0.1'
+__version__ = '1.0.8'
 
 
 class get_pybind_include(object):
@@ -48,7 +48,8 @@ ext_modules = [
             get_pybind_include(user=True),
             "/Library/Python/3.7m/include" #added on 2020 Feb 04
         ],
-        language='c++'
+        language='c++',
+        extra_compile_args=['-std=c++11','-O0']
     ),
 ]
 
@@ -74,7 +75,7 @@ def cpp_flag(compiler):
 
     The newer version is prefered over c++11 (when it is available).
     """
-    flags = ['-std=c++17', '-std=c++14', '-std=c++11']
+    flags = ['-std=c++11', '-std=c++14', '-std=c++17']
 
     for flag in flags:
         if has_flag(compiler, flag): return flag
@@ -89,7 +90,7 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
         'msvc': ['/EHsc'],
-        'unix': [],
+        'unix': ['-std=c++11','-O0'],
     }
     l_opts = {
         'msvc': [],

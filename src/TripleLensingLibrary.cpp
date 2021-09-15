@@ -2714,7 +2714,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 #endif
 
 
-//2021.06.13+2021.09.01 // now we do pruning: remove false images from these segments
+//2021.06.13 // now we do pruning: remove false images from these segments
 // 查找头，尾部 prung_depth 范围内有没有 absdzs ~ 0 的一对点
     int littlecnt = 0;
     int prung_depth = 0;
@@ -2724,19 +2724,26 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     Prov = imageTracks->first;
     while (Prov) {
 // check head first
-        // 如果 track 全部 flag 都 = 1，则不用处理
-        // if (Prov->posflagnum == Prov->length) {
-        if (Prov->posflagnum == Prov->length && (Prov->first->absdzs < SOLEPS * 1e-2) && (Prov->last->absdzs < SOLEPS * 1e-2) ) { // 2021.09.01
+        // 如果 track 全部 flag 都 = 1，则不用处理, 这个条件还不够
+        if (Prov->posflagnum == Prov->length && (Prov->first->absdzs < SOLEPS * 1e-2) && (Prov->last->absdzs < SOLEPS * 1e-2) ) {
             Prov = Prov->next;
+
+#ifdef VERBOSE
+            printf("2804 do not pruning\n");
+#endif
             continue;
         }
 
+#ifdef VERBOSE
+        printf("2902 do pruning\n");
+#endif
+        // prung_depth = int(0.3 * Prov->length);
+
         // Prov->length - Prov->posflagnum 表示有多少个 flag = -1 的点
 
-        // prung_depth = int( 1.5 * (Prov->length - Prov->posflagnum) );
-        prung_depth = fmax( int( 1.5 * (Prov->length - Prov->posflagnum) ), int(0.5 * Prov->length)  ) ;
+        prung_depth = fmax( int( 1.5 * (Prov->length - Prov->posflagnum) ), int(0.2 * Prov->length)  ) ; // 2021.09.01
 
-        if (Prov->first->absdzs > SOLEPS * 1e-2) {
+        if (Prov->first->absdzs > SOLEPS * 1e-2) { // // 2021.09.01
             // we need to find out the separation between bad and good points
             littlecnt = 1; // counter for the number of bad images
             p2 = Prov->first;
@@ -2745,9 +2752,9 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             prung_flag = 0;
             if (p2->next) {p2 = p2->next;}
             else break;
-            // while (p2 && ( littlecnt < prung_depth)) {
+            // while (p2 && ( littlecnt < prung_depth )) {
             while (p2) { // 2021.09.01
-                if ( ( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) ) ) {
+                if (p2->absdzs > SOLEPS * 1e-2 && ( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) ) ) {
                     // this means now p2 is normal
                     absdzsPrevious = p2->absdzs;
                     if (p2->next) {p2 = p2->next;}
@@ -2758,16 +2765,17 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     break;
                 }
             }
+#ifdef VERBOSE
+            printf("2963 littlecnt = %d\n", littlecnt);
+#endif
             // now p2 should be the new head
-            // if (!( littlecnt == prung_depth || p2 == Prov->last ) && prung_flag) {
-            if (prung_flag) { // 2021.09.01
-
+            // if (!( littlecnt == prung_depth || p2 == Prov->last ) && prung_flag) { // 2021.09.01 comment out
+            if (prung_flag && littlecnt > 1 && (p2->mu)*muPrevious2 < 0) { // 2021.09.15 如果 littlecnt=1，则保留第一个点
                 // 2021.09.12, we shold delete points between Prov->first and p2
-                for (_point *tp = Prov->first; tp != p2; tp = tp->next) {
-                    delete tp;
+                for (_point *tp = Prov->first->next; tp != p2->next; tp = tp->next) {
+                    delete tp->prev;
                     // printf("delete one point 2938");
                 }
-
                 Prov->first = p2;
                 p2->prev = 0;
                 Prov->length -= littlecnt;
@@ -2786,7 +2794,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             else break;
             // while (p2 && ( littlecnt < prung_depth)) {
             while (p2) { // 2021.09.01
-                if (( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) )) {
+                if (p2->absdzs > SOLEPS * 1e-2 && ( absdzsPrevious / p2->absdzs < 1e2 ) && !( muPrevious2 ^ ( p2->mu > 0 ? true : false ) )) {
                     // this means now p2 is normal
                     absdzsPrevious = p2->absdzs;
                     if (p2->prev) {p2 = p2->prev;}
@@ -2797,12 +2805,17 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     break;
                 }
             }
+#ifdef VERBOSE
+            printf("3003 littlecnt = %d\n", littlecnt);
+#endif
+
             // now p2 should be the new head
             // if (!( littlecnt == prung_depth || p2 == Prov->first ) && prung_flag) {
-            if (prung_flag) { // 2021.09.01
+            if (prung_flag && littlecnt > 1 && (p2->mu)*muPrevious2 < 0 ) { // 2021.09.01, 2021.09.15
                 // 2021.09.12, we shold delete points between p2 and Prov->last
-                for (_point *tp = Prov->last; tp != p2; tp = tp->prev) {
-                    delete tp;
+                for (_point *tp = Prov->last->prev; tp != p2->prev; tp = tp->prev) {
+                    // delete tp; // wrong
+                    delete tp->next; // 2021.09.15
                 }
                 Prov->last = p2;
                 p2->next = 0;
@@ -2814,33 +2827,27 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         Prov = Prov->next;
     }
 
+// show head and tail information of each track in imageTracks
 #ifdef VERBOSE
-    int ctk = 0, ctk2 = 0 ,  maxprint = 10;
+    ctk = 0, ctk2 = 0;
     for (_curve *scan = imageTracks->first; scan; scan = scan->next) {
-#ifdef VERBOSE
         printf("\n\n-----> track %d, length %d\n", ctk, scan->length);
         printf("\n\n-----> head\n");
-#endif
         ctk2 = 0;
         for (_point *p = scan->first; p; p = p->next) {
             if (ctk2 < maxprint) {
-#ifdef VERBOSE
                 printf("p->flag %d, p->mu %f, p->absdzs = %.5e\n", p->flag, p->mu , p->absdzs );
-#endif
+
                 ctk2 += 1;
             } else {
                 break;
             }
         }
-#ifdef VERBOSE
         printf("\n\n-----> tail\n");
-#endif
         ctk2 = 0;
         for (_point *p = scan->last; p; p = p->prev) {
             if (ctk2 < maxprint) {
-#ifdef VERBOSE
                 printf("p->flag %d, p->mu %f, p->absdzs = %.5e\n", p->flag, p->mu , p->absdzs);
-#endif
                 ctk2 += 1;
             } else {
                 break;
@@ -3034,7 +3041,24 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             // fprintf(stderr, "can not jump, reversing final and then check if connectWithHead or connectWithTail, or jump over caustics\n");
             fprintf(stderr, "1933, 1st connect null, check head\n");
 #endif
-            ifkeep_connect = 1;
+            if (imageTracks->length > 0 ){ifkeep_connect = 1;}
+            else{
+                // we should stop here, 2021.09.14
+                _final_parity
+#ifdef VERBOSE
+                fprintf(stderr, "\t >>>connected->append(final) place 3230, final->length = %d\n", final->length);
+#endif
+                connected->append(final);
+
+                delete allSolutions;
+                delete imageTracks;
+                Prov2 = NULL;
+                Prov = NULL;
+                delete Prov;
+                delete tempProv;
+                delete Prov2;                                
+                return connected;
+            }
             while (ifkeep_connect) {
                 final = connect_head_or_tail(&ifcontinue, final, imageTracks, connected, true, &ifkeep_connect);
             }
@@ -3390,9 +3414,9 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
                 // 更新 marked:
                 // markedCurve->first->next = markpnt_tobetrunc->next;
 
-                // 2021.09.12
-                for (_point *tp = markedCurve->first; tp != markpnt_tobetrunc; tp = tp->next) {
-                    delete tp;
+                // 2021.09.12 // 2021.09.15
+                for (_point *tp = markedCurve->first->next; tp != markpnt_tobetrunc->next; tp = tp->next) {
+                    delete tp->prev;
                 }
 
                 markedCurve->first = markpnt_tobetrunc;
@@ -3441,8 +3465,8 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
 
                 // markedCurve->last->prev = markpnt_tobetrunc->prev;
                 // 2021.09.12, we shold delete points between Prov->last and p2
-                for (_point *tp = markedCurve->last; tp != markpnt_tobetrunc; tp = tp->prev) {
-                    delete tp;
+                for (_point *tp = markedCurve->last->prev; tp != markpnt_tobetrunc->prev; tp = tp->prev) {
+                    delete tp->next;
                 }
                 markedCurve->last = markpnt_tobetrunc;
                 markpnt_tobetrunc->next = 0;
@@ -3487,8 +3511,8 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
 
                 // 更新 marked:
                 // markedCurve->first->next = markpnt_tobetrunc->next;
-                for (_point *tp = markedCurve->first; tp != markpnt_tobetrunc; tp = tp->next) {
-                    delete tp;
+                for (_point *tp = markedCurve->first->next; tp != markpnt_tobetrunc->next; tp = tp->next) {
+                    delete tp->prev;
                 }
                 markedCurve->first = markpnt_tobetrunc;
                 markpnt_tobetrunc->prev = 0;
@@ -3532,8 +3556,8 @@ _curve *jump_over_caustics_deeper(_curve * final, _sols * imageTracks, int *head
 
                 // drop points from tail of the markedCurve
                 // markedCurve->last->prev = markpnt_tobetrunc->prev;
-                for (_point *tp = markedCurve->last; tp != markpnt_tobetrunc; tp = tp->prev) {
-                    delete tp;
+                for (_point *tp = markedCurve->last->prev; tp != markpnt_tobetrunc->prev; tp = tp->prev) {
+                    delete tp->next;
                 }
                 markedCurve->last = markpnt_tobetrunc;
                 markpnt_tobetrunc->next = 0;
@@ -3919,6 +3943,13 @@ _curve *connect_head_or_tail(int *ifcontinue, _curve * final, _sols * imageTrack
 #ifdef VERBOSE
     fprintf(stderr, "2444 connectWithHead = %d, connectWithTail = %d, imageTracks.length=%d,\n first and last image position difference:%.2e, final->length = %d\n", connectWithHead, connectWithTail , imageTracks->length, sqrt(*(final->first) - * (final->last)), final->length);
 #endif
+
+    // 2021.09.14, after previous connecting process, the imageTrack length will reduce, might be reduced to 0
+    if (imageTracks->length == 0) {
+        *ifkeep_connect = 0;
+        *ifcontinue = 1; //2021.09.15
+        return final;
+    }
 
     if (connectWithHead || connectWithTail) {
         *ifkeep_connect = 1;

@@ -1,11 +1,8 @@
 
 // #include <pybind11/pybind11.h>
 // #include <pybind11/stl.h>
-//#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/pybind11.h>
-//#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/stl.h>
-#include </Library/Python/3.7m/include/pybind11/pybind11.h>
-#include </Library/Python/3.7m/include/pybind11/stl.h>
-
+#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/pybind11.h>
+#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/stl.h>
 #include "../src/VBBinaryLensingLibrary.h"
 #include "../src/TripleLensingLibrary.h"
 #include <string>
@@ -81,6 +78,18 @@ PYBIND11_MODULE(TripleLensing, m) {
     },
     R"mydelimiter(
             outputCriticalTriple_list
+            )mydelimiter")
+
+    .def("outputCriticalBinary_list",
+         [](TripleLensing & self, double s, double q, int NPS )
+    {
+        std::vector<double> allxys(NPS * 40);
+        // std::vector<double> allxys(NPS*4+2);
+        self.outputCriticalBinary_list(allxys.data(), s, q, NPS);
+        return allxys;
+    },
+    R"mydelimiter(
+            outputCriticalBinary_list
             )mydelimiter")
 
     // double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol,double mags[], int Np

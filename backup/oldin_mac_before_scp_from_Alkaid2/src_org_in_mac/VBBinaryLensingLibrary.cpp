@@ -177,7 +177,7 @@ _sols *VBBinaryLensing::PlotCrit(double a1, double q1) {
 
 // #define NTRIPLE  3
 // #define NCRITICAL  10
-// PlotCritTriple(mlens, Zlens, NPS); ****************************************************************
+// PlotCritTriple(mlens, Zlens, NPS);
 _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nlens) {
 	int NTRIPLE = nlens;
 	// fprintf(stderr, "inside VBBinaryLensing::PlotCritTriple, nlens: %d\n", nlens);
@@ -261,7 +261,7 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 
 	for (int j = 0; j < NPS; j++) {
 
-		ej = complex(cos(2 * j * M_PI / (NPS-1) ) , -sin(2 * j * M_PI / (NPS-1)));
+		ej = complex(cos(2 * j * M_PI / NPS), -sin(2 * j * M_PI / NPS));
 		//	  ej = complex(cos(2.0*M_PI/3.0), sin(2*M_PI/3.0));
 		for (i = 0; i <= 2 * n; i++) coefs[i] = c[i] * ej;
 		for (i = 2 * n - 2; i >= 0; i--) coefs[i] = coefs[i] - cfix[i];
@@ -274,6 +274,7 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 
 		// cmplx_roots_gen(zr, coefs, 6, true, true);
 		cmplx_roots_gen(zr, coefs, NCRITICAL, true, true);
+		// why degree 6?
 
 		if (j > 0) {
 			Prov2 = new _curve();
@@ -296,78 +297,29 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 		}
 	}
 
-
-    // float EPS = 1e-5;
-    int head = 0, tail = 0;
-
-    // connect segments into closed curves, 2021.10.05
 	Prov = CriticalCurves->first;
 	while (Prov->next) {
 		SD = *(Prov->first) - *(Prov->last);
-		//printf("SD = %e\n", SD);
-		// if (SD < EPS * EPS ){
-		// 	Prov = Prov->next;
-		// 	continue;
-		// }
-
 		MD = 1.e100;
-		head = 0, tail = 0;
-		// current curve if Prov, we check whether other curves can connect to Prov
 		for (Prov2 = Prov->next; Prov2; Prov2 = Prov2->next) {
 			CD = *(Prov2->first) - *(Prov->last);
-			//printf("CD = %e\n", CD);
 			if (CD < MD) {
 				MD = CD;
 				isso = Prov2;
-				head = 1;
-				tail = 0;
 			}
-			CD = *(Prov2->last) - *(Prov->last);
-			if (CD < MD) {
-				MD = CD;
-				isso = Prov2;
-				head = 0;
-				tail = 1;
-			}			
 		}
-		//printf("MD = %e\n", MD);
 		if (MD < SD) {
-			if (head == 1){
-				CriticalCurves->drop(isso);
-				Prov->join(isso);
-			}else if (tail == 1){
-				CriticalCurves->drop(isso);
-				Prov->join(isso->reverse());
-			}
+			CriticalCurves->drop(isso);
+			Prov->join(isso);
 		}
 		else {
 			Prov = Prov->next;
 		}
 	}
 
-
-	// sols *imageTracks;
-	// imageTracks = new _sols;
-
-	// Prov = CriticalCurves->first;
-	// while (Prov) {
-	// 	tempProv = Prov->next;
-	// 	SD = *(Prov->first) - *(Prov->last);
-	// 	if (SD < EPS * EPS ){
-	// 		CriticalCurves->drop(Prov);
-	// 		imageTracks->append(Prov);
-	// 	}
-	// 	Prov = tempProv;
-	// }
-
-
-
 	// Caustics
 	complex zs, zz;
-	// for (Prov = CriticalCurves->last; Prov; Prov = Prov->prev) {
-	Prov = CriticalCurves->first;
-	int ncritical = CriticalCurves->length;
-	for (int i = 0; i<ncritical; i++){
+	for (Prov = CriticalCurves->last; Prov; Prov = Prov->prev) {
 		Prov2 = new _curve;
 		for (_point *scanpoint = Prov->first; scanpoint; scanpoint = scanpoint->next) {
 			zz = complex(scanpoint->x1, scanpoint->x2);
@@ -381,7 +333,6 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 			Prov2->append(real(zs), imag(zs));
 		}
 		CriticalCurves->append(Prov2);
-		Prov = Prov->next;
 		// fprintf(stderr, "CriticalCurves.first.next.last.x1 %f\n",CriticalCurves->first->next->last->x1 );
 	}
 	return CriticalCurves;
@@ -581,7 +532,6 @@ void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[],
 {
 	// VBBinaryLensing VBBL;
 	// double allxys[4*NPS+2];
-
 	complex Zlens[NLENS];
 	int i;
 	for (i = 0; i < NLENS; i++) {
@@ -613,8 +563,7 @@ void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[],
 	//then causticsx_i, causticsy_i
 	// [2, crx1,cry1,crx2,cry2, 1, cax1, cay1]
 //idx [0, 1,   2,   3,   4,    5, 6,    7]
-	// int numcnt_at_each_single_caus[ncritical] = {0};
-	int* numcnt_at_each_single_caus = new int[ncritical];
+
 
 	ncurves = 0;
 	int count_critical = 0;
@@ -638,7 +587,6 @@ void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[],
 			}
 			//      printf("critical curve #%d  number of points %d\n", ncurves-ncritical, npoints);
 		} else {
-			numcnt_at_each_single_caus[ncurves-1] = c->length;
 			// first half, critical curves
 			for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
 				// fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
@@ -652,15 +600,7 @@ void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[],
 	}
 	allxys[0] = count_critical;
 	allxys[2 * count_critical + 1] = count_caustic;
-
-
-    // save ncritical the and number of points at each critical points // 2021.10.05
-    allxys[2 * count_critical + 1 + 2 * count_caustic + 1] = ncritical;
-    for(int i = 0; i<ncritical; i++){
-        allxys[2 * count_critical + 2 * count_caustic + 3 + i] = numcnt_at_each_single_caus[i];
-    }
-
-    delete[] numcnt_at_each_single_caus;
+	// fclose(fcritical);  fclose(fcaustics);
 }
 
 void VBBinaryLensing::PrintCau(double a, double q) {
@@ -4058,21 +3998,15 @@ _curve::~_curve(void) {
 	// fprintf(stderr, "\n deleting curve\n");
 	_point *scan1, *scan2;
 	scan1 = first;
-	while (scan1){
+	for (int i = 0; i < length; i++) {
 		scan2 = scan1->next;
 		delete scan1;
 		scan1 = scan2;
 	}
-
-	// for (int i = 0; i < length; i++) {
-	// 	scan2 = scan1->next;
-	// 	delete scan1;
-	// 	scan1 = scan2;
-	// }
-	// scan1 = NULL;
-	// scan2 = NULL;
-	// delete scan1;
- 	// delete scan2; // 2021.09.26
+	scan1 = NULL;
+	scan2 = NULL;
+	delete scan1;
+	delete scan2;
 }
 
 _curve *_curve::divide(_point *ref) {
@@ -4113,8 +4047,8 @@ void _curve::append(double x1, double x2) {
 	}
 	pp->next = 0;
 	length++;
-	// pp = NULL;
-	// delete pp;
+	pp = NULL;
+	delete pp;
 }
 
 void _curve::append(_point *pp) {
@@ -4181,7 +4115,7 @@ _curve *_curve::join(_curve *nc) {
 	nc->first = 0;
 	nc->last = 0;
 	nc->length = 0;
-	// delete nc;
+	delete nc;
 	return this;
 }
 
@@ -4219,12 +4153,12 @@ _curve *_curve::reverse(void) {
 		first = last;
 		last = scambio;
 	}
-	// scan1 = NULL;
-	// scan2 = NULL;
-	// scambio = NULL;
-	// delete scambio;
-	// delete scan1;
-	// delete scan2;
+	scan1 = NULL;
+	scan2 = NULL;
+	scambio = NULL;
+	delete scambio;
+	delete scan1;
+	delete scan2;
 	return this;
 }
 
@@ -4260,9 +4194,9 @@ void _curve::drop(_point *ref, int del) {
 
 		}
 	}
-	// scan = NULL;
-	// // fprintf(stderr, "deleting scan in _curve::drop\n");
-	// delete scan;
+	scan = NULL;
+	// fprintf(stderr, "deleting scan in _curve::drop\n");
+	delete scan;
 }
 
 double _curve::closest2(_point *ref, _point **clos2) {
@@ -4305,8 +4239,8 @@ double _curve::closest(_point *ref, _point **clos) {
 			//void func(int **p); *p = &b; q = &a;, func(& q);
 		}
 	}
-	// scan = NULL;
-	// delete scan;
+	scan = NULL;
+	delete scan;
 	return mi;
 }
 
@@ -4326,8 +4260,8 @@ double _curve::closest3(_point *ref, _point **clos) {
 			//void func(int **p); *p = &b; q = &a;, func(& q);
 		}
 	}
-	// scan = NULL;
-	// delete scan;
+	scan = NULL;
+	delete scan;
 	return mi;
 }
 
@@ -4370,10 +4304,10 @@ _sols::~_sols(void) {
 		delete scan1;
 		scan1 = scan2;
 	}
-	// scan1 = NULL;
-	// scan2 = NULL;
-	// delete scan1;
-	// delete scan2;//2021.09.26
+	scan1 = NULL;
+	scan2 = NULL;
+	delete scan1;
+	delete scan2;
 }
 
 void _sols::removelen1track(void) {
@@ -4389,8 +4323,8 @@ void _sols::removelen1track(void) {
 			scan = scan->next;
 		}
 	}
-	// scan = NULL;
-	// delete scan;
+	scan = NULL;
+	delete scan;
 
 }
 
@@ -4456,8 +4390,8 @@ void _sols::drop(_curve *ref, int del) {
 			}
 		}
 	}
-	// scan = NULL;
-	// delete scan;
+	scan = NULL;
+	delete scan;
 }
 
 void _sols::sort(void) {
@@ -4560,7 +4494,7 @@ void _sols::join(_sols *nc) {
 	nc->first = 0;
 	nc->last = 0;
 	nc->length = 0;
-	// delete nc;
+	delete nc;
 }
 
 

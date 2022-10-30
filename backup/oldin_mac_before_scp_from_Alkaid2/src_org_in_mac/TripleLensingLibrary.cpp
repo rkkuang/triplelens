@@ -445,23 +445,6 @@ void TripleLensing::tripleFS2py(double mlens[], double Zlens[], double xsCenters
 
 }
 
-// Gould approximation calculate interface to Python
-void TripleLensing::tripleGould2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, double Gamma, double mags[], int Np)
-{
-    double A2rho2, A4rho4;
-    int Np2 = 2*Np;
-    complex zlens[NLENS];
-    for (int i = 0; i < NLENS ; i++) {
-        zlens[i] = complex( Zlens[i * 2], Zlens[i * 2 + 1] );
-    }
-    reset3(mlens, zlens);
-    for (int i = 0; i < Np; i++) {
-        mags[i] = gould(xsCenters[i], ysCenters[i], rs, Gamma, &A2rho2, &A4rho4);
-        mags[Np+i] = A2rho2;
-        mags[Np2+i] = A4rho4;
-    }
-}
-
 
 // return the number of real solutions to python
 void TripleLensing::triple_num_real_sol2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double true_solution_threshold , double numbers_mups[], int Np)
@@ -624,16 +607,6 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 //     scanf("%c%*c", &arr[0]);
 // #endif
 
-
-//     if (CQ * quad_err <= quaderr_Tol) {
-//         muPS = gould(xsCenter, ysCenter, rs, 0);
-// #ifdef VERBOSE
-//         fprintf(stderr, "quad_err %f, using gould approximation, mu gould = %f\n", quad_err, muPS);
-// #endif
-//         ifFinite = 0;
-//         return muPS;
-//     } 
-
     if ( CQ * quad_err <= 1e-1 * quaderr_Tol) {
 #ifdef VERBOSE
         fprintf(stderr, "quad_err %f,using point source magnification, muPS = %f\n", quad_err, muPS);
@@ -648,7 +621,8 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 #endif
         ifFinite = 0;
         return muPS;
-    } else {
+    }
+    else {
         ifFinite = 1;
 #ifdef VERBOSE
         fprintf(stderr, "quad_err %f,using caustics crossing computation\n", quad_err);
@@ -670,11 +644,16 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
         for (int i = 0; i < 10; i++) {
             if (i > 0) { // 2021.06.08
                 delete imageTracks;
-                //imageTracks = new _sols;
+                imageTracks = new _sols;
 #ifdef VERBOSE
                 fprintf(stderr, "prevstore->length in tripleFS_v2_savehalf %d, phis->length %d\n", prevstore->length, phis->length);
 #endif
             }
+
+// #ifdef VERBOSE
+//             fprintf(stderr, "\n\n\n\n\n\n\n\n\n\n\n \t\t\t\t\t %d-th into outputTracks_v2_savehalf, please input a char >>> ", i);
+//             scanf("%c%*c", &arr[0]);
+// #endif
 
 
             imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
@@ -692,7 +671,7 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 #endif
                 if (distype == 2) {
                     delete phis;
-                    //phis = new _linkedarray;
+                    phis = new _linkedarray;
                     maxmuidx = (int)(absint(maxmuidx + 1)) % secnum;
                     basenum_priv *= 2;
                     phis = getphis_v3( xsCenter,  ysCenter, ys);
@@ -815,51 +794,6 @@ double TripleLensing::gould(double xsCenter, double ysCenter, double rs, double 
 #endif
 
     mag = A0 + A2rho2 / 2.0 * (1.0 - 0.2 * Gamma)  + A4rho4 / 3.0 * (1.0 - 11.0 / 35.0 * Gamma);
-    return (mag);
-}
-
-double TripleLensing::gould(double xsCenter, double ysCenter, double rs, double Gamma, double *A2rho2, double *A4rho4)
-{
-    int i;
-    double phi, dphi;
-    double muRho[8];
-    double muRhoHalf[4];
-    double AhalfPlus, APlus, Across, A0;
-    // double A2rho2, A4rho4;// gould, 10%,
-    double xs, ys;
-    // int nimages;
-    double mag;
-    A0 = TriplePS(xsCenter, ysCenter);
-
-    // 8 points at full radius
-    dphi = M_PI * 0.25;
-    for (i = 0; i < 8; i++) {
-        phi = dphi * (i - 1);
-        xs = xsCenter + rs * cos(phi);
-        ys = ysCenter + rs * sin(phi);
-        muRho[i] = TriplePS(xs, ys);
-    }
-
-    // four points at half radius
-    dphi = M_PI * 0.5;
-    for (i = 0; i < 4; i++) {
-        phi = dphi * (i - 1);
-        xs = xsCenter + 0.5 * rs * cos(phi);
-        ys = ysCenter + 0.5 * rs * sin(phi);
-        muRhoHalf[i] = TriplePS(xs, ys);
-    }
-
-    AhalfPlus = (muRhoHalf[0] + muRhoHalf[1] + muRhoHalf[2] + muRhoHalf[3]) * 0.25 - A0;
-    APlus  = (muRho[0] + muRho[2] + muRho[4] + muRho[6]) * 0.25 - A0;
-    Across = (muRho[1] + muRho[3] + muRho[5] + muRho[7]) * 0.25 - A0;
-
-    *A2rho2 = (16.0 * AhalfPlus - APlus) / 3.0;
-    *A4rho4 = (APlus + Across) / 2.0 - *A2rho2;
-#ifdef VERBOSE
-    printf("I am in gould, second and fourth order corrections: %f %f\n", A2rho2 / 2.0, A4rho4 / 3.0);
-#endif
-
-    mag = A0 + *A2rho2 / 2.0 * (1.0 - 0.2 * Gamma)  + *A4rho4 / 3.0 * (1.0 - 11.0 / 35.0 * Gamma);
     return (mag);
 }
 
@@ -1205,43 +1139,40 @@ double TripleLensing::TriplePS(double xs, double ys) {
         total_parity += (flag ? ( mu > 0 ? 1 : -1 ) : 0 );
     }
 
-    // remove on 2021.11.13
-//     int k = 0;
-//     int missing_sol_idx = 0;
-//     int worst_true_sol_idx = 0;
-//     double missing_sol_absdzs = 1e3, missing_sol_mu;
-//     double worst_tru_sol_absdzs = -1e1, worst_tru_sol_mu;
+    int k = 0;
+    int missing_sol_idx = 0;
+    int worst_true_sol_idx = 0;
+    double missing_sol_absdzs = 1e3, missing_sol_mu;
+    double worst_tru_sol_absdzs = -1e1, worst_tru_sol_mu;
 
-// // correction according to the number of true images and total parity
-//     if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) {
-//         for (k = 0 ; k < DEGREE; k++) {
-//             if ( flaglist[k] == 1 &&  absdzslist[k] > worst_tru_sol_absdzs) {
-//                 worst_tru_sol_absdzs =  absdzslist[k];
-//                 worst_true_sol_idx = k;
-//                 worst_tru_sol_mu =  mulist[k];
-//             }
-//             if ( flaglist[k] == 0 &&  absdzslist[k] < missing_sol_absdzs) {
-//                 missing_sol_absdzs =  absdzslist[k];
-//                 missing_sol_mu = mulist[k];
-//                 missing_sol_idx = k;
-//             }
-//         }
+// correction according to the number of true images and total parity
+    if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) {
+        for (k = 0 ; k < DEGREE; k++) {
+            if ( flaglist[k] == 1 &&  absdzslist[k] > worst_tru_sol_absdzs) {
+                worst_tru_sol_absdzs =  absdzslist[k];
+                worst_true_sol_idx = k;
+                worst_tru_sol_mu =  mulist[k];
+            }
+            if ( flaglist[k] == 0 &&  absdzslist[k] < missing_sol_absdzs) {
+                missing_sol_absdzs =  absdzslist[k];
+                missing_sol_mu = mulist[k];
+                missing_sol_idx = k;
+            }
+        }
 
-//         // if total parity is wrong, we try to remove solutions
-//         if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
-//             flaglist[worst_true_sol_idx] = -1;
-//             nimages -= 1;
-//             muTotal -= abs( worst_tru_sol_mu );
-//         }
-//         else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
-//             flaglist[missing_sol_idx] = 1;
-//             nimages += 1;
-//             muTotal += abs(missing_sol_mu);
-//         } else {
-//         }
-//     }
-
-
+        // if total parity is wrong, we try to remove solutions
+        if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
+            flaglist[worst_true_sol_idx] = -1;
+            nimages -= 1;
+            muTotal -= abs( worst_tru_sol_mu );
+        }
+        else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
+            flaglist[missing_sol_idx] = 1;
+            nimages += 1;
+            muTotal += abs(missing_sol_mu);
+        } else {
+        }
+    }
     return (muTotal);
 }
 
@@ -1407,18 +1338,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     complex tmpz;
 
     _sols *allSolutions, *imageTracks;
-    allSolutions = new _sols;
-    imageTracks = new _sols;
-
-    //auto allSolutions = make_unique<_sols>();
-    //auto imageTracks = make_unique<_sols>();
-
-    // unique_ptr<_sols> allSolutions(new _sols);
-    // unique_ptr<_sols> imageTracks(new _sols);
-
-
-
-
     _curve *Prov;// = new _curve; // 21 Sep 11
     _curve *Prov2 = new _curve;
     _curve *tempProv;// = new _curve;
@@ -1428,7 +1347,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     // double SD, MD, CD;
 
     // connect all images, including fake images, initialize ten _curve object to save solutions from polynomial solving
-    
+    allSolutions = new _sols;
     for (int i = 0; i < DEGREE; i++) {
         Prov = new _curve;
         allSolutions->append(Prov);
@@ -1452,8 +1371,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         // first point in all solution tracks
         tempProv = new _curve;
         (*prevstore)->append(tempProv);
-        // tempProv = nullptr;
-        // delete tempProv;
         Prov = allSolutions->first;
         // the head of all tracks
         nimages = 0;
@@ -1462,7 +1379,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             flag = trueSolution(xs, ys, zr[i], &mu);
 
             // polish using Newton method, 2021.09.18
-            #ifdef POLISH_USE_NEWTON
             if (flag == 0 && absdzs < SOLEPS1e2){  // we only polish when it is necessary
              tmpz = complex(zr[i].re, zr[i].im);
              findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
@@ -1471,8 +1387,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 flag = trueSolution(xs, ys, zr[i], &mu);
                 }
             }
-            #endif
-
 
             nimages += flag;
 
@@ -1609,10 +1523,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             Prov2 = new _curve; // use to store the ten solutions in current phi
             tempProv = new _curve;
             (*prevstore)->append(tempProv);// prevstore 在这只是用于保存以前解出来的解, 后续 phi->extend 之后不用再重新解这些 lens equations; 每次的 10 个解作为一条curve 保存
-
-        // tempProv = nullptr;
-        // delete tempProv;
-
             nimages = 0;
             total_parity = 0;
             for (int i = 0; i < DEGREE; i++) {
@@ -1620,7 +1530,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 flag = trueSolution(xs, ys, zr[i], &mu);
 
             // polish using Newton method, 2021.09.18
-            #ifdef POLISH_USE_NEWTON
             if (flag == 0 && absdzs < SOLEPS1e2){  // we only polish when it is necessary
              tmpz = complex(zr[i].re, zr[i].im);
              findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
@@ -1629,7 +1538,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 flag = trueSolution(xs, ys, zr[i], &mu);
                 }
             }
-            #endif
 
                 nimages += flag;
 
@@ -1766,8 +1674,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov->append(pisso);
                 if (pisso->flag == 1) {Prov->posflagnum += 1;}
             }
-                delete Prov2;
-                Prov2 = nullptr; // 2021.09.26
         }
 #ifdef VERBOSE
         fprintf(stderr, "*prevstore->length %d\n", (*prevstore)->length);
@@ -1801,9 +1707,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         // first point in all solution tracks
         tempProv = new _curve;
         tempcurrstore->append(tempProv);
-        // tempProv = nullptr;
-        // delete tempProv;
-
         //Prov = new _curve;
         Prov = allSolutions->first;
         nimages = 0;
@@ -1857,9 +1760,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov2 = new _curve;
                 tempProv = new _curve;
                 tempcurrstore->append(tempProv);
-        // tempProv = nullptr;
-        // delete tempProv;
-
                 nimages = 0;
                 total_parity = 0;
                 for (int i = 0; i < DEGREE; i++) {
@@ -1867,7 +1767,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     flag = trueSolution(xs, ys, zr[i], &mu);
 
             // polish using Newton method, 2021.09.18
-            #ifdef POLISH_USE_NEWTON
             if (flag == 0 && absdzs < SOLEPS1e2){  // we only polish when it is necessary
              tmpz = complex(zr[i].re, zr[i].im);
              findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
@@ -1876,7 +1775,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 flag = trueSolution(xs, ys, zr[i], &mu);
                 }
             }
-            #endif
 
                     nimages += flag;
                     Prov2->append(zr[i].re, zr[i].im);
@@ -1990,17 +1888,11 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     Prov->append(pisso);
                     if (pisso->flag == 1) {Prov->posflagnum += 1;}
                 }
-                delete Prov2;
-                Prov2 = nullptr; // 2021.09.26
-
             } else {
                 delete Prov2;
                 Prov2 = new _curve;
                 tempProv = new _curve;
                 tempcurrstore->append(tempProv);
-                // tempProv = nullptr;
-                // delete tempProv;
-
                 nimages = 0;
                 scanstorecurve = scanstorecurve->next;
                 scanpisso = scanstorecurve->first;
@@ -2041,16 +1933,15 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     Prov->append(pisso);
                     if (pisso->flag == 1) {Prov->posflagnum += 1;}
                 }
-                delete Prov2;
-                Prov2 = nullptr; // 2021.09.26
             }
 
         }
         delete (*prevstore);//200711
+
         //(*prevstore) = new _sols;;//200711
 
         (*prevstore) = tempcurrstore;
-        tempcurrstore = nullptr;
+        tempcurrstore = NULL;
         delete tempcurrstore;
     }
 
@@ -2068,7 +1959,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 
 
     //allocate memory for potentially true image tracks, we make a factor four more segments just in case
-    // imageTracks = new _sols;
+    imageTracks = new _sols;
 
     //2021.06.10, before proceed, we directly drop out pure false image curves;
     // this must be slightly faster
@@ -2557,9 +2448,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 
     tempcurve = new _curve;
     imageTracks->append(tempcurve);
-    // tempcurve = nullptr;
-    // delete tempcurve;
-
     // use a new _curve to store the remaining segments
     Prov2 = imageTracks->last;
     Prov = allSolutions->first;
@@ -2641,12 +2529,9 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                                     printf("\t 2441 --> start a new segment\n");
 #endif
                                     if (Prov2->length > 0 && !Prov2->next) {
-                                        // printf("\t 2535 --> start a new segment\n");
                                         tempcurve = new _curve;
                                         imageTracks->append(tempcurve);
                                         Prov2 = Prov2->next;
-                                        //tempcurve = nullptr;
-                                        //delete tempcurve;
                                     }
 
                                     // 在这做个额外的处理，后面大概率是false image，哪怕有也是只有几个了，可利用 Prov->posflagnum 的信息大概判断这是 大segment 还是 小 segment
@@ -2762,8 +2647,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                                 imageTracks->append(tempcurve);
                                 disfirstTime = 1;
                                 Prov2 = Prov2->next;
-                                // tempcurve = nullptr;
-                                // delete tempcurve;
                             }
 
                             currentTrueOrFalse = 0;
@@ -2815,8 +2698,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                                 imageTracks->append(tempcurve);
                                 disfirstTime = 1;
                                 Prov2 = Prov2->next;
-                                // tempcurve = nullptr;
-                                // delete tempcurve;
                             }
 
                             if (p2->next) {
@@ -2837,8 +2718,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     if (!Prov2->next) {
                         tempcurve = new _curve;
                         imageTracks->append(tempcurve);
-                        // tempcurve = nullptr;
-                        // delete tempcurve;
                     }
                     Prov2 = Prov2->next;
                     flagPrevious = p2->flag;
@@ -2883,8 +2762,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                         tempcurve = new _curve;
                         imageTracks->append(tempcurve);
                         disfirstTime = 1;
-                        // tempcurve = nullptr;
-                        // delete tempcurve;
                     }
                     Prov2 = Prov2->next;  // we start a new image track
                     previousImage = FALSE_IMAGE;
@@ -2903,8 +2780,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             imageTracks->append(tempcurve);
             disfirstTime = 1;
             Prov2 = Prov2->next;
-            // tempcurve = nullptr;
-            // delete tempcurve;
         }
 
 
@@ -2913,8 +2788,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     // finish spliting the segments.
     //  ****************************************** end version 3 ************************************************* //
 
-    // tempcurve = NULL;
-    // delete tempcurve;
+    tempcurve = NULL;
+    delete tempcurve;
     int badscaned = 0;
 
     // drop empty _curve
@@ -3152,6 +3027,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             delete Prov;
             delete allSolutions;
             return imageTracks;
+
         }
     }
 
@@ -3182,12 +3058,12 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         if (SD < EPS * EPS && Prov->length > 3) { // add on 2021.06.10
             tempProv = Prov->next;
             imageTracks->drop(Prov);
+
             if (Prov->first->mu < 0 && abs(Prov->first->mu) < 1e-5 ) {
                 // this is a tiny image
 #ifdef VERBOSE
                 fprintf(stderr, "A TINY image with length %d, final->mu = %.5e, last->mu = %.5e\n", Prov->length, Prov->first->mu, Prov->last->mu);
 #endif
-                delete Prov; // add on 2021.09.27
             } else {
                 connected->append(Prov);
                 connected->last->parity = connected->last->first->mu > 0 ? 1 : -1;
@@ -3218,8 +3094,6 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         }
     }
     tempProv = NULL;
-
-
 
     if (imageTracks->length == 0) {
 #ifdef VERBOSE
@@ -3915,8 +3789,7 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
 
         // 2021.06.11, actually, if you can jump, you should have exactlly the same source positions.
 
-        // if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the head with opposite parity
-        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(mu/muPrevious) ) < 2.5 ) ) { // 2021.10.07
+        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the head with opposite parity
             // if (abs(dzs) < EPS) { // connected with the head with opposite parity // remove on 2020.07.17
             ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
             //  printf("head - ratio, ratioMin=%f %f\n", ratio, ratioMin);
@@ -3934,7 +3807,7 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
         dzs = zs - zsPrevious;
 
         disimg = abs(complex(Prov2->last->x1, Prov2->last->x2) - imgPrevious);
-        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(mu/muPrevious) ) < 2.5 ) ) {
+        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the tail // remove on 2020.07.17
             ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
             //  printf("tail - ratio, ratioMin=%f %f\n", ratio, ratioMin);
             if (ratio < ratioMin) {
@@ -4928,11 +4801,6 @@ void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], 
     ncritical = criticalCurves->length / 2; // number of closed critical curves
     // allxys[0] = ncritical;
     // fprintf(stderr, "ncritical %d \n", ncritical);
-
-    // int numcnt_at_each_single_caus[ncritical] = {0};
-    int* numcnt_at_each_single_caus = new int[ncritical];
-
-
 #ifdef VERBOSE
     printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
 #endif
@@ -4943,20 +4811,19 @@ void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], 
     int count_critical = 0;
     int count_caustic = 0;
     for (_curve *c = criticalCurves->first; c; c = c->next) {
-        //int npoints = 0;
+        int npoints = 0;
         ncurves++;
 
         // second half, caustics
         if (ncurves > ncritical) {      // second halfs are caustics
             for (_point *p = c->first; p; p = p->next) {
-                //npoints++;
+                npoints++;
 
                 count_caustic ++;
                 allxys[2 * count_critical + 1 + 2 * count_caustic - 1] = p->x1;
                 allxys[2 * count_critical + 1 + 2 * count_caustic] = p->x2;
             }
         } else {
-            numcnt_at_each_single_caus[ncurves-1] = c->length;
             // first half, critical curves
             for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
                 count_critical ++;
@@ -4968,18 +4835,7 @@ void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], 
     }
     allxys[0] = count_critical;
     allxys[2 * count_critical + 1] = count_caustic;
-
-    // save ncritical the and number of points at each critical points // 2021.10.05
-    allxys[2 * count_critical + 1 + 2 * count_caustic + 1] = ncritical;
-    for(int i = 0; i<ncritical; i++){
-        allxys[2 * count_critical + 2 * count_caustic + 3 + i] = numcnt_at_each_single_caus[i];
-    }
-
-    delete[] numcnt_at_each_single_caus;
-
 }
-
-
 //output in two files the triple critical curves and caustics
 void outputCriticalTriple(double mlens[], complex zlens[], int nlens, int npnt)
 {
@@ -5541,26 +5397,16 @@ _linkedarray::_linkedarray(void) {
 
 _linkedarray::~_linkedarray(void) {
     Node *scan1, *scan2;
-    // scan1 = first;
-    // for (int i = 0; i < length; i++) {
-    //     scan2 = scan1->next;
-    //     delete scan1;
-    //     scan1 = scan2;
-    // }
-    // scan1 = NULL;
-    // scan2 = NULL;
-    // delete scan1;
-    // delete scan2;
-
     scan1 = first;
-    while (scan1) {
+    for (int i = 0; i < length; i++) {
         scan2 = scan1->next;
         delete scan1;
         scan1 = scan2;
     }
-
-
-
+    scan1 = NULL;
+    scan2 = NULL;
+    delete scan1;
+    delete scan2;
 }
 
 

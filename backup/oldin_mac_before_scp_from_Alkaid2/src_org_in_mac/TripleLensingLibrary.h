@@ -1,5 +1,4 @@
 // #include<stdio.h>
-#include<memory>
 #include "VBBinaryLensingLibrary.h"
 
 // output an image
@@ -20,16 +19,8 @@
 
 
 #define SOLEPS 1.0e-5 // true or false solution of lens equation solving, 1.0e-5 is a bit too strict at some cases
-// #define SOLEPS1e2 1e-3 // threshold used to judge whether we use Newton method to polish the root using the original lens equation instead of the polynomial
-// #define SOLEPS1e3 1e-2 // threshold used to judge whether we should taken the result of Newton polish method 
-
-
-// 2021.10.07 to do: perhaps the timing when NEWTON POLISH used should be changed?
-#define POLISH_USE_NEWTON // used for small mass ratio
-#define SOLEPS1e2 1e-4 // if we find one solution has absdsz > SOLEPS1e2, we use NEWTON polish
-#define SOLEPS1e3 1e-4// be cautious, newton polish may lead to a dilemma that two different solutions converge to the same position, this will lead to bugs during the track-connect process
-
-
+#define SOLEPS1e2 1e-3 // threshold used to judge whether we use Newton method to polish the root using the original lens equation instead of the polynomial
+#define SOLEPS1e3 1e-2 // threshold used to judge whether we should taken the result of Newton polish method 
 
 #define MISS_SOL_THRESHOLD 1
 
@@ -62,12 +53,14 @@ public:
 };
 
 
+
+
 class TripleLensing {
     int finalnphi, nimages, ftime, FSflag, nsolution, trackcnt, parity, degrees, adanp0 = 2, MAXNPS = 2000, secnum_priv, basenum_priv, clpairparity1, clpairparity2, special_flag = 0;
     double TINY, ph1, ph2, ph3, adaerrTol = 0.0005, timerrTol = 1e-3, tempdis, mindis, M_PI2 = 2 * M_PI, absdzs;
     // absdzs is used to store the abs(dzs) in trueSolution()
     double r2_1, r2_2, x, y, dx_db, dy_db, dx_db2, dy_db2 , Jxx, Jyy, Jxy, rho2, areaSource, phi0, x1, x2, y1, y2, phi1, phi2, dphi, dphi3, ds1, ds2, subArea, pos_area, rep, imp, x_xj, y_yj, xy_j2, relerr_priv; // trueSolution
-    complex zs, dzs, dzsdz, zsc, zc[NLENS], z1, z2, z3, z1bar, z2bar, z3bar, zsbar;
+    complex zs, dzs, dzsdz, zsc, zc[NLENS], z1, z2, z3, z1bar, z2bar, z3bar, zsbar, z13, z23, z33, z12, z22, z32, zsmod, z1barz2barzs, z1barz3barzs, z2barz3barzs, z1barzs, z2barzs, z3barzs, z1barzsmod, z2barzsmod, z3barzsmod, z1barzsbar, z2barzsbar, z3barzsbar, z1barz2barzsmod, z1barz3barzsmod, z2barz3barzsmod, z1barz2barzsbar, z1barz3barzsbar, z2barz3barzsbar;
     complex tempzc, tempzc2, tempzc3, tempzc4, J1c, dz1, dz2;
     complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS];
     complex temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1];
@@ -101,7 +94,6 @@ public:
     void reset3(double mlens[], complex zlens[]);
     void reset2(double mlens[],  double Zlens[]);
     double TriplePS(double xs, double ys);
-    double gould(double xsCenter, double ysCenter, double rs, double Gamma, double *A2rho2, double *A4rho4);
     double gould(double xsCenter, double ysCenter, double rs, double Gamma);
 
 
@@ -144,7 +136,6 @@ public:
     void polynomialCoefficients(double xs, double ys, complex c[]);
 
     void tripleFS2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np) ; //core
-    void tripleGould2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, double Gamma, double mags[], int Np);
     void tripleFSLimb2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np, double limba1, double RelTolLimb, double AbsTolLimb) ; //core
     void triple_num_real_sol2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double true_solution_threshold , double numbers_mups[], int Np);
 

@@ -1,11 +1,8 @@
 
 // #include <pybind11/pybind11.h>
 // #include <pybind11/stl.h>
-//#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/pybind11.h>
-//#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/stl.h>
 #include </Library/Python/3.7m/include/pybind11/pybind11.h>
 #include </Library/Python/3.7m/include/pybind11/stl.h>
-
 #include "../src/VBBinaryLensingLibrary.h"
 #include "../src/TripleLensingLibrary.h"
 #include <string>
@@ -96,22 +93,6 @@ PYBIND11_MODULE(TripleLensing, m) {
     R"mydelimiter(
             Static triple lens light curve for a given set of parameters.
             Uses the TripleMag function.
-
-            Parameters
-            ----------)mydelimiter")
-
-    .def("TriLightCurveGould",
-         [](TripleLensing & self, std::vector<double> mlens,std::vector<double> Zlens,
-            std::vector<double> y1s, std::vector<double> y2s, double rs, double Gamma)
-    {
-        std::vector<double> mags(3*y1s.size()); // mags, A2rho2, A4rho4
-        self.tripleGould2py(mlens.data(),Zlens.data(),
-                           y1s.data(), y2s.data(), rs, Gamma, mags.data(), y1s.size());
-        return mags;
-    },
-    R"mydelimiter(
-            Static triple lens light curve for a given set of parameters.
-            Uses the gould approximation.
 
             Parameters
             ----------)mydelimiter")

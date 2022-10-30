@@ -25,7 +25,7 @@ The output file can further be processed with provided python scripts (inside th
 
 
 // main tests
-// #define TESTLKV // flag controls whether test light curve generating
+#define TESTLKV // flag controls whether test light curve generating
 // #define TESTADA // flag controls whether test adaptive sampling of light curve
 // #define TESTMAP // flag controls whether test magnification map generating
 // #define LMBLKV // flag controls test limb darkening light curve calculation

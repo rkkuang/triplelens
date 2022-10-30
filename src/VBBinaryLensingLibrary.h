@@ -84,8 +84,9 @@ public:
 
 	// void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int NLENS);
 	void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
+	void outputCriticalBinary_list(double allxys[], double a, double q, int NPS);
 	// Critical curves and caustic calculation
-	_sols *PlotCrit(double a, double q);
+	_sols *PlotCrit(double a, double q, int NPS);
 	_sols *PlotCritTriple(double m[], complex z[], int NPS, int nlens);
 	_sols *outCritTriple(double m[], complex z[], int NPS, int nlens);
 	void PrintCau(double a, double q);

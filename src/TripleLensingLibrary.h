@@ -110,6 +110,7 @@ public:
 
     void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int nlens);
     void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
+    void outputCriticalBinary_list(double resxy[], double s, double q, int NPS);
     void TriLightCurve(double *pr, double *mags, double *y1s, double *y2s, int np);
 
     // double tripleFS_v2_savehalf_quadtest(double xsCenter, double ysCenter, double rs);

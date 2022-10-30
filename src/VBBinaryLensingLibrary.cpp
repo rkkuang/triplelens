@@ -95,9 +95,9 @@ VBBinaryLensing::~VBBinaryLensing() {
 //////////////////////////////
 
 
-_sols *VBBinaryLensing::PlotCrit(double a1, double q1) {
+_sols *VBBinaryLensing::PlotCrit(double a1, double q1, int NPS) {
 	complex  a, q, ej, zr[4], x1, x2;
-	int NPS = 200;
+	// int NPS = 200;
 	_sols *CriticalCurves;
 	_curve *Prov, *Prov2, *isso;
 	_point *pisso;
@@ -117,7 +117,7 @@ _sols *VBBinaryLensing::PlotCrit(double a1, double q1) {
 	}
 
 	for (int j = 0; j < NPS; j++) {
-		ej = complex(cos(2 * j * M_PI / NPS), -sin(2 * j * M_PI / NPS));
+		ej = complex(cos(2 * j * M_PI / (NPS-1) ), -sin(2 * j * M_PI / (NPS-1)));
 		complex  coefs[5] = { a*a / 16.0 * (4.0 - a*a * ej)*(1.0 + q), a*(q - 1.0), (q + 1.0)*(1.0 + a*a*ej / 2.0), 0.0, -(1.0 + q)*ej };
 		cmplx_roots_gen(zr, coefs, 4, true, true);
 
@@ -141,20 +141,61 @@ _sols *VBBinaryLensing::PlotCrit(double a1, double q1) {
 		}
 	}
 
+	// Prov = CriticalCurves->first;
+	// while (Prov->next) {
+	// 	SD = *(Prov->first) - *(Prov->last);
+	// 	MD = 1.e100;
+	// 	for (Prov2 = Prov->next; Prov2; Prov2 = Prov2->next) {
+	// 		CD = *(Prov2->first) - *(Prov->last);
+	// 		if (CD < MD) {
+	// 			MD = CD;
+	// 			isso = Prov2;
+	// 		}
+	// 	}
+	// 	if (MD < SD) {
+	// 		CriticalCurves->drop(isso);
+	// 		Prov->join(isso);
+	// 	}
+	// 	else {
+	// 		Prov = Prov->next;
+	// 	}
+	// }
+
+
+    float EPS = 1e-5;
+    int head = 0, tail = 0;
+
+    // connect segments into closed curves, 2021.10.05
 	Prov = CriticalCurves->first;
 	while (Prov->next) {
 		SD = *(Prov->first) - *(Prov->last);
 		MD = 1.e100;
+		head = 0, tail = 0;
+		// current curve if Prov, we check whether other curves can connect to Prov
 		for (Prov2 = Prov->next; Prov2; Prov2 = Prov2->next) {
 			CD = *(Prov2->first) - *(Prov->last);
 			if (CD < MD) {
 				MD = CD;
 				isso = Prov2;
+				head = 1;
+				tail = 0;
 			}
+			CD = *(Prov2->last) - *(Prov->last);
+			if (CD < MD) {
+				MD = CD;
+				isso = Prov2;
+				head = 0;
+				tail = 1;
+			}			
 		}
 		if (MD < SD) {
-			CriticalCurves->drop(isso);
-			Prov->join(isso);
+			if (head == 1){
+				CriticalCurves->drop(isso);
+				Prov->join(isso);
+			}else if (tail == 1){
+				CriticalCurves->drop(isso);
+				Prov->join(isso->reverse());
+			}
 		}
 		else {
 			Prov = Prov->next;
@@ -163,7 +204,22 @@ _sols *VBBinaryLensing::PlotCrit(double a1, double q1) {
 
 	// Caustics
 
-	for (Prov = CriticalCurves->last; Prov; Prov = Prov->prev) {
+	// for (Prov = CriticalCurves->last; Prov; Prov = Prov->prev) {
+	// 	Prov2 = new _curve;
+	// 	for (_point *scanpoint = Prov->first; scanpoint; scanpoint = scanpoint->next) {
+	// 		x1 = complex(scanpoint->x1 - centeroffset, 0.0);
+	// 		x2 = complex(scanpoint->x2, 0.0);
+	// 		Prov2->append(real(_L1) + centeroffset, real(_L2));
+	// 	}
+	// 	CriticalCurves->append(Prov2);
+	// }
+	// return CriticalCurves;
+
+
+	// Caustics
+	Prov = CriticalCurves->first;
+	int ncritical = CriticalCurves->length;
+	for (int i = 0; i<ncritical; i++){
 		Prov2 = new _curve;
 		for (_point *scanpoint = Prov->first; scanpoint; scanpoint = scanpoint->next) {
 			x1 = complex(scanpoint->x1 - centeroffset, 0.0);
@@ -171,8 +227,11 @@ _sols *VBBinaryLensing::PlotCrit(double a1, double q1) {
 			Prov2->append(real(_L1) + centeroffset, real(_L2));
 		}
 		CriticalCurves->append(Prov2);
+		Prov = Prov->next;
 	}
 	return CriticalCurves;
+
+
 }
 
 // #define NTRIPLE  3
@@ -297,7 +356,7 @@ _sols *VBBinaryLensing::PlotCritTriple(double m[], complex z[], int NPS, int nle
 	}
 
 
-    // float EPS = 1e-5;
+    float EPS = 1e-5;
     int head = 0, tail = 0;
 
     // connect segments into closed curves, 2021.10.05
@@ -663,6 +722,72 @@ void VBBinaryLensing::outputCriticalTriple_list(double allxys[], double mlens[],
     delete[] numcnt_at_each_single_caus;
 }
 
+//output in two files the triple critical curves and caustics
+void VBBinaryLensing::outputCriticalBinary_list(double allxys[], double a, double q, int NPS)
+{
+	int ncurves = 0;
+	int ncritical = 0;
+	_sols *criticalCurves;
+	// FILE *fcritical, *fcaustics;
+
+	criticalCurves = PlotCrit(a, q, NPS);
+
+	// check how many closed critical curves we have
+	// first halfs are critical curves
+	ncritical = criticalCurves->length / 2; // number of closed critical curves
+#ifdef VERBOSE
+	printf("I am in outputCriticalBinary_list, Number of closed critical curves: %d\n", ncritical);
+#endif
+	// write out the critical curves and caustics separately
+	int* numcnt_at_each_single_caus = new int[ncritical];
+
+	ncurves = 0;
+	int count_critical = 0;
+	int count_caustic = 0;
+	for (_curve *c = criticalCurves->first; c; c = c->next) {
+		int npoints = 0;
+
+		ncurves++;
+
+		// second half, caustics
+		if (ncurves > ncritical) {      // second halfs are caustics
+			for (_point *p = c->first; p; p = p->next) {
+				// fprintf(fcaustics, "%.10lf %.10lf\n", p->x1, p->x2);
+
+				npoints++;
+
+				count_caustic ++;
+				allxys[2 * count_critical + 1 + 2 * count_caustic - 1] = p->x1;
+				allxys[2 * count_critical + 1 + 2 * count_caustic] = p->x2;
+				// allxys[npoints] = p->x1; # this is a bug not commeted
+			}
+			//      printf("critical curve #%d  number of points %d\n", ncurves-ncritical, npoints);
+		} else {
+			numcnt_at_each_single_caus[ncurves-1] = c->length;
+			// first half, critical curves
+			for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
+				// fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
+				count_critical ++;
+				// fprintf(stderr, "I am inside outputCriticalTriple_list%f\n", count_critical);
+				allxys[count_critical * 2 - 1] = p->x1;
+				allxys[count_critical * 2] = p->x2;
+			}
+		}
+
+	}
+	allxys[0] = count_critical;
+	allxys[2 * count_critical + 1] = count_caustic;
+
+    // save ncritical the and number of points at each critical points // 2021.10.05
+    allxys[2 * count_critical + 1 + 2 * count_caustic + 1] = ncritical;
+    for(int i = 0; i<ncritical; i++){
+        allxys[2 * count_critical + 2 * count_caustic + 3 + i] = numcnt_at_each_single_caus[i];
+    }
+
+    delete[] numcnt_at_each_single_caus;
+}
+
+
 void VBBinaryLensing::PrintCau(double a, double q) {
 	_sols *CriticalCurves;
 	_curve *scancurve;
@@ -670,7 +795,7 @@ void VBBinaryLensing::PrintCau(double a, double q) {
 	FILE *f;
 	int ncc;
 
-	CriticalCurves = PlotCrit(a, q);
+	CriticalCurves = PlotCrit(a, q, 200);
 	f = fopen("outcurves.causticdata", "w");
 	ncc = CriticalCurves->length / 2;
 	scancurve = CriticalCurves->first;

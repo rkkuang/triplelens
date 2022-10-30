@@ -439,8 +439,18 @@ void TripleLensing::tripleFS2py(double mlens[], double Zlens[], double xsCenters
     this->basenum = basenum;
     this->relerr_mag = relerr_mag;
 
-    for (int i = 0; i < Np; i++) {
-        mags[i] = TripleMag(xsCenters[i], ysCenters[i], rs);
+    // for (int i = 0; i < Np; i++) {
+    //     mags[i] = TripleMag(xsCenters[i], ysCenters[i], rs);
+    // }
+
+    if (rs>1e-10){
+        for (int i = 0; i < Np; i++) {
+            mags[i] = TripleMag(xsCenters[i], ysCenters[i], rs);
+        }
+    }else{
+        for (int i = 0; i < Np; i++) {
+            mags[i] = TriplePS(xsCenters[i], ysCenters[i]);
+        }        
     }
 
 }
@@ -548,9 +558,16 @@ void TripleLensing::TriLightCurve(double *pr, double *mags, double *y1s, double 
     zlens[1] = complex( inv1andq2 * s2 , 0);
     zlens[2] = complex(zlens[0].re + s3 * cos(psi), s3 * sin(psi));
 
-    for (int i = 0; i < np; i++) {
-        mags[i] = TripleMag(y1s[i], y2s[i], rs);
+    if (rs>1e-10){
+        for (int i = 0; i < np; i++) {
+            mags[i] = TripleMag(y1s[i], y2s[i], rs);
+        }
+    }else{
+        for (int i = 0; i < np; i++) {
+            mags[i] = TriplePS(y1s[i], y2s[i]);
+        }        
     }
+
 }
 
 
@@ -562,7 +579,10 @@ void TripleLensing::outputCriticalTriple_list(double allxys[], double mlens[], d
     VBBL.outputCriticalTriple_list(allxys, mlens, zlens, nlens, NPS);
 }
 
-
+void TripleLensing::outputCriticalBinary_list(double resxy[], double s, double q, int NPS){
+    VBBinaryLensing VBBL;
+    VBBL.outputCriticalBinary_list(resxy, s, q, NPS);    
+}
 
 
 void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter) {
@@ -667,7 +687,8 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
         _linkedarray *phis;// = new _linkedarray;
         phis = getphis_v3(  xsCenter,  ysCenter,  rs);
 
-        for (int i = 0; i < 10; i++) {
+//         for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 7; i++) { // 2022.06.05
             if (i > 0) { // 2021.06.08
                 delete imageTracks;
                 //imageTracks = new _sols;
@@ -725,7 +746,7 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 #endif
             if (abs(mu - mu0) / mu < _curr_relerr_priv) {
                 break;
-            } else if (abs(mu - mu0) / mu < _curr_relerr_priv * i ) {
+            } else if (abs(mu - mu0) / mu < _curr_relerr_priv * i  ||  phis->length > 5e5 ) { // add "|  imageTracks->length > 1e6" on 2022.06.04, when logq is too small <~ -6, the memory usage increases due to he amount of sampling points on the source boundary
 #ifdef VERBOSE
                 fprintf(stderr, "return mu = %f, because mu0 = %f, mu = %f, relerr_priv*i = %.3e this might be a hard case, area_quality_local = %d\n", mu, mu0, mu, _curr_relerr_priv * i, area_quality_local);
 
@@ -736,7 +757,8 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 
                 area_quality = 2; // return because of looser threshold, quality might be low
                 return (mu);
-            } else if ( (i > 2 && (0.5 * ( abs(mu / mu0) + abs(mu0 / mu) > 2.1)) ) ) {
+//             } else if ( (i > 2 && (0.5 * ( abs(mu / mu0) + abs(mu0 / mu) > 2.1)) ) ) {
+            } else if ( (i > 2 && ( 0.5*(abs(mu/mu0) + abs(mu0/mu)) > 2.1 ) ) ) { // modified on 2022.06.04
 #ifdef VERBOSE
                 fprintf(stderr, "return muPS = %f, because mu0 = %f, mu = %f are too arbitrary, this might be a hard case, area_quality_local=%d\n", muPS, mu0, mu, area_quality_local);
 #endif
@@ -1129,7 +1151,7 @@ double TripleLensing::tripleQuatrapoleTest(double xs, double ys, double rs) {
             quad_err += eacherr / (abs(dJ2 * dJ2 * dJ.re) + TINY); // 2021.06.08, add +TINY
         }
     }
-    quad_err *= rho2;
+    quad_err *= rho2; // so if rho = 0, we would use point source magnification
     return (muTotal);
 }
 
@@ -1205,41 +1227,42 @@ double TripleLensing::TriplePS(double xs, double ys) {
         total_parity += (flag ? ( mu > 0 ? 1 : -1 ) : 0 );
     }
 
-    // remove on 2021.11.13
-//     int k = 0;
-//     int missing_sol_idx = 0;
-//     int worst_true_sol_idx = 0;
-//     double missing_sol_absdzs = 1e3, missing_sol_mu;
-//     double worst_tru_sol_absdzs = -1e1, worst_tru_sol_mu;
+    /* remove on 2021.11.13
+    int k = 0;
+    int missing_sol_idx = 0;
+    int worst_true_sol_idx = 0;
+    double missing_sol_absdzs = 1e3, missing_sol_mu;
+    double worst_tru_sol_absdzs = -1e1, worst_tru_sol_mu;
 
-// // correction according to the number of true images and total parity
-//     if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) {
-//         for (k = 0 ; k < DEGREE; k++) {
-//             if ( flaglist[k] == 1 &&  absdzslist[k] > worst_tru_sol_absdzs) {
-//                 worst_tru_sol_absdzs =  absdzslist[k];
-//                 worst_true_sol_idx = k;
-//                 worst_tru_sol_mu =  mulist[k];
-//             }
-//             if ( flaglist[k] == 0 &&  absdzslist[k] < missing_sol_absdzs) {
-//                 missing_sol_absdzs =  absdzslist[k];
-//                 missing_sol_mu = mulist[k];
-//                 missing_sol_idx = k;
-//             }
-//         }
+// correction according to the number of true images and total parity
+    if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) {
+        for (k = 0 ; k < DEGREE; k++) {
+            if ( flaglist[k] == 1 &&  absdzslist[k] > worst_tru_sol_absdzs) {
+                worst_tru_sol_absdzs =  absdzslist[k];
+                worst_true_sol_idx = k;
+                worst_tru_sol_mu =  mulist[k];
+            }
+            if ( flaglist[k] == 0 &&  absdzslist[k] < missing_sol_absdzs) {
+                missing_sol_absdzs =  absdzslist[k];
+                missing_sol_mu = mulist[k];
+                missing_sol_idx = k;
+            }
+        }
 
-//         // if total parity is wrong, we try to remove solutions
-//         if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
-//             flaglist[worst_true_sol_idx] = -1;
-//             nimages -= 1;
-//             muTotal -= abs( worst_tru_sol_mu );
-//         }
-//         else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
-//             flaglist[missing_sol_idx] = 1;
-//             nimages += 1;
-//             muTotal += abs(missing_sol_mu);
-//         } else {
-//         }
-//     }
+        // if total parity is wrong, we try to remove solutions
+        if ((total_parity - ( worst_tru_sol_mu > 0 ? 1 : -1  )  ) == -2 && worst_tru_sol_absdzs > SOLEPS * 0.5) {
+            flaglist[worst_true_sol_idx] = -1;
+            nimages -= 1;
+            muTotal -= abs( worst_tru_sol_mu );
+        }
+        else if ( (total_parity +  ( missing_sol_mu > 0 ? 1 : -1  )  ) == -2 && missing_sol_absdzs < 2 * SOLEPS) {
+            flaglist[missing_sol_idx] = 1;
+            nimages += 1;
+            muTotal += abs(missing_sol_mu);
+        } else {
+        }
+    }
+    */
 
 
     return (muTotal);
@@ -4931,7 +4954,6 @@ void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], 
 
     // int numcnt_at_each_single_caus[ncritical] = {0};
     int* numcnt_at_each_single_caus = new int[ncritical];
-
 
 #ifdef VERBOSE
     printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);

@@ -1,4 +1,4 @@
-# implement a version than use array, rather than linked list, to represent the source/image boundaries.
+# implement a version that use array, rather than linked list, to represent the source/image boundaries.
 # then transfer this part of python code to C++ version
 # which is helpful when calculating the magnifications with GPU
 
@@ -10,7 +10,7 @@
 # and _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter, double rs, _linkedarray *PHI, _sols **prevstore)
 
 # in first version, you can use exactly the same version as cpp
-# later, you can optimize like same the same source index, rather than source position? --> how to track the source index when # of points doubled?
+# later, you can optimize like use the same source index, rather than source position? --> how to track the source index when # of points doubled?
 
 from numpy import cos
 from numpy import sin

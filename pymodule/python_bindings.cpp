@@ -1,8 +1,10 @@
 
 // #include <pybind11/pybind11.h>
 // #include <pybind11/stl.h>
-#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/pybind11.h>
-#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/stl.h>
+//#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/pybind11.h>
+//#include </usr/local/lib/python3.8/dist-packages/pybind11/include/pybind11/stl.h>
+#include </Library/Python/3.7m/include/pybind11/pybind11.h>
+#include </Library/Python/3.7m/include/pybind11/stl.h>
 #include "../src/VBBinaryLensingLibrary.h"
 #include "../src/TripleLensingLibrary.h"
 #include <string>

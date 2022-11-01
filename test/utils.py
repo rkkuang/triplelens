@@ -1080,14 +1080,17 @@ def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
         for i in range(NLENS):
             dx = x - zlens[i].real
             dy = y - zlens[i].imag
-            r2_1 = dx * dx + dy * dy + TINY#; // avoid zero in the denominator
-            Jxx += mlens[i] * (dx * dx - dy * dy) / (r2_1 * r2_1)
-            Jxy += 2.0 * mlens[i] * dx * dy / (r2_1 * r2_1)
+            dx2 = dx * dx
+            dy2 = dy * dy
+            r2_1 = dx2 + dy2 + TINY#; // avoid zero in the denominator
+            r2_2 = 1.0 / (r2_1 * r2_1);
+            #Jxx += mlens[i] * (dx2 + dy2) * r2_2 # wrong, found on 2022.10.31
+            Jxx += mlens[i] * (dx2 - dy2) * r2_2
+            Jxy += 2.0 * mlens[i] * dx * dy * r2_2
         
         # //analytical results for the other components of the Jacobian
         Jyy = 2.0 - Jxx;
-        Jyx = Jxy;
-        mu = 1.0 / (Jxx * Jyy - Jxy * Jyx);
+        mu = 1.0 / (Jxx * Jyy - Jxy * Jxy);
         # print("mu", mu)
 
         if cal_ang:
@@ -1102,7 +1105,9 @@ def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
             if (thetaJ < 0.0):
                 thetaJ += math.pi / 2.0
     # print([flag, mu, lambda1, lambda2, thetaJ])
-    return [flag, mu, lambda1, lambda2, thetaJ]
+    return [flag, mu, abs(dzs), lambda1, lambda2, thetaJ]
+
+
 
 def muPoint(mlens, z, xsCenter, ysCenter, NLENS):
     res = sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS)

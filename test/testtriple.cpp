@@ -25,7 +25,7 @@ The output file can further be processed with provided python scripts (inside th
 
 
 // main tests
-#define TESTLKV // flag controls whether test light curve generating
+// #define TESTLKV // flag controls whether test light curve generating
 // #define TESTADA // flag controls whether test adaptive sampling of light curve
 // #define TESTMAP // flag controls whether test magnification map generating
 // #define LMBLKV // flag controls test limb darkening light curve calculation
@@ -36,6 +36,7 @@ VBBinaryLensing vbbl;
 
 int main()
 {
+  int NLENS = 4; // how many number of point lenses
   // Declaration of an instance of TripleLensing class.
   fprintf(stderr, "NLENS = %d\n", NLENS);
   double mlens[NLENS]; // NLENS defined in .h file
@@ -64,39 +65,47 @@ int main()
   mlens[1] = q2 * inv1andq2q3;
   zlens[0] = complex(- q2 * inv1andq2 * s2 , 0);
   zlens[1] = complex( inv1andq2 * s2 , 0);
+
+  TripleLensing TRIL;
+  TRIL.setnlens(NLENS);
+
+  //*******************************************************************************************
+  //*******************************************************************************************
+  //*******************************************************************************************
+  //*******************************************************************************************
+  //*******************************************************************************************
+  // part 1, basic usage, //after runing this cpp test code, run python3 test/plotcaus.py to visualize
+  // for better visulization of image tracks, we set a larger source radius:
+  rs = 0.01;
+  xsCenter = 0; // source position
+  ysCenter = 0;
+
   if (NLENS == 3) {
     mlens[2] = q3 * inv1andq2q3;
     zlens[2] = complex(zlens[0].re + s3 * cos(psi), s3 * sin(psi));
+    // // TripleLensing TRIL(mlens, zlens); // add the third paramter nlens on 2022.11.01, for the flexibility to change the number of lenses
+    // TRIL.reset3(mlens, zlens);
+    // TRIL.secnum = 90; // divide the source bondary into how many parts
+    // TRIL.quaderr_Tol = 1e-3; // the Quadrupole test tolerance
+    // TRIL.basenum = 2; // the number density of sampled dots among each part
+  } else if (NLENS == 4) { //end if NLENS == 3
+    // TripleLensing TRIL(mlens, zlens);
+    mlens[2] = q3 * inv1andq2q3 * 0.5;
+    zlens[2] = complex(zlens[0].re + s3 * cos(psi), s3 * sin(psi));
+    mlens[3] = mlens[2];
+    zlens[3] = complex(-zlens[2].re, -zlens[2].im);
+  }
 
-    //*******************************************************************************************
-    //*******************************************************************************************
-    //*******************************************************************************************
-    //*******************************************************************************************
-    //*******************************************************************************************
-    // part 1, basic usage, //after runing this cpp test code, run python3 test/plotcaus.py to visualize
-    // for better visulization of image tracks, we set a larger source radius:
-    rs = 0.01;
-    xsCenter = 0; // source position
-    ysCenter = 0;
-
-    TripleLensing TRIL(mlens, zlens);
-    TRIL.secnum = 90; // divide the source bondary into how many parts
-    TRIL.quaderr_Tol = 1e-3; // the Quadrupole test tolerance
-    TRIL.basenum = 2; // the number density of sampled dots among each part
-
-    // simply call TripleMag function to get the magnification of the source at (xsCenter, ysCenter)
-    muTri = TRIL.TripleMag(xsCenter, ysCenter, rs);
-    fprintf(stderr, "muTri: %f\n", muTri);
-
-    //// output triple lensing event parameters
-    outsys(mlens, zlens, t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs, xsCenter, ysCenter);
-    // outputCriticalTriple(mlens, zlens,NLENS, 10000);
-  }//end if NLENS == 3
-  
-  TripleLensing TRIL(mlens, zlens);
+  TRIL.reset3(mlens, zlens);
   TRIL.secnum = 90;
   TRIL.quaderr_Tol = 1e-3;
   TRIL.basenum = 2;
+  // simply call TripleMag function to get the magnification of the source at (xsCenter, ysCenter)
+  muTri = TRIL.TripleMag(xsCenter, ysCenter, rs);
+  fprintf(stderr, "muTri: %f\n", muTri);
+  //// output triple lensing event parameters
+  TRIL.outsys(mlens, zlens, t0, u0, tE, s2, q2, alpha, s3, q3, psi, rs, xsCenter, ysCenter);
+  // outputCriticalTriple(mlens, zlens,NLENS, 10000);
 
   // output critical curves and caustics, and image positions corresponding to the source boundary
   outputCriticalTriple(mlens, zlens, NLENS, 10000);

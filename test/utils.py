@@ -850,7 +850,9 @@ def get_crit_caus(mlens, z, NLENS, NPS = 200):
     return critical, caustics
 
 
-def sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS):
+def sol_len_equ_cpp(mlens, z, xsCenter, ysCenter, NLENS, DEGREE):
+    TRIL.setnlens(NLENS)
+
     zlens = [i[0] for i in z] + [i[1] for i in z]
     # print("zlens inside sol_len_equ_cpp :", zlens)
     
@@ -1049,7 +1051,7 @@ def checkLensEqu(mlens, zlens_list, xs, ys, z):
         dzs += (mlens[i] / conj(z - zlens[i]))
     return abs(dzs)
 
-def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
+def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True, NLENS = 3):
     # z = [x, y]
     zlens = []
     for i in range(len(zlens_list)):
@@ -1070,11 +1072,14 @@ def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
 
     # dzs = zs - ( z - mlens[0] / conj(z - zlens[0]) - mlens[1] / conj(z - zlens[1]) - mlens[2] / conj(z - zlens[2]) )
     dzs = zs - z
+    
     for i in range(len(mlens)):
         dzs += (mlens[i] / conj(z - zlens[i]))
     # // check the difference between zs(real source position) and the position computed from lens equation using solved image position z
-    if abs(dzs) < EPS:
+    absdzs = abs(dzs)
+    if absdzs < EPS:
         flag = 1
+    if absdzs < 1e-1: # add on 2022.11.02
         x = z.real
         y = z.imag
         for i in range(NLENS):
@@ -1105,7 +1110,7 @@ def trueSolution(mlens, zlens_list, xs, ys, z, cal_ang = True):
             if (thetaJ < 0.0):
                 thetaJ += math.pi / 2.0
     # print([flag, mu, lambda1, lambda2, thetaJ])
-    return [flag, mu, abs(dzs), lambda1, lambda2, thetaJ]
+    return [flag, mu, absdzs, lambda1, lambda2, thetaJ]
 
 
 

@@ -29,6 +29,7 @@ class pyTriple:
         self.nlens = len(mlens)
         self.zlens = zlens
         self.DEGREE = self.nlens ** 2 + 1
+        self.correct_parity = -self.nlens + 1
 
     def get_closest_idx(self, preProv_x, preProv_y, Prov_x, Prov_y):
         # Hungarian Algorithm ?
@@ -55,6 +56,40 @@ class pyTriple:
         #print(res_idx)
         #input(">>>")
         return res_idx
+
+
+    def saveimage(self, allSolutions_flag, allSolutions_mu, allSolutions_absdzs, curr_nimages, curr_total_parity, j):
+        # find one true solutions that has been classified as false solution (due to the simple criterion absdzs > EPS)
+        ifsave = False
+        saveindex = 0
+        # print("1st \t\t nimages = %d, and parity = %d which are wrong\n"%(curr_nimages, curr_total_parity))
+        # for i in range(self.DEGREE):
+        #     print(i, "flag, mu, absdzs = %d, %f, %e"%(allSolutions_flag[i,j], allSolutions_mu[i,j], allSolutions_absdzs[i,j]))
+        
+
+        # find the index list which mu != -1e10 and flad = 0
+        # waitinglist = 
+        # directly find the index
+        saveindex = 0
+        minabsdzs = 1e10
+        for i in range(self.DEGREE):
+            if allSolutions_flag[i, j] == 0 and allSolutions_mu[i, j] != -1e10:
+                if allSolutions_absdzs[i, j] < minabsdzs:
+                    minabsdzs = allSolutions_absdzs[i, j]
+                    saveindex = i
+        # after save the solution, whether the nimages and parity are correct
+        if (curr_nimages + 1 - self.nlens)%2 == 1 and (curr_total_parity+self.one_parity(allSolutions_mu[saveindex,j])) == self.correct_parity:
+            if VERBOSE: print("we can save the solution %d, %f, %e"%(saveindex, allSolutions_mu[saveindex,j], allSolutions_absdzs[saveindex,j]))
+            ifsave = True
+
+        # input(">>>>>")
+
+        return ifsave, saveindex
+
+    def one_parity(self, mu):
+        if mu == -1e10:
+            return 0
+        return 1 if mu > 0 else -1
 
 
     def outputTracks_v2_savehalf(self, xsCenter, ysCenter, rs, PHI, prevstore = None, prevstore_x = None, prevstore_y = None, prevstore_srcx = None, prevstore_srcy = None, prevstore_mu = None, prevstore_flag = None, prevstore_absdzs = None):
@@ -88,6 +123,8 @@ class pyTriple:
         posflagnums = np.zeros(self.DEGREE) # how many true image points in this image Track
 
         #onebyone_prev = False
+        curr_total_parity = 0 # total parity
+        curr_nimages = 0 # how many true solutions for a certain source position
 
         if not prevstore: # equavalent to cpp code: if (ftime)
             # solve lens equations for the first time 
@@ -96,11 +133,12 @@ class pyTriple:
                 xs = xsCenter + rs * cos(phi)
                 ys = ysCenter + rs * sin(phi)
 
-                res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens)
+                res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens, self.DEGREE)
 
                 if j == 0:
+                    curr_total_parity, curr_nimages = 0, 0
                     for i in range(self.DEGREE):
-                        flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False) # [flag, mu, absdzs, xxx]
+                        flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False, NLENS = self.nlens) # [flag, mu, absdzs, xxx]
                         # print(res[i], allSolutions_x.shape )
                         allSolutions_x[i, j] = res[i][0]
                         allSolutions_y[i, j] = res[i][1]
@@ -110,11 +148,21 @@ class pyTriple:
                         allSolutions_srcy[i, j] = ys
                         allSolutions_absdzs[i, j] = flag[2]
                         posflagnums[i] += flag[0]
+
+                        if flag[0]: curr_total_parity += self.one_parity(flag[1])
+                        curr_nimages += flag[0]
+                    if (curr_nimages - self.nlens)%2 != 1 or curr_total_parity != self.correct_parity:
+                        # there might be some true images being classified as false images
+                        ifsave, saveindex = self.saveimage(allSolutions_flag, allSolutions_mu, allSolutions_absdzs, curr_nimages, curr_total_parity, j)
+                        if ifsave:
+                            allSolutions_flag[saveindex, j] = 1
+                            posflagnums[saveindex] += 1
+
                 else:
                     # for j > 0, you need to attached the closest solution to the existing allSolutions
-
+                    curr_total_parity, curr_nimages = 0, 0
                     for i in range(self.DEGREE):
-                        flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False) #
+                        flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False, NLENS = self.nlens) #
 
                         Prov_x[i] = res[i][0]
                         Prov_y[i] = res[i][1]
@@ -126,8 +174,11 @@ class pyTriple:
 
                         preProv_x[i] = allSolutions_x[i, j-1] # the last point in the i-th image track
                         preProv_y[i] = allSolutions_y[i, j-1]
-                    attach_idx = self.get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y)
 
+                        if flag[0]: curr_total_parity += self.one_parity(flag[1])
+                        curr_nimages += flag[0]
+
+                    attach_idx = self.get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y)
 
                     for i in range(self.DEGREE):
                         allSolutions_x[i, j] = Prov_x[attach_idx[i]]
@@ -137,8 +188,14 @@ class pyTriple:
                         allSolutions_srcx[i, j] = Prov_srcx[attach_idx[i]]
                         allSolutions_srcy[i, j] = Prov_srcy[attach_idx[i]]
                         allSolutions_absdzs[i, j] = Prov_absdzs[attach_idx[i]]   
-
                         posflagnums[i] += Prov_flag[attach_idx[i]]
+
+                    if (curr_nimages - self.nlens)%2 != 1 or curr_total_parity != self.correct_parity:
+                        # there might be some true images being classified as false images
+                        ifsave, saveindex = self.saveimage(allSolutions_flag, allSolutions_mu, allSolutions_absdzs, curr_nimages, curr_total_parity, j)
+                        if ifsave:
+                            allSolutions_flag[saveindex, j] = 1
+                            posflagnums[saveindex] += 1
 
         else: # use previously calculated result
             scan_prev_j = 0
@@ -159,11 +216,12 @@ class pyTriple:
                 phi = PHI[j]
                 xs = xsCenter + rs * cos(phi)
                 ys = ysCenter + rs * sin(phi)                 
-                res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens)
+                res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens, self.DEGREE)
 
                 # for j > 0, you need to attached the closest solution to the existing allSolutions
+                curr_total_parity, curr_nimages = 0, 0
                 for i in range(self.DEGREE):
-                    flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False)
+                    flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False, NLENS = self.nlens)
 
                     Prov_x[i] = res[i][0]
                     Prov_y[i] = res[i][1]
@@ -175,6 +233,9 @@ class pyTriple:
 
                     preProv_x[i] = allSolutions_x[i, j-1] # the last point in the i-th image track
                     preProv_y[i] = allSolutions_y[i, j-1]
+
+                    if flag[0]: curr_total_parity += self.one_parity(flag[1])
+                    curr_nimages += flag[0]
 
                 attach_idx = self.get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y)
 
@@ -190,12 +251,21 @@ class pyTriple:
 
                     posflagnums[i] += Prov_flag[attach_idx[i]]
 
+                if (curr_nimages - self.nlens)%2 != 1 or curr_total_parity != correct_parity:
+                    # there might be some true images being classified as false images
+                    ifsave, saveindex = self.saveimage(allSolutions_flag, allSolutions_mu, allSolutions_absdzs, curr_nimages, curr_total_parity, j)
+                    if ifsave:
+                        allSolutions_flag[saveindex, j] = 1
+                        posflagnums[saveindex] += 1
+
+        # return allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, None, None
 
         # now, select and connect true segments
         # initialize array to store the information of true image segments:
         # i.e., the i-th track, the index of head, the index of tail, (the length of the segments, this is not necessary)
         ntrue_segments = 0
-        true_segments_info = np.zeros((10 * self.DEGREE, 3 )).astype(int)
+        # true_segments_info = np.zeros((10 * self.DEGREE, 3 )).astype(int)
+        true_segments_info = np.zeros((self.DEGREE * self.DEGREE, 3 )).astype(int)
         # each row contains where this segments is, a, b, c,
         npure_close_segments = 0
 
@@ -235,7 +305,7 @@ class pyTriple:
                             scan_true_idx += 1
 
         if VERBOSE: print("ntrue_segments = ", ntrue_segments)
-        # if VERBOSE: print(true_segments_info[:ntrue_segments,:])
+        if VERBOSE: print(true_segments_info[:ntrue_segments,:])
         if VERBOSE: # print info of head tail at each segments
             for iv in range(ntrue_segments):
                 print(">>>", iv, "true_segments_info: ", true_segments_info[iv, :], "x, y, mu, flag, absdzs")
@@ -270,6 +340,12 @@ class pyTriple:
 
                 if if_creat_new:
                     head1, tail1 = [j, hid], [j, tid]
+
+                    if hid == tid and open_seg_leftover > 1:
+                        if VERBOSE: print("<<<<<< segment %d has only 1 data point, we do not start from this"%(i))
+                        continue
+
+
                     closed_image_info[nfinal_closed_image][0] = 1 if allSolutions_mu[j, hid] > 0 else -1 # final->first->mu > 0 ? 1 : -1;
                     closed_image_info[nfinal_closed_image][1] = 1 # this closed image is originate from 1 segment
                     closed_image_info[nfinal_closed_image][2] = j # which allSolutions_x index this image belongs to
@@ -279,10 +355,10 @@ class pyTriple:
                     already_done_segments[i] = 1
                     open_seg_leftover -= 1
 
-                    if if_creat_new and VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", j)
+                    if if_creat_new and VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", i, "open_seg_leftover = ", open_seg_leftover, "hid, tid = ", hid, tid)
                     if_creat_new = False
                 
-                if hid == 0 and tid == nphi - 1 and self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y, EPS**2):
+                if hid == 0 and tid == nphi - 1 and self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2:
                     # to check whether a track is closed or not
                     if VERBOSE: print(i, "close track", "head", allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]], allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]],)
                     nfinal_closed_image += 1
@@ -331,7 +407,7 @@ class pyTriple:
                                 open_seg_leftover -= 1
                                 #continue # you have connect seg2 with seg1, now proceed to the next segment
                                 # check whether current is already closed
-                                if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y, EPS**2) or open_seg_leftover<=0:
+                                if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2 or open_seg_leftover<=0:
                                     nfinal_closed_image += 1
                                     if_creat_new = True
                                 else:
@@ -348,6 +424,7 @@ class pyTriple:
                     bestjumptype = 0
                     bestjump_i2 = 0
                     bestjump_fac_mu = 1e10 # find the minimum how_close, shoule be very close to 2.0
+                    bestjump_dis = 1e10
                     for i3 in range(ntrue_segments):
                         if open_seg_leftover > 0 and (not already_done_segments[i3]):
                             # # judge whether two segments (i, i2) can be connected together
@@ -355,14 +432,19 @@ class pyTriple:
                             head2, tail2 = [j2, hid2], [j2, tid2]
                             # call a function to test whether these two segments can be connected
                             
-                            itype, how_close = self.if_two_segments_jump(head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS**2)
+                            itype, how_close, jumpdis = self.if_two_segments_jump(head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
 
-                            if itype > 0:
+                            if itype > 0 and jumpdis <= EPS**2:
                                 canwejump = 1
-                                if bestjump_fac_mu > how_close:
+                                if bestjump_fac_mu > how_close and bestjump_dis >= jumpdis:
                                     bestjump_fac_mu = how_close
+                                    bestjump_dis = jumpdis
                                     bestjump_i2 = i3
                                     bestjumptype = itype
+                            else:
+                                if 0 and VERBOSE:
+                                    print("440, we can not jump, the bestjump_fac_mu = %f, bestjump_dis = %f"%(bestjump_fac_mu, bestjump_dis))
+                                    print("already_done_segments = ", already_done_segments)
                     if canwejump:
                         #print(i, "best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu)
                         
@@ -370,7 +452,7 @@ class pyTriple:
                         j2, hid2, tid2 = true_segments_info[bestjump_i2, :]
                         head2, tail2 = [j2, hid2], [j2, tid2]             
 
-                        if VERBOSE: print(">>> best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu, 'type = ', bestjumptype, allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]])           
+                        if VERBOSE: print(">>> best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu, 'type = ', bestjumptype, allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]], "bestjump_dis = ", bestjump_dis)           
 
                         # we can connect seg_i with seg_i2
                         existing_seg_n = closed_image_info[nfinal_closed_image][1]
@@ -404,7 +486,7 @@ class pyTriple:
                         open_seg_leftover -= 1
 
                         # check whether current is already closed
-                        if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y, EPS**2) or open_seg_leftover<=0:
+                        if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2 or open_seg_leftover<=0:
                             nfinal_closed_image += 1
                             if_creat_new = True
                         else:
@@ -417,7 +499,7 @@ class pyTriple:
                         # we need to test whether it is closed, other wise, we regard this as a close image anyway
                         # new test whether head1, tail1 is close, and whether there is no open segments left
                         #if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y, EPS**2):
-                        if VERBOSE: print("410", open_seg_leftover)
+                        if VERBOSE: print("410, open_seg_leftover", open_seg_leftover)
                         if open_seg_leftover > 0:
                             nfinal_closed_image += 1
                             if_creat_new = True
@@ -430,28 +512,41 @@ class pyTriple:
     # def select_connect_segments(self, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs):
 
 
-    def head_tail_close(self, head1, tail1, allSolutions_x, allSolutions_y, EPS2):
+    def head_tail_close(self, head1, tail1, allSolutions_x, allSolutions_y):
         x1 = allSolutions_x[head1[0], head1[1]]
         y1 = allSolutions_y[head1[0], head1[1]]
         x2 = allSolutions_x[tail1[0], tail1[1]]
         y2 = allSolutions_y[tail1[0], tail1[1]]
         #print("x1, y1, x2, y2", x1, y1, x2, y2)
-        return self.if_dis_close(x1, y1, x2, y2, EPS2)
-    def if_dis_close(self, x1, y1, x2, y2, EPS2):
-        return (x1 - x2)**2 + (y1 - y2)**2 < EPS2
+        dis = self.if_dis_close(x1, y1, x2, y2)
+        return dis
 
-    def if_head_tail_jump(self, head1, tail1, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS2):
+    def if_dis_close(self, x1, y1, x2, y2):
+        dis = (x1 - x2)**2 + (y1 - y2)**2
+        return dis
+
+    def if_head_tail_jump(self, head1, tail1, allSolutions_srcx, allSolutions_srcy, allSolutions_mu):
         srcxprev = allSolutions_srcx[head1[0], head1[1]]
         srcyprev = allSolutions_srcy[head1[0], head1[1]]
         srcxpost = allSolutions_srcx[tail1[0], tail1[1]]
         srcypost = allSolutions_srcy[tail1[0], tail1[1]]
         muprev = allSolutions_mu[head1[0], head1[1]]
         mupost = allSolutions_mu[tail1[0], tail1[1]]
-        return self.if_jump( srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost, EPS2 )
+        ifjump, how_close, dis = self.if_jump( srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost)
+        return ifjump, how_close, dis
 
-    def if_jump(self, srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost, EPS2):
+    def if_jump(self, srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost):
         how_close = ( abs(muprev / mupost) + abs(mupost/muprev) )
-        return self.if_dis_close(srcxprev, srcyprev, srcxpost, srcypost, EPS2) and muprev * mupost < 0.0 and how_close < 2.5, how_close
+        dis = self.if_dis_close(srcxprev, srcyprev, srcxpost, srcypost)
+        
+        ifjump = False
+        if muprev * mupost < 0.0:
+            if dis <= 1e-15:
+                ifjump = True
+            else:
+                ifjump = how_close < 2.5
+
+        return ifjump, how_close, dis
 
     def if_two_segments_connect(self, head1, tail1, head2, tail2, allSolutions_x, allSolutions_y, EPS2):
         # head1 = [head1_j, head1_idx]
@@ -470,25 +565,25 @@ class pyTriple:
         # besides, you need to have a seperate function for jump
 
         # we prefer to find the easiest scenario
-        if self.head_tail_close( tail1, head2, allSolutions_x, allSolutions_y, EPS2):
+        if self.head_tail_close( tail1, head2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 3 # tail connect with head
             if VERBOSE: print("tail connect with head", itype, tail1, head2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]] )
 
-        if self.head_tail_close( tail1, tail2, allSolutions_x, allSolutions_y, EPS2):
+        if self.head_tail_close( tail1, tail2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 4 # tail connect with tail
             if VERBOSE: print("tail connect with tail", itype, tail1, tail2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]])
 
-        if self.head_tail_close( head1, tail2, allSolutions_x, allSolutions_y, EPS2):
+        if self.head_tail_close( head1, tail2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 2 # head connect with tail
             if VERBOSE: print("head connect with tail", itype, head1, tail2, allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]])
 
-        if self.head_tail_close( head1, head2, allSolutions_x, allSolutions_y, EPS2):
+        if self.head_tail_close( head1, head2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 1 # head connect with head
             if VERBOSE: print("head connect with head", itype, head1, head2, allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]])
         return itype
 
 
-    def if_two_segments_jump(self, head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS2):
+    def if_two_segments_jump(self, head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu):
         itype = 0
         # we prefer connect, rather than jump, so, first test image connectivity; if we cannot connect, then try whether we can "jump"
         # besides, you need to have a seperate function for jump
@@ -496,44 +591,50 @@ class pyTriple:
         # we prefer to find the easiest scenario
         besttype = 0
         bestjump_fac_mu = 1e10
+        bestjump_dis= 1e10
 
-        ifjump, how_close = self.if_head_tail_jump( tail1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS2)
-        if ifjump and bestjump_fac_mu > how_close:
+        ifjump, how_close, dis = self.if_head_tail_jump( tail1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
+        if ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
+            bestjump_dis = dis
             besttype = 3 # tail connect with head
 
-        ifjump, how_close = self.if_head_tail_jump( tail1, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS2)
-        if ifjump and bestjump_fac_mu > how_close:
+        ifjump, how_close, dis = self.if_head_tail_jump( tail1, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
+        if ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
+            bestjump_dis = dis
             besttype = 4 # tail connect with tail
             
 
-        ifjump, how_close =  self.if_head_tail_jump( head1, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS2)
-        if ifjump and bestjump_fac_mu > how_close:
+        ifjump, how_close, dis =  self.if_head_tail_jump( head1, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
+        if ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
+            bestjump_dis = dis
             besttype = 2 # head connect with tail
         
 
-        ifjump, how_close =  self.if_head_tail_jump( head1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, EPS2)
-        if ifjump and bestjump_fac_mu > how_close:
+        ifjump, how_close, dis =  self.if_head_tail_jump( head1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
+        if ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
+            bestjump_dis = dis
             besttype = 1 # head connect with head
 
-        if besttype == 3 and VERBOSE: print("tail jump to head", besttype, tail1, head2, bestjump_fac_mu)
-        if besttype == 4 and VERBOSE: print("tail jump to tail", besttype, tail1, tail2, bestjump_fac_mu)
-        if besttype == 2 and VERBOSE: print("head jump to tail", besttype, head1, tail2, bestjump_fac_mu)
-        if besttype == 1 and VERBOSE: print("head jump to head", besttype, head1, head2, bestjump_fac_mu)
+        if besttype == 3 and VERBOSE: print("tail jump to head", besttype, tail1, head2, bestjump_fac_mu, bestjump_dis)
+        if besttype == 4 and VERBOSE: print("tail jump to tail", besttype, tail1, tail2, bestjump_fac_mu,bestjump_dis)
+        if besttype == 2 and VERBOSE: print("head jump to tail", besttype, head1, tail2, bestjump_fac_mu,bestjump_dis)
+        if besttype == 1 and VERBOSE: print("head jump to head", besttype, head1, head2, bestjump_fac_mu,bestjump_dis)
 
-        return besttype, how_close
+        return besttype, bestjump_fac_mu, bestjump_dis
 
-    def show_connected_tracks_static(self, allSolutions_x, allSolutions_y, true_segments_info, step = 100,xlim=(-1.5,1.5),ylim=(-1.5,1.5), txt = 1, Narrows_each_track = 15, colors = [], txtstr = "H{}", head_center = "head", onlytrue = False):
+    def show_connected_tracks_static(self, allSolutions_x, allSolutions_y, true_segments_info, step = 100,xlim=(-1.5,1.5),ylim=(-1.5,1.5), txt = 1, Narrows_each_track = 15, colors = [], txtstr = "H{}", head_center = "head", onlytrue = False, mus = None, srcx = None, srcy = None):
         # onlytrue = 1, plot only true image segments
 
         #print(true_segments_info.shape)
 
         if onlytrue == False:
             nsegments, nphi, = allSolutions_x.shape
-            true_segments_info = np.zeros(nsegments, 3).astype(int)
+            print("nsegments, nphi", nsegments, nphi)
+            true_segments_info = np.zeros((nsegments, 3)).astype(int)
             true_segments_info[:,0] = np.arange(nsegments).astype(int)
             true_segments_info[:,2] = nphi
 
@@ -542,7 +643,8 @@ class pyTriple:
         headx, heady, tailx, taily = [],[],[],[]
         for jj in range(nsegments):
             j, hid, tid = true_segments_info[jj, 0], true_segments_info[jj, 1], true_segments_info[jj, 2]
-            if VERBOSE: print(j, "track length = ", tid - hid + 1)
+            if onlytrue == False: tid -= 1
+            if VERBOSE: print(j, "track length = ", tid - hid + 1, hid, tid)
             headx.append( allSolutions_x[j, hid] )    
             heady.append( allSolutions_y[j, hid] )
             tailx.append( allSolutions_x[j, tid] )
@@ -562,7 +664,7 @@ class pyTriple:
         ax.plot(XS, YS, '.', color="k" , markersize=1)
 
         ncolor = len(colors)
-
+        #print("ncolor = ", ncolor)
         scal = 5e-3
 
         for hx,hy,tx,ty,jj in zip(headx, heady, tailx, taily, range(len(headx))):
@@ -570,9 +672,9 @@ class pyTriple:
             j, hid, tid = true_segments_info[jj, 0], true_segments_info[jj, 1], true_segments_info[jj, 2]
             npts = tid - hid + 1
             if txt:
-                    if head_center == "head": 
-                        ax.text(hx-1.1*scal,hy-3*scal,txtstr.format(jj), color=colors[jj%ncolor], fontsize = 17)
-                        ax.text(tx+1.1*scal,ty+3*scal,"T{}".format(jj), color=colors[jj%ncolor], fontsize = 17)
+                if head_center == "head": 
+                    ax.text(hx-1.1*scal,hy-3*scal,"H{}_{:.2f}_{:.2e}_{:.2e}".format(jj,mus[j,hid],srcx[j,hid],srcy[j,hid]), color=colors[jj%ncolor], fontsize = 7)
+                    ax.text(tx+1.1*scal,ty+3*scal,"T{}_{:.2f}_{:.2e}_{:.2e}".format(jj,mus[j,tid],srcx[j,tid],srcy[j,tid]), color=colors[jj%ncolor], fontsize = 7)
             ax.plot(hx, hy, '*', color=colors[jj%ncolor], markersize=20)
             ax.plot(tx, ty, 'o', color=colors[jj%ncolor], markersize=20, fillstyle = "none")
             line = ax.plot(allSolutions_x[j, hid:tid+1], allSolutions_y[j, hid:tid+1], '.', markersize=2, color=colors[jj%ncolor])[0]
@@ -767,6 +869,19 @@ if __name__ == "__main__":
     #lens positions: x1, y1, x2, y2, x3, y3
     zlens = [-0.039343051506317, 0, 1.356656948493683, 0, 0.638936196010800, -0.950873946634155]
 
+    #set up lens system
+    #fractional lens masses: m1, m2, m3
+    mlens = [0.968738798957637, 0.020093425169771, 0.003167775872591, 0.008]
+    #lens positions: x1, y1, x2, y2, x3, y3
+    zlens = [-0.039343051506317, 0, 1.356656948493683, 0, 0.638936196010800, -0.950873946634155, -0.638936196010800, 0.950873946634155,]
+
+    #set up lens system
+    #fractional lens masses: m1, m2, m3
+    mlens = [0.968738798957637, 0.028093425169771]
+    #lens positions: x1, y1, x2, y2, x3, y3
+    zlens = [-0.039343051506317, 0, 1.356656948493683, 0]
+
+
     #source center
     xsCenter = -0.034747426672208
     ysCenter = -0.026627816352184
@@ -775,12 +890,18 @@ if __name__ == "__main__":
     rs = 0.005
     rs = 0.1
 
-    zlens = [[zlens[0], zlens[1]] , [zlens[2], zlens[3]], [zlens[4], zlens[5]] ]
+    zlens0 = []
+    for i in range(len(mlens)):
+        zlens0.append([zlens[2*i],zlens[2*i+1]])
+    zlens = zlens0
+    print(zlens)
 
     # colors = cm.rainbow(np.linspace(0,1,10))  #["blue", "green", "black", "red", "orange", "salmon", "lime"] * 2
     #["blue", "green", "black", "red", "orange", "salmon", "lime"] * 2
 
     pyTRIL = pyTriple(mlens, zlens)
+
+    print("pyTRIL.nlens = ", pyTRIL.nlens)
 
     # self, xsCenter, ysCenter, rs, PHI, prevstore = None
 
@@ -801,8 +922,14 @@ if __name__ == "__main__":
     xsCenter =  -0.1171717171717172
     xsCenter = -0.13131313131313133
     ysCenter = 0
+    xsCenter = -0.4
+    rs = 0.05
+    xsCenter = -0.018181818181818243
+    xsCenter = -0.004040404040404066
+    xsCenter = 0.010101010101010055
+    xsCenter = -0.018181818181818243
 
-    if 1: # show static
+    if 0: # show static
         for iteri in range(1):
             if VERBOSE: print("iteri = ", iteri)
             if iteri == 0:
@@ -820,21 +947,22 @@ if __name__ == "__main__":
                 PHI = newPHI
                 allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, prevstore_x = allSolutions_x, prevstore_y = allSolutions_y, prevstore_srcx = allSolutions_srcx, prevstore_srcy = allSolutions_srcy, prevstore_mu = allSolutions_mu, prevstore_flag = allSolutions_flag, prevstore_absdzs = allSolutions_absdzs)
         if 0:
+            colors = cm.rainbow(np.linspace(0,1,allSolutions_x.shape[0]))
             colors = cm.rainbow(np.linspace(0,1,true_segments_info.shape[0]))
-            pyTRIL.show_connected_tracks_static(allSolutions_x, allSolutions_y, true_segments_info, colors = colors, xlim = (-1.2, 1.8), onlytrue = True)
+            pyTRIL.show_connected_tracks_static(allSolutions_x, allSolutions_y, true_segments_info, colors = colors, xlim = (-1.4, 2), ylim = (-1.7, 1.7), onlytrue = True, mus = allSolutions_mu, srcx = allSolutions_srcx, srcy = allSolutions_srcy)
             plt.show()
         else: # show closed image boundaries
             colors = cm.seismic(np.linspace(0,1,closed_image_info.shape[0]))
             colors = cm.rainbow(np.linspace(0,1,closed_image_info.shape[0]))
-            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info,txt = 1,showfalse = True, colors = colors, xlim = (-1.2, 1.8), xs = xsCenter, ys = ysCenter)
+            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info,txt = 1,showfalse = True, colors = colors, xlim = (-1.4, 2), ylim = (-1.7, 1.7), xs = xsCenter, ys = ysCenter)
             mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
-            if VERBOSE: print("mu = ", mu)
+            print("mu = ", mu)
 
             plt.show()
 
 
     # show movie
-    if 0:
+    if 1:
 
         import numpy as np
         import matplotlib
@@ -886,7 +1014,9 @@ if __name__ == "__main__":
 
         
         testsuffix = 'rs_%s'%rs
+        # testsuffix = '4lens'
         testsuffix = 'tmp'
+        testsuffix = '2lens'
         mufilename = "../data/pymu_22Nov01_%s.txt"%testsuffix
 
         if 0:
@@ -913,13 +1043,14 @@ if __name__ == "__main__":
 
         mus = np.zeros(len(xsCenters))
         def update_figure(idx):
+            # print("xsCenters[idx] = ", xsCenters[idx])
             ax.clear()
             ax2.clear()
 
             allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenters[idx], ysCenter, rs, PHI, prevstore)
 
             colors = cm.rainbow(np.linspace(0,1,closed_image_info.shape[0]))
-            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, showfalse = True, colors = colors, txt = 0, xlim = (-1.2, 1.8), xs = xsCenters[idx], ys=ysCenter, ax = ax)
+            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, showfalse = True, colors = colors, txt = 0, xlim = (-1.4, 2), ylim = (-1.7, 1.7), xs = xsCenters[idx], ys=ysCenter, ax = ax)
             mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
             mus[idx] = np.log10(mu)
 
@@ -928,8 +1059,8 @@ if __name__ == "__main__":
             ax2.set_xlabel(r"$x/ \theta_E $", fontsize = 17, fontname='Times New Roman')
             ax2.set_ylabel(r"log$(\mu)$", fontsize = 17,fontname='Times New Roman')
         
-            ax.set_xlim(-1.35,1.85)
-            ax.set_ylim(-1.6,1.6)
+            # ax.set_xlim(-1.35,1.85)
+            # ax.set_ylim(-1.6,1.6)
 
             ax2.set_xlim(xlim[0], xlim[1])
             ax2.set_ylim(ylim[0], ylim[1])

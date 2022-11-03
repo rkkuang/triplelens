@@ -15,6 +15,8 @@ TripleLensing::TripleLensing() {
     CQ = 1;
     relerr_mag = 1e-3;
     TINY = 1.0e-20;
+    NLENS = 3;
+    DEGREE = NLENS*NLENS + 1;
 }
 
 TripleLensing::TripleLensing(double mlens[], complex zlens[]) {
@@ -26,7 +28,6 @@ TripleLensing::TripleLensing(double mlens[], complex zlens[]) {
     CQ = 1;
     relerr_mag = 1e-3;
     TINY = 1.0e-20;
-
 
     this -> mlens = mlens;
     this -> zlens = zlens;
@@ -73,8 +74,6 @@ TripleLensing::TripleLensing(double mlens[], complex zlens[]) {
         }
         temp_const2[i + 1][0][0] = 1.0;
     }
-
-
 }
 
 TripleLensing::TripleLensing(double mlens[], double Zlens[]) {
@@ -143,7 +142,50 @@ TripleLensing::TripleLensing(double mlens[], double Zlens[]) {
 }
 
 
+void TripleLensing::setnlens(int nlens) {
+    // later you need a destructor for the arrays created here
+    NLENS = nlens;
+    DEGREE = NLENS*NLENS + 1;
+
+    // https://blog.csdn.net/r_e_d_h_a_t/article/details/78178196
+
+    // complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS], temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1], ctemp[DEGREE + 1], qtemp[DEGREE + 1], qtemp2[NLENS + 1], ptemp[DEGREE + 1], zr[DEGREE], coefficients[DEGREE + 1];
+
+    temp  = new   complex [NLENS+1];  
+    temp_const22  = new   complex [NLENS+1];  
+    ctemp  = new   complex [DEGREE+1];  
+    qtemp  = new   complex [DEGREE+1];  
+    qtemp2  = new   complex [NLENS+1];  
+    ptemp  = new   complex [DEGREE+1];  
+    zr  = new   complex [DEGREE];  
+    zc  = new   complex [NLENS];  
+    coefficients  = new   complex [DEGREE+1];  
+
+    p   =   new   complex*[NLENS+1];
+    q   =   new   complex*[NLENS+1];
+    p_const   =   new   complex*[NLENS+1];
+    temp_const1   =   new   complex*[NLENS+1];
+
+    for(int  i=0;   i<NLENS + 1;   ++i){
+      p[i]   =   new   complex[NLENS]; 
+      q[i]   =   new   complex[NLENS]; 
+      p_const[i]   =   new   complex[NLENS]; 
+      temp_const1[i]   =   new   complex[NLENS+1]; 
+    }
+
+    temp_const2 = new   complex**[NLENS+1];
+    for(int  i=0;   i<NLENS + 1;   ++i){
+        temp_const2[i] = new   complex*[NLENS+1];
+            for (int  j=0;   j<NLENS + 1;   ++j){
+                temp_const2[i][j] = new   complex[NLENS+1];
+            }
+    }
+    // complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS], temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1], ctemp[DEGREE + 1], qtemp[DEGREE + 1], qtemp2[NLENS + 1], ptemp[DEGREE + 1], zr[DEGREE], coefficients[DEGREE + 1];
+}
+
+
 void TripleLensing::reset2(double mlens[],  double Zlens[]) {
+
 
     complex zlens[NLENS];
     for (int i = 0; i < NLENS ; i++) {
@@ -260,16 +302,21 @@ void TripleLensing::reset3(double mlens[], complex zlens[]) {
     this -> mlens = mlens;
     this -> zlens = zlens;
 
+
+    // for(int i = 0; i<NLENS; i++){
+    //     printf("mlens, x, y = %f, %f, %f\n", mlens[i], zlens[i].re, zlens[i].im);
+    // }
+
     //used in polynomialCoefficients
     for (int i = 0; i < NLENS; i++) {
         zc[i] = conj(zlens[i]);
+        // printf("313 %d, zc[i] = %f %f\n",i, zc[i].re, zc[i].im);
     }
 
 
     temp_const1[0][0] = 1.0;
     temp_const2[0][0][0] = 1.0;
     for (int i = 0; i < NLENS; i++) {
-
 
         for (int j = 0; j < NLENS; j++) {
             multiply_z_v2(temp_const1, zlens[j], j, i);
@@ -304,11 +351,28 @@ void TripleLensing::reset3(double mlens[], complex zlens[]) {
         }
         temp_const2[i + 1][0][0] = 1.0;
     }
+    // for (int i = 0; i < NLENS+1; i++) {
+    //     for (int j = 0; j < NLENS+1; j++) {
+    //         for (int k = 0; k < NLENS + 1; k++) {
+    //             printf("i, j, k, temp_const2 = %d, %d, %d, %f %f\n", i, j, k, temp_const2[i][j][k].re, temp_const2[i][j][k].im);
+    //         }
+    //     }
+    // }
+
+
+    // for (int i = 0; i < NLENS+1; i++) {
+    //     for (int j = 0; j < NLENS+1; j++) {
+    //             printf("i, j, temp_const1 = %d, %d, %f %f\n", i, j, temp_const1[i][j].re, temp_const1[i][j].im);
+    //     }
+    // }
+
 
 }
 
 void TripleLensing::tripleFSLimb2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np, double limba1, double RelTolLimb, double AbsTolLimb)
 {
+
+
     complex zlens[NLENS];
     for (int i = 0; i < NLENS ; i++) {
         zlens[i] = complex( Zlens[i * 2], Zlens[i * 2 + 1] );
@@ -336,7 +400,7 @@ void TripleLensing::tripleFSLimb2py(double mlens[], double Zlens[], double xsCen
 // Given the lens information, the source position and a guess of the image position z, use the Newton-Raphson method to find
 // the next step to be taken, *dz, and its magnification *mu
 //
-void newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z, complex *dz, double *mu)
+void TripleLensing::newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z, complex *dz, double *mu)
 {
   complex zs;
   complex dzs;
@@ -390,7 +454,7 @@ void newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z
 
 
 //     find the images close to a initial guess
-void findCloseImages(double mlens[], complex zlens[], double xs, double ys, complex *z, bool *imageFound)
+void TripleLensing::findCloseImages(double mlens[], complex zlens[], double xs, double ys, complex *z, bool *imageFound)
 {
   int i;
   complex dz;
@@ -427,6 +491,9 @@ void findCloseImages(double mlens[], complex zlens[], double xs, double ys, comp
 
 void TripleLensing::tripleFS2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np)
 {
+
+
+
     complex zlens[NLENS];
     for (int i = 0; i < NLENS ; i++) {
         zlens[i] = complex( Zlens[i * 2], Zlens[i * 2 + 1] );
@@ -458,6 +525,8 @@ void TripleLensing::tripleFS2py(double mlens[], double Zlens[], double xsCenters
 // Gould approximation calculate interface to Python
 void TripleLensing::tripleGould2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, double Gamma, double mags[], int Np)
 {
+
+
     double A2rho2, A4rho4;
     int Np2 = 2*Np;
     complex zlens[NLENS];
@@ -478,6 +547,9 @@ void TripleLensing::triple_num_real_sol2py(double mlens[], double Zlens[], doubl
 {
     double mu = 0., muTotal = 0.;
     int flag = 0;
+
+
+
     complex zlens[NLENS];
 
     complex zr[DEGREE];
@@ -525,6 +597,8 @@ double TripleLensing::tripleFS2python(double mlens[], double zlens[], double xsC
 }
 
 void TripleLensing::solv_lens_equation(double zrxy[], double mlens[], double zlens[], double xs, double ys, int nlens) {
+
+
     complex zr[DEGREE];
     complex coefficients[DEGREE + 1];
 
@@ -585,8 +659,7 @@ void TripleLensing::outputCriticalBinary_list(double resxy[], double s, double q
 }
 
 
-void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter) {
-
+void TripleLensing::outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter) {
     // output triple lensing event parameters
     FILE *file, *fileImage1;
     file = fopen("data/lens_system_triple.dat", "w");
@@ -627,16 +700,18 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
     quad_err = this->quaderr_Tol;
     basenum_priv = this->basenum;
     finalnphi = 0;
+
     int area_quality_local = 1;
 
     double _curr_relerr_priv = relerr_priv;
-
     // 2021.06.08
-    for (int jj = 0; jj < DEGREE + 1; jj++) {
+
+    for (int jj = 0; jj < DEGREE; jj++) {
         zr[jj] = complex(0, 0);
     }
-
+    
     muPS = tripleQuatrapoleTest(xsCenter, ysCenter, rs); // this is not robust, didn't check the number of true solution is 4, 6, 8, or 10
+    // scanf("%d", &ftime);
 
 // #ifdef VERBOSE
 //     char arr[1024];
@@ -878,7 +953,7 @@ double TripleLensing::gould(double xsCenter, double ysCenter, double rs, double 
     *A2rho2 = (16.0 * AhalfPlus - APlus) / 3.0;
     *A4rho4 = (APlus + Across) / 2.0 - *A2rho2;
 #ifdef VERBOSE
-    printf("I am in gould, second and fourth order corrections: %f %f\n", A2rho2 / 2.0, A4rho4 / 3.0);
+    printf("I am in gould, second and fourth order corrections: %f %f\n", *A2rho2 / 2.0, *A4rho4 / 3.0);
 #endif
 
     mag = A0 + *A2rho2 / 2.0 * (1.0 - 0.2 * Gamma)  + *A4rho4 / 3.0 * (1.0 - 11.0 / 35.0 * Gamma);
@@ -1120,9 +1195,16 @@ double TripleLensing::TripleMagFull(double xsCenter, double ysCenter, double rs)
 // tripleQuatrapoleTest Bozza 2018 equation 39 with c_Q = 1, add on
 double TripleLensing::tripleQuatrapoleTest(double xs, double ys, double rs) {
 
-    polynomialCoefficients(xs, ys, coefficients);
+    // for(int i = 0; i<NLENS; i++) printf("1199 %d, zc[i] = %f %f\n",i, zc[i].re, zc[i].im);
 
+
+    // printf("in tripleQuatrapoleTest, xs, ys = %f, %f\n", xs, ys);
+    polynomialCoefficients(xs, ys, coefficients);
+    // for (int i = 0; i<DEGREE; i++) printf("coe %d = %f %f\n", i, coefficients[i].re, coefficients[i].im);
     VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+    // for (int i = 0; i<DEGREE; i++) printf("zr %d = %f %f\n", i, zr[i].re, zr[i].im);
+
+
 
     muTotal = 0.0;
     eacherr = 0.0;
@@ -5879,16 +5961,21 @@ void TripleLensing::TripleLkvAdap( double rs, _curve * lightkv, double t_start, 
 
 void TripleLensing::polynomialCoefficients(double xs, double ys, complex c[])
 {
+
     int i, j, k;
     // complex zs;
     zs = complex(xs, ys);
     zsc = conj(zs);
-
+    // printf("zsc = %f %f\n", zsc.re, zsc.im);
     for (i = 0; i < NLENS; i++) {
+        // printf("%d, zc[i] = %f %f\n",i, zc[i].re, zc[i].im);
+
         /* denominator */
         for (j = 0; j <= NLENS; j++) { /* (zsc-conjugate(z[i])) * Product_{j=1}^N (z-z[j]) */
             q[j][i] = (zsc - zc[i]) * temp_const1[i][j];
+            // printf("j, i = %d %d, q[j][i] = %f %f\n",j, i, q[j][i].re, q[j][i].im);
         }
+        //printf("q[j][i] = %f %f\n", q[j][i].re, q[j][i].im);
 
         /* Sum_{j=1}^n Product (z-z_k), k=1, n, but k !=j. */
         for (j = 0; j < NLENS; j++) {
@@ -5900,7 +5987,11 @@ void TripleLensing::polynomialCoefficients(double xs, double ys, complex c[])
                 // q[k][i] = q[k][i] + mlens[j] * temp[k];
             }
         }
+        // printf("k, i = %d, %d, q[k][i] = %f %f, temp_const2[i][j][k] %f %f\n", k, i, q[k][i].re, q[k][i].im, temp_const2[i][j][k].re, temp_const2[i][j][k].re);
+
     }
+    // printf("can you 5961\n"); // ok
+
 
     /* now clear the fractions, z-zs - Sum_i p_i/q_i */
     /* get the polynomial Product q_i, i=1, n */
@@ -5934,11 +6025,12 @@ void TripleLensing::polynomialCoefficients(double xs, double ys, complex c[])
     for (i = 0; i < NLENS; i++) {
         degrees = 0;
         qtemp[0] = 1.0;
+    
+
         for (j = 0; j < NLENS; j++) {
             if (j == i) continue;
-
             for (k = 0; k <= NLENS; k++) {
-                qtemp2[k] = q[k][j];
+                qtemp2[k] = q[k][j]; // mark
             }
 
             multiply(qtemp, degrees, qtemp2, NLENS, ctemp);
@@ -5972,9 +6064,11 @@ void multiply_z(complex c[], complex a, int n)
     c[0] = c[0] * (-a);
 }
 
-void multiply_z_v2(complex c[][NLENS + 1], complex a, int n, int firstdim)
+// void multiply_z_v2(complex c[][NLENS + 1], complex a, int n, int firstdim)
+void multiply_z_v2(complex **c, complex a, int n, int firstdim)
 {
     int j;
+    // printf("firstdim, n, a = %d, %d, %f, %f\n", firstdim, n, a.re, a.im);
 
     c[firstdim + 1][n + 1] = c[firstdim][n];
     if (firstdim == 0) {

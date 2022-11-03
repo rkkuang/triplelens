@@ -14,8 +14,8 @@
 
 // #define CALCULATE_ANGLE
 
-#define NLENS 3
-#define DEGREE (NLENS*NLENS+1)
+// #define NLENS 3 // NLENS and DEGREE should not be fixed ?
+// #define DEGREE (NLENS*NLENS+1)
 #define EPS 1.0e-5 // segment close threshold, 1.0e-5 is ok
 
 
@@ -67,29 +67,34 @@ class TripleLensing {
     double TINY, ph1, ph2, ph3, adaerrTol = 0.0005, timerrTol = 1e-3, tempdis, mindis, M_PI2 = 2 * M_PI, absdzs;
     // absdzs is used to store the abs(dzs) in trueSolution()
     double r2_1, r2_2, x, y, dx_db, dy_db, dx_db2, dy_db2 , Jxx, Jyy, Jxy, rho2, areaSource, phi0, x1, x2, y1, y2, phi1, phi2, dphi, dphi3, ds1, ds2, subArea, pos_area, rep, imp, x_xj, y_yj, xy_j2, relerr_priv; // trueSolution
-    complex zs, dzs, dzsdz, zsc, zc[NLENS], z1, z2, z3, z1bar, z2bar, z3bar, zsbar;
+    complex zs, dzs, dzsdz, zsc, z1, z2, z3, z1bar, z2bar, z3bar, zsbar; // zc[NLENS]
     complex tempzc, tempzc2, tempzc3, tempzc4, J1c, dz1, dz2;
-    complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS];
-    complex temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1];
-    complex ctemp[DEGREE + 1];
-    complex qtemp[DEGREE + 1], qtemp2[NLENS + 1];
-    complex ptemp[DEGREE + 1];
+    // complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS];
+    // complex temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1];
+    // complex ctemp[DEGREE + 1];
+    // complex qtemp[DEGREE + 1], qtemp2[NLENS + 1];
+    // complex ptemp[DEGREE + 1];
     _point *pscan;
     double therr;
     int NPS;
     double *mlens, *Zlens;
 public:
-    int nphi, secnum, basenum, distype, maxmuidx, flag,  pntnum, CQ, finalNPS, ifFinite, area_quality=1;
+    int nphi, secnum, basenum, distype, maxmuidx, flag,  pntnum, CQ, finalNPS, ifFinite, area_quality=1, NLENS;
+    int DEGREE;
     // area_quality = 1 means this magnification is ok, otherwise (mainly caused by insufficient samples around the source edge)
     // if area_quality == 0, mean parity in areaFunc might be wrong
     // if area_quality == 2, means return from a looser threshold
     // if area_quality == 3, means return muPS
 
+    // complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS], temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1], ctemp[DEGREE + 1], qtemp[DEGREE + 1], qtemp2[NLENS + 1], ptemp[DEGREE + 1], zr[DEGREE], coefficients[DEGREE + 1];
+    complex **p, **q, **p_const, *temp, **temp_const1, ***temp_const2, *temp_const22, *ctemp, *qtemp, *qtemp2, *ptemp, *zr, *coefficients, *zc;
+
+
     double quad_err, quaderr_Tol, area, mu0, mu, relerr_mag, lambda1, lambda2, thetaJ, eacherr, muTotal, xs, ys, phi, SD, MD, CD, muPS, ds, dJ2, RelTolLimb = 1e-3, AbsTolLimb = 1e-4;
     unsigned short int ifjump;
     complex *zlens;
-    complex zr[DEGREE];
-    complex coefficients[DEGREE + 1];
+    // complex zr[DEGREE];
+    // complex coefficients[DEGREE + 1];
     complex J1, J2, J3, dJ, firstterm, secondterm, thirdterm, J1c2, dJ5, dy, dz;
 
 
@@ -97,6 +102,7 @@ public:
     TripleLensing(double mlens[], complex zlens[]);
     TripleLensing(double mlens[], double Zlens[]);
 
+    void setnlens(int nlens);
     void reset(double mlens[], complex zlens[]);
     void reset3(double mlens[], complex zlens[]);
     void reset2(double mlens[],  double Zlens[]);
@@ -148,12 +154,11 @@ public:
     void tripleGould2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, double Gamma, double mags[], int Np);
     void tripleFSLimb2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double rs, int secnum, int basenum, double quaderr_Tol, double relerr_mag, double mags[], int Np, double limba1, double RelTolLimb, double AbsTolLimb) ; //core
     void triple_num_real_sol2py(double mlens[], double Zlens[], double xsCenters[], double ysCenters[], double true_solution_threshold , double numbers_mups[], int Np);
-
-
+    void findCloseImages(double mlens[], complex zlens[], double xs, double ys, complex *z, bool *imageFound);
+    void newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z, complex *dz, double *mu);
+    void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter);
 };
 
-void findCloseImages(double mlens[], complex zlens[], double xs, double ys, complex *z, bool *imageFound);
-void newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z, complex *dz, double *mu);
 
 
 void addPoint(_curve *final, _point *p);
@@ -173,12 +178,11 @@ void outputCriticalTriple(double mlens[], complex zlens[], int nlens, int npnt =
 void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens, int npnt);
 
 void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS);
-void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter);
-
 
 void get_crit_caus(double mlens[], complex zlens[], int nlens, int NPS, double *criticalx, double *criticaly, double *causticsx, double *causticsy, int *numcritical);
 
 void multiply(complex a[], int na, complex b[], int nb, complex c[]);
 void multiply_z(complex c[], complex a, int n);
-void multiply_z_v2(complex c[][NLENS + 1], complex a, int n, int firstdim);
+// void multiply_z_v2(complex c[][NLENS + 1], complex a, int n, int firstdim);
+void multiply_z_v2(complex **c, complex a, int n, int firstdim);
 void multiply_zSquare(complex c[], complex a, int n);

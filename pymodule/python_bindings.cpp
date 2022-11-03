@@ -11,6 +11,8 @@
 
 namespace py = pybind11;
 
+// https://zhuanlan.zhihu.com/p/80884925
+
 
 TripleLensing TRIL;
 // // Declaration of an instance to VBBinaryLensing class.
@@ -38,6 +40,8 @@ PYBIND11_MODULE(TripleLensing, m) {
                    "Tolerance of quadrupole test.")
     .def_readwrite("AbsTolLimb", &TripleLensing::AbsTolLimb,
                    "Tolerance of quadrupole test.")
+    
+    .def( "setnlens", &TripleLensing::setnlens)
 
     // .def("TripleMag",
     // [](TripleLensing & self, std::vector<double> mlens, std::vector<double> zlens, double xsCenter, double ysCenter, double rs) {

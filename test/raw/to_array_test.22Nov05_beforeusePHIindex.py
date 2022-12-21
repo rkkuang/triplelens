@@ -1,6 +1,3 @@
-### version 1, create new array at each iteration of douling the number of sampled images
-### later, we will implement a new version (version 2) that use pre-defined arraies with enough length, i.e., the arraies is defined once during compilation
-
 # implement a version that use array, rather than linked list, to represent the source/image boundaries.
 # then transfer this part of python code to C++ version
 # which is helpful when calculating the magnifications with GPU
@@ -82,7 +79,7 @@ class pyTriple:
                     saveindex = i
         # after save the solution, whether the nimages and parity are correct
         if (curr_nimages + 1 - self.nlens)%2 == 1 and (curr_total_parity+self.one_parity(allSolutions_mu[saveindex,j])) == self.correct_parity:
-            # if VERBOSE: print("we can save the solution %d, %f, %e"%(saveindex, allSolutions_mu[saveindex,j], allSolutions_absdzs[saveindex,j]))
+            if VERBOSE: print("we can save the solution %d, %f, %e"%(saveindex, allSolutions_mu[saveindex,j], allSolutions_absdzs[saveindex,j]))
             ifsave = True
 
         # input(">>>>>")
@@ -112,7 +109,6 @@ class pyTriple:
         allSolutions_x = np.zeros((self.DEGREE, nphi)) # 1 row = 1 mixed image track
         allSolutions_y = np.zeros((self.DEGREE, nphi))
         allSolutions_flag = np.zeros((self.DEGREE, nphi)).astype(int)
-        allSolutions_phiindex = np.zeros((self.DEGREE, nphi)).astype(int)
         allSolutions_srcx = np.zeros((self.DEGREE, nphi)) 
         allSolutions_srcy = np.zeros((self.DEGREE, nphi)) 
         allSolutions_absdzs = np.zeros((self.DEGREE, nphi)) 
@@ -158,9 +154,7 @@ class pyTriple:
                         allSolutions_srcx[i, j] = xs
                         allSolutions_srcy[i, j] = ys
                         allSolutions_absdzs[i, j] = flag[2]
-                        allSolutions_phiindex[i, j] = j
                         posflagnums[i] += flag[0]
-
 
                         if flag[0]: curr_total_parity += self.one_parity(flag[1])
                         curr_nimages += flag[0]
@@ -264,7 +258,7 @@ class pyTriple:
 
                     posflagnums[i] += Prov_flag[attach_idx[i]]
 
-                if (curr_nimages - self.nlens)%2 != 1 or curr_total_parity != self.correct_parity:
+                if (curr_nimages - self.nlens)%2 != 1 or curr_total_parity != correct_parity:
                     # there might be some true images being classified as false images
                     ifsave, saveindex = self.saveimage(allSolutions_flag, allSolutions_mu, allSolutions_absdzs, curr_nimages, curr_total_parity, j)
                     if ifsave:
@@ -378,40 +372,34 @@ class pyTriple:
                 if VERBOSE: print(i, "close track", "head", allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]], allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]],)
 
         if_creat_new = True
-        continue_left = 1
         while open_seg_leftover > 0:
-            connectEPS = EPS**2
             for i in range(ntrue_segments):
                 if already_done_segments[i] or open_seg_leftover <= 0:
                     continue
                 j, hid, tid = true_segments_info[i, :]
 
                 if if_creat_new:
-                    if hid == tid:# and open_seg_leftover > 1:
-                        if VERBOSE: print("<<<<<< segment %d has only 1 data point, we do not start from this, continue_left = %d"%(i, continue_left))
-                        if continue_left > 0:
-                            continue_left -= 1
-                            break # because you have sorted segments by length, so length == 1 means there are only
-                        else: # there are only length = 1 segments, you only need to attach them to the head/tail of the existing head1, tail1
-                            connectEPS = (allSolutions_x[head1[0], head1[1]] - allSolutions_x[tail1[0], tail1[1]])**2+\
-                            (allSolutions_y[head1[0], head1[1]] - allSolutions_y[tail1[0], tail1[1]])**2
-                    else:
-                        head1, tail1 = [j, hid], [j, tid]
+                    head1, tail1 = [j, hid], [j, tid]
 
-                        closed_image_info[nfinal_closed_image][0] = 1 if allSolutions_mu[j, hid] > 0 else -1 # final->first->mu > 0 ? 1 : -1;
-                        closed_image_info[nfinal_closed_image][1] = 1 # this closed image is originate from 1 segment
-                        closed_image_info[nfinal_closed_image][2] = j # which allSolutions_x index this image belongs to
-                        closed_image_info[nfinal_closed_image][3] = hid #
-                        closed_image_info[nfinal_closed_image][4] = tid #
+                    if hid == tid and open_seg_leftover > 1:
+                        if VERBOSE: print("<<<<<< segment %d has only 1 data point, we do not start from this"%(i))
+                        continue
 
-                        already_done_segments[i] = 1
-                        open_seg_leftover -= 1
 
-                        if if_creat_new and VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", i, "open_seg_leftover = ", open_seg_leftover, "hid, tid = ", hid, tid)
-                        if_creat_new = False
+                    closed_image_info[nfinal_closed_image][0] = 1 if allSolutions_mu[j, hid] > 0 else -1 # final->first->mu > 0 ? 1 : -1;
+                    closed_image_info[nfinal_closed_image][1] = 1 # this closed image is originate from 1 segment
+                    closed_image_info[nfinal_closed_image][2] = j # which allSolutions_x index this image belongs to
+                    closed_image_info[nfinal_closed_image][3] = hid #
+                    closed_image_info[nfinal_closed_image][4] = tid #
+
+                    already_done_segments[i] = 1
+                    open_seg_leftover -= 1
+
+                    if if_creat_new and VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", i, "open_seg_leftover = ", open_seg_leftover, "hid, tid = ", hid, tid)
+                    if_creat_new = False
                 
                 # if hid == 0 and tid == nphi - 1 and self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2:
-                if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2 and connectEPS == EPS**2:
+                if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2:
                     # to check whether a track is closed or not
                     if VERBOSE: print(i, "close track", "head", allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]], allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]],)
                     nfinal_closed_image += 1
@@ -420,81 +408,54 @@ class pyTriple:
                 else:
                     ifcontinue = False
                     # now, test whether we can connect segment i with "other segments"
-                    bestconnect_type = 0
-                    bestconnect_dis = 1e10
-                    bestconnect_i2 = 0
-                    canweconnect = False
                     for i2 in range(ntrue_segments):
                         if open_seg_leftover > 0 and (not already_done_segments[i2]):
                             # # judge whether two segments (i, i2) can be connected together
                             j2, hid2, tid2 = true_segments_info[i2, :]
                             head2, tail2 = [j2, hid2], [j2, tid2]
                             # call a function to test whether these two segments can be connected
-                            itype, connectdis = self.if_two_segments_connect(head1, tail1, head2, tail2, allSolutions_x, allSolutions_y, connectEPS)
+                            itype = self.if_two_segments_connect(head1, tail1, head2, tail2, allSolutions_x, allSolutions_y, EPS**2)
                             if itype > 0:
-                                bestconnect_type = itype
-                                bestconnect_dis = connectdis
-                                bestconnect_i2 = i2
-                                canweconnect = True
-                                break
-                            elif itype < 0:
-                                canweconnect = True
-                                if bestconnect_dis > connectdis:
-                                    bestconnect_dis = connectdis
-                                    bestconnect_type = itype
-                                    bestconnect_i2 = i2
-                    
-                    if canweconnect and ((bestconnect_type > 0) or (bestconnect_type<0) and open_seg_leftover == 1 ):
-                        j2, hid2, tid2 = true_segments_info[bestconnect_i2, :]
-                        head2, tail2 = [j2, hid2], [j2, tid2]
-
-                        if VERBOSE: print("\t canweconnect %s, bestconnect_type %d, bestconnect_dis = %e, bestconnect_i2 = %d"%(canweconnect, bestconnect_type, bestconnect_dis, bestconnect_i2))
-                        if VERBOSE: print("\t head2 = ", allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], "tail2 = ", allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]])
-
-                        # we can connect seg_i with seg_i2
-                        existing_seg_n = closed_image_info[nfinal_closed_image][1]
-                        offset = int(3*existing_seg_n)
-                        if abs(bestconnect_type) == 3: # tail connect with head
-                            closed_image_info[nfinal_closed_image][2 + offset] = j2
-                            closed_image_info[nfinal_closed_image][3 + offset] = hid2
-                            closed_image_info[nfinal_closed_image][4 + offset] = tid2
-                            tail1 = tail2
-                        elif abs(bestconnect_type) == 4: # tail connect with tail
-                            closed_image_info[nfinal_closed_image][2 + offset] = j2
-                            closed_image_info[nfinal_closed_image][3 + offset] = tid2
-                            closed_image_info[nfinal_closed_image][4 + offset] = hid2
-                            tail1 = head2
-                        elif abs(bestconnect_type) == 2: # head connect with tail
-                            # move prev segments behind
-                            closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
-                            closed_image_info[nfinal_closed_image][2] = j2
-                            closed_image_info[nfinal_closed_image][3] = hid2
-                            closed_image_info[nfinal_closed_image][4] = tid2
-                            head1 = head2
-                        elif abs(bestconnect_type) == 1: # head connect with head
-                            # move prev segments behind
-                            closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
-                            closed_image_info[nfinal_closed_image][2] = j2
-                            closed_image_info[nfinal_closed_image][3] = tid2
-                            closed_image_info[nfinal_closed_image][4] = hid2
-                            head1 = tail2
-                        closed_image_info[nfinal_closed_image][1] += 1
-                        already_done_segments[i2] = 1
-                        open_seg_leftover -= 1
-                        #continue # you have connect seg2 with seg1, now proceed to the next segment
-                        # check whether current is already closed
-                        if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2 or open_seg_leftover<=0 and connectEPS == EPS**2:
-                            nfinal_closed_image += 1
-                            if_creat_new = True
-                            break
-                        else:
-                            if VERBOSE: print("break 322, open_seg_leftover, nfinal_closed_image, if_creat_new = ", open_seg_leftover, nfinal_closed_image, if_creat_new)
-                            ifcontinue = True # connect once, then try whether we can connect again
-                            # break
-
-                    if ifcontinue:
-                        continue # if connected above, then continue, otherwise try jump
-
+                                # we can connect seg_i with seg_i2
+                                existing_seg_n = closed_image_info[nfinal_closed_image][1]
+                                offset = int(3*existing_seg_n)
+                                if itype == 3: # tail connect with head
+                                    closed_image_info[nfinal_closed_image][2 + offset] = j2
+                                    closed_image_info[nfinal_closed_image][3 + offset] = hid2
+                                    closed_image_info[nfinal_closed_image][4 + offset] = tid2
+                                    tail1 = tail2
+                                elif itype == 4: # tail connect with tail
+                                    closed_image_info[nfinal_closed_image][2 + offset] = j2
+                                    closed_image_info[nfinal_closed_image][3 + offset] = tid2
+                                    closed_image_info[nfinal_closed_image][4 + offset] = hid2
+                                    tail1 = head2
+                                elif itype == 2: # head connect with tail
+                                    # move prev segments behind
+                                    closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
+                                    closed_image_info[nfinal_closed_image][2] = j2
+                                    closed_image_info[nfinal_closed_image][3] = hid2
+                                    closed_image_info[nfinal_closed_image][4] = tid2
+                                    head1 = head2
+                                elif itype == 1: # head connect with head
+                                    # move prev segments behind
+                                    closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
+                                    closed_image_info[nfinal_closed_image][2] = j2
+                                    closed_image_info[nfinal_closed_image][3] = tid2
+                                    closed_image_info[nfinal_closed_image][4] = hid2
+                                    head1 = tail2
+                                closed_image_info[nfinal_closed_image][1] += 1
+                                already_done_segments[i2] = 1
+                                open_seg_leftover -= 1
+                                #continue # you have connect seg2 with seg1, now proceed to the next segment
+                                # check whether current is already closed
+                                if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS**2 or open_seg_leftover<=0:
+                                    nfinal_closed_image += 1
+                                    if_creat_new = True
+                                else:
+                                    if VERBOSE: print("break 322, open_seg_leftover, nfinal_closed_image, if_creat_new = ", open_seg_leftover, nfinal_closed_image, if_creat_new)
+                                    ifcontinue = True # connect once, then try whether we can connect again
+                                    break
+                    if ifcontinue: continue # if connected above, then continue, otherwise try jump
                     if VERBOSE: print("330 continue")
                     # for i2 in range(ntrue_segments):
                     #     if open_seg_leftover > 0 and (not already_done_segments[i2]):
@@ -505,19 +466,13 @@ class pyTriple:
                     bestjump_i2 = 0
                     bestjump_fac_mu = 1e10 # find the minimum how_close, shoule be very close to 2.0
                     bestjump_dis = 1e10
-
-                    if VERBOSE:
-                        print("\t before test jump, already_done_segments = ", already_done_segments)
-                        print("head1, tail1", head1, tail1)
-                        print("\tcurrent head: x, y, mu, flag, srcx, srcy = ", allSolutions_x[head1[0],head1[1]], allSolutions_y[head1[0],head1[1]],allSolutions_mu[head1[0],head1[1]],allSolutions_flag[head1[0],head1[1]],allSolutions_srcx[head1[0],head1[1]], allSolutions_srcy[head1[0],head1[1]])
-                        print("\tcurrent tail: x, y, mu, flag, srcx, srcy = ", allSolutions_x[tail1[0],tail1[1]], allSolutions_y[tail1[0],tail1[1]],allSolutions_mu[tail1[0],tail1[1]],allSolutions_flag[tail1[0],tail1[1]],allSolutions_srcx[tail1[0],tail1[1]], allSolutions_srcy[tail1[0],tail1[1]])  
                     for i3 in range(ntrue_segments):
                         if open_seg_leftover > 0 and (not already_done_segments[i3]):
                             # # judge whether two segments (i, i2) can be connected together
                             j2, hid2, tid2 = true_segments_info[i3, :]
                             head2, tail2 = [j2, hid2], [j2, tid2]
                             # call a function to test whether these two segments can be connected
-                            if VERBOSE: print(">>>>>> i3 = %d"%(i3))
+                            
                             itype, how_close, jumpdis = self.if_two_segments_jump(head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
 
                             if bestjump_fac_mu > how_close and bestjump_dis >= jumpdis:
@@ -525,14 +480,8 @@ class pyTriple:
                                 bestjump_dis = jumpdis
                                 bestjump_i2 = i3
                                 bestjumptype = itype
-                            if itype > 0 and jumpdis == 0: # jumpdis has an upper limit: the mimimum distances between two sample points in the source limb, dphi
-                                bestjump_fac_mu = how_close
-                                bestjump_dis = jumpdis
-                                bestjump_i2 = i3
-                                bestjumptype = itype
-
+                            if itype > 0 and jumpdis <= mindsource: # jumpdis has an upper limit: the mimimum distances between two sample points in the source limb, dphi
                                 canwejump = 1
-                                break
                                 # if bestjump_fac_mu > how_close and bestjump_dis >= jumpdis:
                                 #     bestjump_fac_mu = how_close
                                 #     bestjump_dis = jumpdis
@@ -540,8 +489,10 @@ class pyTriple:
                                 #     bestjumptype = itype
                             else:
                                 if VERBOSE:
-                                    print("\t440, we can not jump, itype = %d the bestjump_fac_mu = %f, bestjump_dis = %e"%(itype, bestjump_fac_mu, bestjump_dis))
-                                    print("\thead2, tail2", head2, tail2)                               
+                                    print("440, we can not jump, the bestjump_fac_mu = %f, bestjump_dis = %e"%(bestjump_fac_mu, bestjump_dis))
+                                    print("\talready_done_segments = ", already_done_segments)
+                                    print("\tcurrent head: x, y, mu, flag, srcx, srcy = ", allSolutions_x[head1[0],head1[1]], allSolutions_y[head1[0],head1[1]],allSolutions_mu[head1[0],head1[1]],allSolutions_flag[head1[0],head1[1]],allSolutions_srcx[head1[0],head1[1]], allSolutions_srcy[head1[0],head1[1]])
+                                    print("\tcurrent tail: x, y, mu, flag, srcx, srcy = ", allSolutions_x[tail1[0],tail1[1]], allSolutions_y[tail1[0],tail1[1]],allSolutions_mu[tail1[0],tail1[1]],allSolutions_flag[tail1[0],tail1[1]],allSolutions_srcx[tail1[0],tail1[1]], allSolutions_srcy[tail1[0],tail1[1]])                                   
                                     print("\ttmp seg %d head: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[head2[0],head2[1]], allSolutions_y[head2[0],head2[1]],allSolutions_mu[head2[0],head2[1]],allSolutions_flag[head2[0],head2[1]],allSolutions_srcx[head2[0],head2[1]], allSolutions_srcy[head2[0],head2[1]])
                                     print("\ttmp seg %d tail: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[tail2[0],tail2[1]], allSolutions_y[tail2[0],tail2[1]],allSolutions_mu[tail2[0],tail2[1]],allSolutions_flag[tail2[0],tail2[1]], allSolutions_srcx[tail2[0],tail2[1]], allSolutions_srcy[tail2[0],tail2[1]])
                     if canwejump:
@@ -551,13 +502,7 @@ class pyTriple:
                         j2, hid2, tid2 = true_segments_info[bestjump_i2, :]
                         head2, tail2 = [j2, hid2], [j2, tid2]             
 
-                        if VERBOSE:
-                            print(">>> best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu, 'type = ', bestjumptype, allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]], "bestjump_dis = ", bestjump_dis)           
-
-                            print("\thead2, tail2", head2, tail2)                               
-                            print("\ttmp seg %d head: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[head2[0],head2[1]], allSolutions_y[head2[0],head2[1]],allSolutions_mu[head2[0],head2[1]],allSolutions_flag[head2[0],head2[1]],allSolutions_srcx[head2[0],head2[1]], allSolutions_srcy[head2[0],head2[1]])
-                            print("\ttmp seg %d tail: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[tail2[0],tail2[1]], allSolutions_y[tail2[0],tail2[1]],allSolutions_mu[tail2[0],tail2[1]],allSolutions_flag[tail2[0],tail2[1]], allSolutions_srcx[tail2[0],tail2[1]], allSolutions_srcy[tail2[0],tail2[1]])
-
+                        if VERBOSE: print(">>> best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu, 'type = ', bestjumptype, allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]], "bestjump_dis = ", bestjump_dis)           
 
                         # we can connect seg_i with seg_i2
                         existing_seg_n = closed_image_info[nfinal_closed_image][1]
@@ -617,8 +562,6 @@ class pyTriple:
     # def select_connect_segments(self, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs):
 
 
-
-
     def head_tail_close(self, head1, tail1, allSolutions_x, allSolutions_y):
         x1 = allSolutions_x[head1[0], head1[1]]
         y1 = allSolutions_y[head1[0], head1[1]]
@@ -639,34 +582,21 @@ class pyTriple:
         srcypost = allSolutions_srcy[tail1[0], tail1[1]]
         muprev = allSolutions_mu[head1[0], head1[1]]
         mupost = allSolutions_mu[tail1[0], tail1[1]]
-        
-        # ifjump, how_close, dis = self.if_jump( srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost)
-        
+        ifjump, how_close, dis = self.if_jump( srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost)
+        return ifjump, how_close, dis
 
+    def if_jump(self, srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost):
         how_close = ( abs(muprev / mupost) + abs(mupost/muprev) )
         dis = self.if_dis_close(srcxprev, srcyprev, srcxpost, srcypost)
-
+        
         ifjump = False
         if muprev * mupost < 0.0:
-            if head1[1] == tail1[1]:
-                dis = 0
+            if dis <= 1e-15:
                 ifjump = True
             else:
                 ifjump = how_close < 2.5
+
         return ifjump, how_close, dis
-
-    # def if_jump(self, srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost):
-    #     how_close = ( abs(muprev / mupost) + abs(mupost/muprev) )
-    #     dis = self.if_dis_close(srcxprev, srcyprev, srcxpost, srcypost)
-        
-    #     ifjump = False
-    #     if muprev * mupost < 0.0:
-    #         if dis <= 1e-15:
-    #             ifjump = True
-    #         else:
-    #             ifjump = how_close < 2.5
-
-    #     return ifjump, how_close, dis
 
     def if_two_segments_connect(self, head1, tail1, head2, tail2, allSolutions_x, allSolutions_y, EPS2):
         # head1 = [head1_j, head1_idx]
@@ -684,56 +614,24 @@ class pyTriple:
         # we prefer connect, rather than jump, so, first test image connectivity; if we cannot connect, then try whether we can "jump"
         # besides, you need to have a seperate function for jump
 
-        besttype = 0
-        bestdis = 1e10
-
         # we prefer to find the easiest scenario
-        dis = self.head_tail_close( tail1, head2, allSolutions_x, allSolutions_y)
-        if dis < EPS2: # either they are overlapping or they are continuous in terms of phi
+        if self.head_tail_close( tail1, head2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 3 # tail connect with head
             if VERBOSE: print("tail connect with head", itype, tail1, head2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]] )
-            return itype, dis
-        elif abs(tail1[1] - head2[1]) == 1: ## if you can not connect by distance, you need to check whether the phi is continuous
-            if bestdis > dis:
-                bestdis = dis
-                besttype = -3
 
-        dis = self.head_tail_close( tail1, tail2, allSolutions_x, allSolutions_y)
-        if dis<EPS2:
+        if self.head_tail_close( tail1, tail2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 4 # tail connect with tail
             if VERBOSE: print("tail connect with tail", itype, tail1, tail2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]])
-            return itype, dis
-        elif abs(tail1[1] - tail2[1]) == 1:
-            if bestdis > dis:
-                bestdis = dis
-                besttype = -4
 
-        dis = self.head_tail_close( head1, tail2, allSolutions_x, allSolutions_y)
-        if dis<EPS2:
+        if self.head_tail_close( head1, tail2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 2 # head connect with tail
             if VERBOSE: print("head connect with tail", itype, head1, tail2, allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]])
-            return itype, dis
-        elif abs(head1[1] - tail2[1]) == 1:
-            if bestdis > dis:
-                bestdis = dis
-                besttype = -2     
 
-        dis = self.head_tail_close( head1, head2, allSolutions_x, allSolutions_y)
-        if dis<EPS2:
+        if self.head_tail_close( head1, head2, allSolutions_x, allSolutions_y)<EPS2:
             itype = 1 # head connect with head
             if VERBOSE: print("head connect with head", itype, head1, head2, allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]])
-            return itype, dis
-        elif abs(head1[1] - head2[1]) == 1:
-            if bestdis > dis:
-                bestdis = dis
-                besttype = -1
+        return itype
 
-        if besttype == 0:
-            # if we can not connect by overlapping, we still have chance to connect two points with abs(phi_index1 - phi_index2) == 1
-            return itype, 1e10
-        else:
-            if VERBOSE: print("possible connect by continuous phi, besttype = %d, bestdis = %e"%(besttype, bestdis))
-            return besttype, bestdis
 
     def if_two_segments_jump(self, head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu):
         itype = 0
@@ -746,30 +644,30 @@ class pyTriple:
         bestjump_dis= 1e10
 
         ifjump, how_close, dis = self.if_head_tail_jump( tail1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
-        if dis == 0 or (ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis):
+        if bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
             bestjump_dis = dis
-            besttype = 3 # tail connect with head
+        if ifjump:     besttype = 3 # tail connect with head
 
         ifjump, how_close, dis = self.if_head_tail_jump( tail1, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
-        if dis == 0  or (ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis):
+        if bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
             bestjump_dis = dis
-            besttype = 4 # tail connect with tail
+        if ifjump:     besttype = 4 # tail connect with tail
             
 
         ifjump, how_close, dis =  self.if_head_tail_jump( head1, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
-        if dis == 0  or (ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis):
+        if bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
             bestjump_dis = dis
-            besttype = 2 # head connect with tail
+        if ifjump:     besttype = 2 # head connect with tail
         
 
         ifjump, how_close, dis =  self.if_head_tail_jump( head1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
-        if dis == 0 or (ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis):
+        if bestjump_fac_mu > how_close and bestjump_dis >= dis:
             bestjump_fac_mu = how_close
             bestjump_dis = dis
-            besttype = 1 # head connect with head
+        if ifjump:     besttype = 1 # head connect with head
 
         # ifjump, how_close, dis = self.if_head_tail_jump( tail1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
         # if ifjump and bestjump_fac_mu > how_close and bestjump_dis >= dis:
@@ -833,9 +731,9 @@ class pyTriple:
         ax.tick_params(axis='both', labelsize = 17, direction="in")
         
         critical , caustics = get_crit_caus(self.mlens, self.zlens, self.nlens, NPS = 3000)
-        ax.plot([xy[0]for xy in caustics], [xy[1]for xy in caustics], '.', color='red', markersize=1)
+        ax.plot([xy[0]for xy in caustics], [xy[1]for xy in caustics], 'o', color='red', markersize=2)
         ax.plot([xy[0]for xy in critical], [xy[1]for xy in critical], 'o', color='k', markersize=1)
-        ax.plot([xy[0]for xy in self.zlens], [xy[1]for xy in self.zlens], 'x', color='k', markersize=10, zorder = 50)
+        ax.plot([xy[0]for xy in self.zlens], [xy[1]for xy in self.zlens], 'x', color='k', markersize=5)
         PHIS = np.linspace(0, 2*np.pi, len(allSolutions_x[0,:]))
         XS = xsCenter + rs * cos(PHIS)
         YS = ysCenter + rs * sin(PHIS)
@@ -890,7 +788,7 @@ class pyTriple:
         ax.set_ylim(ylim[0],ylim[1])
 
 
-    def show_closed(self, allSolutions_x, allSolutions_y, closed_image_info,critical,caustics, step = 100,xlim=(-1.5,1.5),ylim=(-1.5,1.5), txt = 1, Narrows_each_track = 15, colors = [], txtstr = "H{}", head_center = "head", ax = None, xs = 0, ys = 0, showfalse = False):
+    def show_closed(self, allSolutions_x, allSolutions_y, closed_image_info, step = 100,xlim=(-1.5,1.5),ylim=(-1.5,1.5), txt = 1, Narrows_each_track = 15, colors = [], txtstr = "H{}", head_center = "head", ax = None, xs = 0, ys = 0, showfalse = False):
 
         nsegments = closed_image_info.shape[0]
         headx, heady, tailx, taily = [],[],[],[]
@@ -911,11 +809,10 @@ class pyTriple:
             plt.subplots_adjust(top = 0.95, bottom = 0.1, right = 0.95, left = 0.15, hspace = 0, wspace = 0)
             ax.tick_params(axis='both', labelsize = 17, direction="in")
         
-        
-        # ax.plot([xy[0]for xy in caustics], [xy[1]for xy in caustics], '-', color='red', markersize=2) # ax.plot(causticsx, causticsy, '-', color='red', markersize=1)
-        ax.scatter([xy[0]for xy in caustics], [xy[1]for xy in caustics], marker = '.', color='red', s=1) # ax.plot(causticsx, causticsy, '-', color='red', markersize=1)
-        ax.plot([xy[0]for xy in critical], [xy[1]for xy in critical], '--', color='k', markersize=1) # ax.plot(criticalx, criticaly, '--', color='r', markersize=1)
-        ax.plot([xy[0]for xy in self.zlens], [xy[1]for xy in self.zlens], 'x', color='k', markersize=10,zorder = 50)
+        critical , caustics = get_crit_caus(self.mlens, self.zlens, self.nlens, NPS = 3000)
+        ax.plot([xy[0]for xy in caustics], [xy[1]for xy in caustics], '-', color='red', markersize=2) # ax.plot(causticsx, causticsy, '-', color='red', markersize=1)
+        ax.plot([xy[0]for xy in critical], [xy[1]for xy in critical], '--', color='red', markersize=1) # ax.plot(criticalx, criticaly, '--', color='r', markersize=1)
+        ax.plot([xy[0]for xy in self.zlens], [xy[1]for xy in self.zlens], 'x', color='k', markersize=5)
         PHIS = np.linspace(0, 2*np.pi, len(allSolutions_x[0,:]))
         XS = xs + rs * cos(PHIS)
         YS = ys + rs * sin(PHIS)
@@ -964,6 +861,7 @@ class pyTriple:
                 if 1:
                     try:
                         for i in range(hid , tid, int(isgn*(npts-5)/Narrows_each_track0) ):
+                            # print("i:", i)
                             try:
                                 x0 = allSolutions_x[j, i]
                                 y0 = allSolutions_y[j, i]
@@ -972,21 +870,18 @@ class pyTriple:
                             except:
                                 continue
                             if isgn>0 and int(i+isgn*3)>tid:
-                                if VERBOSE: print("isgn>0 i:", i, "hid, tid = ", hid, tid)
-                                pass
-                            elif isgn<0 and int(i+isgn*3)<tid:
-                                if VERBOSE: print("i:", i, "hid, tid = ", hid, tid)
-                                pass
-                            else:
-                                # plt.arrow(x0, y0 , x1,  y1 - y0, shape='full', lw=0, length_includes_head=True, head_width=.05, color = colors[j%ncolor])
-                                line.axes.annotate('',
-                                    xytext=(x0, y0),
-                                    xy=(x1, y1),
-                                    # arrowprops=dict(arrowstyle="->", color=colors[j%ncolor]),
-                                    arrowprops=dict(arrowstyle="-|>", color=colors[jj%ncolor]),
-                                    # https://matplotlib.org/3.3.2/tutorials/text/annotations.html
-                                    size=10
-                                )
+                                continue
+                            if isgn<0 and int(i+isgn*3)<hid:
+                                continue
+                            # plt.arrow(x0, y0 , x1,  y1 - y0, shape='full', lw=0, length_includes_head=True, head_width=.05, color = colors[j%ncolor])
+                            line.axes.annotate('',
+                                xytext=(x0, y0),
+                                xy=(x1, y1),
+                                # arrowprops=dict(arrowstyle="->", color=colors[j%ncolor]),
+                                arrowprops=dict(arrowstyle="-|>", color=colors[jj%ncolor]),
+                                # https://matplotlib.org/3.3.2/tutorials/text/annotations.html
+                                size=10
+                            )
                     except:
                         print("might be wrong at source position", xs, ys)
             if VERBOSE: print(jj, "track total length = ", NPT)
@@ -1049,36 +944,6 @@ class pyTriple:
             #area_array[jj] = area
         return abs(total_area/ (np.pi * rs * rs) )
 
-    def mainMag(self, xsCenter, ysCenter, rs, PHI, relTol = 1e-2):
-        # initphi: the initial sampled phis
-        # when relative mu difference is below relTol, we break the iteration
-        # iteratively calculate the magnification
-        mindphi = np.min(PHI[1:] - PHI[:-1]) # positive
-        for iteri in range(10):
-            if VERBOSE: print("<<<<<<<< iteri = ", iteri)
-            if iteri == 0:
-                nphi = len(PHI)
-                prevstore = False
-                allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, mindphi = mindphi)
-            else:
-                mindphi /= 2
-                prevstore = True
-                nphi = len(PHI)
-                midPHI = 0.5*(PHI[:-1] + PHI[1:])
-                newPHI = np.zeros( nphi + nphi - 1 )
-                newPHI[::2] = PHI
-                newPHI[1::2] = midPHI
-                PHI = newPHI
-                allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, prevstore_x = allSolutions_x, prevstore_y = allSolutions_y, prevstore_srcx = allSolutions_srcx, prevstore_srcy = allSolutions_srcy, prevstore_mu = allSolutions_mu, prevstore_flag = allSolutions_flag, prevstore_absdzs = allSolutions_absdzs, mindphi = mindphi)
-            mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
-            if iteri == 0:
-                mu0 = mu
-            print("in mainMag, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, abs(mu - mu0) / mu = %.3e, errTol = %.3e, \n"%(iteri, mu0, mu, nphi, xsCenter, ysCenter, closed_image_info.shape[0], (mu - mu0) / mu, relTol));
-            if iteri>0:
-                if abs((mu - mu0)/mu0) < relTol:
-                    return mu
-
-
 if __name__ == "__main__":
 
     #set up lens system
@@ -1087,30 +952,17 @@ if __name__ == "__main__":
     #lens positions: x1, y1, x2, y2, x3, y3
     zlens = [-0.039343051506317, 0, 1.356656948493683, 0, 0.638936196010800, -0.950873946634155]
 
+    #set up lens system
+    #fractional lens masses: m1, m2, m3
+    mlens = [0.968738798957637, 0.020093425169771, 0.003167775872591, 0.008]
+    #lens positions: x1, y1, x2, y2, x3, y3
+    zlens = [-0.039343051506317, 0, 1.356656948493683, 0, 0.638936196010800, -0.950873946634155, -0.638936196010800, 0.950873946634155,]
 
-    # mlens = [0.968738798957637, 0.028093425169771, 0.003167775872591, 0.008, 0.008]
-    # zlens = [-0.039343051506317, 0, 1.356656948493683, 0, 0.638936196010800, -0.950873946634155, -0.638936196010800, 0.950873946634155, -0.638936196010800, -0.80873946634155]
-
-    # 4 lens
-    # mlens = [0.968738798957637, 0.028093425169771, 0.003167775872591, 0.008]
-    # zlens = [-0.039343051506317, 0, 1.356656948493683, 0, 0.638936196010800, -0.950873946634155, -0.638936196010800, 0.950873946634155,]
-
-    # 2 lens
-    # mlens = [0.968738798957637, 0.028093425169771]
-    # zlens = [-0.039343051506317, 0, 1.356656948493683, 0]
-
-
-    shiftorigin = False
-
-    if shiftorigin:
-        minmassidx = np.argsort(mlens)[0]
-        minmass_pos = zlens[minmassidx*2], zlens[minmassidx*2+1]
-        for i in range(len(mlens)):
-            zlens[i*2] -= minmass_pos[0]
-            zlens[i*2+1] -= minmass_pos[1]
-        # print(zlens)
-    else:
-        minmass_pos = 0, 0
+    #set up lens system
+    #fractional lens masses: m1, m2, m3
+    mlens = [0.968738798957637, 0.028093425169771]
+    #lens positions: x1, y1, x2, y2, x3, y3
+    zlens = [-0.039343051506317, 0, 1.356656948493683, 0]
 
 
     #source center
@@ -1133,8 +985,6 @@ if __name__ == "__main__":
     pyTRIL = pyTriple(mlens, zlens)
 
     print("pyTRIL.nlens = ", pyTRIL.nlens)
-
-    critical , caustics = get_crit_caus(pyTRIL.mlens, pyTRIL.zlens, pyTRIL.nlens, NPS = 3000)
 
     # self, xsCenter, ysCenter, rs, PHI, prevstore = None
 
@@ -1163,23 +1013,10 @@ if __name__ == "__main__":
     # xsCenter = -0.018181818181818243
     xsCenter = -0.02131313131313133
 
-    xsCenters = np.linspace(-0.4, 1, 100)
-    # xsCenter = xsCenters[47]
-    # xsCenter = xsCenters[50]
-    xsCenter = xsCenters[78]
 
-    xsCenter -= minmass_pos[0]
-    ysCenter -= minmass_pos[1]
-
-    if 1:
-        # call mainMag
-        mu = pyTRIL.mainMag(xsCenter, ysCenter, rs, PHI)
-        print("mu = ", mu)
-
-    if 0: # show static
-        for iteri in range(2):
-            if VERBOSE: print("<<<<<<<< iteri = ", iteri)
-            input()
+    if 1: # show static
+        for iteri in range(1):
+            if VERBOSE: print("iteri = ", iteri)
             if iteri == 0:
                 prevstore = False
 
@@ -1194,17 +1031,15 @@ if __name__ == "__main__":
                 newPHI[1::2] = midPHI
                 PHI = newPHI
                 allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, prevstore_x = allSolutions_x, prevstore_y = allSolutions_y, prevstore_srcx = allSolutions_srcx, prevstore_srcy = allSolutions_srcy, prevstore_mu = allSolutions_mu, prevstore_flag = allSolutions_flag, prevstore_absdzs = allSolutions_absdzs)
-        if 0:
+        if 1:
             colors = cm.rainbow(np.linspace(0,1,allSolutions_x.shape[0]))
             colors = cm.rainbow(np.linspace(0,1,true_segments_info.shape[0]))
-            pyTRIL.show_connected_tracks_static(allSolutions_x, allSolutions_y, true_segments_info,txt=0, colors = colors, xlim = (-1.4, 2), ylim = (-1.7, 1.7), onlytrue = True, mus = allSolutions_mu, srcx = allSolutions_srcx, srcy = allSolutions_srcy, showfalse = True)
-            mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
-            print("mu = ", mu)
+            pyTRIL.show_connected_tracks_static(allSolutions_x, allSolutions_y, true_segments_info, colors = colors, xlim = (-1.4, 2), ylim = (-1.7, 1.7), onlytrue = True, mus = allSolutions_mu, srcx = allSolutions_srcx, srcy = allSolutions_srcy, showfalse = True)
             plt.show()
         else: # show closed image boundaries
             colors = cm.seismic(np.linspace(0,1,closed_image_info.shape[0]))
             colors = cm.rainbow(np.linspace(0,1,closed_image_info.shape[0]))
-            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, critical , caustics,txt = 0,showfalse = True, colors = colors, xlim = (-1.4-minmass_pos[0], 2-minmass_pos[0]), ylim = (-1.7-minmass_pos[1], 1.7-minmass_pos[1]), xs = xsCenter, ys = ysCenter)
+            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info,txt = 1,showfalse = True, colors = colors, xlim = (-1.4, 2), ylim = (-1.7, 1.7), xs = xsCenter, ys = ysCenter)
             mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
             print("mu = ", mu)
 
@@ -1213,6 +1048,7 @@ if __name__ == "__main__":
 
     # show movie
     if 0:
+
         import numpy as np
         import matplotlib
         # matplotlib.use("Agg")
@@ -1249,7 +1085,7 @@ if __name__ == "__main__":
                 allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore)
 
                 colors = cm.rainbow(np.linspace(0,1,closed_image_info.shape[0]))
-                pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, critical , caustics, colors = colors, xlim = (-1.2, 1.8), ax = ax)
+                pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, colors = colors, xlim = (-1.2, 1.8), ax = ax)
                 plt.show()
 
         # top_lkv: /Users/anything/THU/astro/softwares/gravlens/triplelens/test/gentopos_movie2.py
@@ -1265,10 +1101,7 @@ if __name__ == "__main__":
         testsuffix = 'rs_%s'%rs
         # testsuffix = '4lens'
         testsuffix = 'tmp'
-        # testsuffix = '2lens'
-        # testsuffix = '3lens'
-        # testsuffix = '4lens'
-        # testsuffix = '5lens' # solutions for the lens equation not accurate
+        testsuffix = '2lens'
         mufilename = "../data/pymu_22Nov01_%s.txt"%testsuffix
 
         if 0:
@@ -1302,7 +1135,7 @@ if __name__ == "__main__":
             allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenters[idx], ysCenter, rs, PHI, prevstore)
 
             colors = cm.rainbow(np.linspace(0,1,closed_image_info.shape[0]))
-            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, critical, caustics, showfalse = True, colors = colors, txt = 0, xlim = (-1.4, 2), ylim = (-1.7, 1.7), xs = xsCenters[idx], ys=ysCenter, ax = ax)
+            pyTRIL.show_closed(allSolutions_x, allSolutions_y, closed_image_info, showfalse = True, colors = colors, txt = 0, xlim = (-1.4, 2), ylim = (-1.7, 1.7), xs = xsCenters[idx], ys=ysCenter, ax = ax)
             mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
             mus[idx] = np.log10(mu)
 

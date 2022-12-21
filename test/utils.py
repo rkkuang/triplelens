@@ -835,7 +835,7 @@ def get_crit_caus(mlens, z, NLENS, NPS = 200):
     #    // [2, crx1,cry1,crx2,cry2, 1, cax1, cay1]
     # //idx [0, 1,   2,   3,   4,    5, 6,    7]
 
-    # print("len resxy", len(resxy))
+    
     # print(resxy[0], max(resxy[1:]))
 
     critical = []
@@ -845,6 +845,9 @@ def get_crit_caus(mlens, z, NLENS, NPS = 200):
         critical.append( [ resxy[2*i+1], resxy[2*i+2] ] )
     offset = 2*numcrit + 1
     numcaus = int( resxy[offset] )
+
+    # print("len resxy", len(resxy), "numcrit, numcaus = ", numcrit, numcaus)
+
     for i in range(numcaus):
         caustics.append([resxy[offset+2*i+1],resxy[offset+2*i+2]])
     return critical, caustics

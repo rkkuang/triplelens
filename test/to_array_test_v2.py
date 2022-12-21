@@ -1,5 +1,4 @@
-### version 1, create new array at each iteration of douling the number of sampled images
-### later, we will implement a new version (version 2) that use pre-defined arraies with enough length, i.e., the arraies is defined once during compilation
+### this is a new version (version 2) that use pre-defined arraies with enough length, i.e., the arraies is defined once during compilation
 
 # implement a version that use array, rather than linked list, to represent the source/image boundaries.
 # then transfer this part of python code to C++ version
@@ -1049,6 +1048,8 @@ class pyTriple:
             #area_array[jj] = area
         return abs(total_area/ (np.pi * rs * rs) )
 
+    # 现在在调用 mainMag 之前就要把 array 定义好且有足够的长度
+    # 这么改的话，outputTracks_v2_savehalf 只需 return true_segments_info, closed_image_info 这俩，areaFunc 需要知道当前所用的 nphi 的长度
     def mainMag(self, xsCenter, ysCenter, rs, PHI, relTol = 1e-2):
         # initphi: the initial sampled phis
         # when relative mu difference is below relTol, we break the iteration
@@ -1074,8 +1075,7 @@ class pyTriple:
             if iteri == 0:
                 mu0 = mu
             print("in mainMag, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, abs(mu - mu0) / mu = %.3e, errTol = %.3e, \n"%(iteri, mu0, mu, nphi, xsCenter, ysCenter, closed_image_info.shape[0], (mu - mu0) / mu, relTol));
-            if iteri>0:
-                if abs((mu - mu0)/mu0) < relTol:
+            if iteri>0 and abs((mu - mu0)/mu0) < relTol:
                     return mu
 
 
@@ -1138,7 +1138,7 @@ if __name__ == "__main__":
 
     # self, xsCenter, ysCenter, rs, PHI, prevstore = None
 
-    PHI = np.linspace(0, 2*np.pi, 3000)
+    PHI = np.linspace(0, 2*np.pi, 300)
     mindphi = np.min(PHI[1:] - PHI[:-1]) # positive
 
     xsCenter = -0.12
@@ -1173,7 +1173,7 @@ if __name__ == "__main__":
 
     if 1:
         # call mainMag
-        mu = pyTRIL.mainMag(xsCenter, ysCenter, rs, PHI)
+        mu = pyTRIL.mainMag(xsCenter, ysCenter, rs, PHI, relTol = 1e-3)
         print("mu = ", mu)
 
     if 0: # show static
@@ -1326,36 +1326,6 @@ if __name__ == "__main__":
                     pbar.update(1)
 
         np.savetxt(mufilename, mus)
-
-
-
-### debug:
-
-        # print(i, i2, "can not attach")
-
-        # xprev, yprev, srcxprev, srcyprev, muprev = allSolutions_x[j,hid], allSolutions_y[j,hid], allSolutions_srcx[j,hid], allSolutions_srcy[j,hid], allSolutions_mu[j,hid]
-        # print(i, "head", xprev, yprev, srcxprev, srcyprev, muprev)
-        # xprev, yprev, srcxprev, srcyprev, muprev = allSolutions_x[j,tid], allSolutions_y[j,tid], allSolutions_srcx[j,tid], allSolutions_srcy[j,tid], allSolutions_mu[j,tid]
-        # print(i, "tail", xprev, yprev, srcxprev, srcyprev, muprev)
-
-        # xpost, ypost, srcxpost, srcypost, mupost = allSolutions_x[j2,hid2], allSolutions_y[j2,hid2], allSolutions_srcx[j2,hid2], allSolutions_srcy[j2,hid2], allSolutions_mu[j,hid2] **** --> allSolutions_mu[******j2******,hid2]
-        # print(i2, "head", xpost, ypost, srcxpost, srcypost, mupost)
-        # xpost, ypost, srcxpost, srcypost, mupost = allSolutions_x[j2,tid2], allSolutions_y[j2,tid2], allSolutions_srcx[j2,tid2], allSolutions_srcy[j2,tid2], allSolutions_mu[j,tid2] **** --> allSolutions_mu[******j2******,hid2]
-        # print(i2, "tail", xpost, ypost, srcxpost, srcypost, mupost)
-
-        # 4 6 can not attach
-        # 4 head 0.19764838415833735 0.9440370274343007 -0.029747426672208 -0.034747426672208 -33.00279379640709
-        # 4 tail 0.458212046074449 0.8396768164456602 -0.030895595065191295 -0.03155941894461588 -1283.8566291520983
-        # 6 head 0.7206507298965913 0.6120205177529883 -0.029747426672208 -0.034747426672208 -33.00279379640709
-        # 6 tail 0.47148464005208884 0.8317471393445778 -0.030895595065191295 -0.03155941894461588 -1283.8566291520983
-        # f1 = trueSolution(pyTRIL.mlens, pyTRIL.zlens, -0.030895595065191295, -0.03155941894461588, [0.458212046074449, 0.8396768164456602], cal_ang = False) 
-        # f2 = trueSolution(pyTRIL.mlens, pyTRIL.zlens, -0.030895595065191295, -0.03155941894461588, [0.47148464005208884, 0.8317471393445778], cal_ang = False) 
-        # print("f1", f1)
-        # print("f2", f2)
-        # f1 [1, -1283.8566291520983, 1.0775462328294101e-12, 0, 0, 0]
-        # f2 [1, 1276.8817477735402, 1.2045701799888764e-12, 0, 0, 0] --- 6 tail has wrong magnification
-
-
 
 
 

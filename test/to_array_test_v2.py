@@ -25,6 +25,21 @@ import os
 VERBOSE = 1
 EPS = 1e-5
 
+DEGREE = 10
+# 之后在cpp version可以将这些定义在 Triplelensing class 的 pubilic 域
+Prov_x = np.zeros(DEGREE) # store the current image point of the i-th image track
+Prov_y = np.zeros(DEGREE)
+Prov_flag = np.zeros(DEGREE).astype(int)
+Prov_srcx = np.zeros(DEGREE)
+Prov_srcy = np.zeros(DEGREE)
+Prov_absdzs = np.zeros(DEGREE)
+Prov_mu = np.zeros(DEGREE)
+preProv_x = np.zeros(DEGREE) # store the last image point of the i-th image track
+preProv_y = np.zeros(DEGREE)
+attach_idx = np.zeros(DEGREE)
+posflagnums = np.zeros(DEGREE) # how many true image points in this image Track
+
+
 class pyTriple:
     def __init__(self, mlens, zlens):
         self.mlens = mlens
@@ -32,6 +47,10 @@ class pyTriple:
         self.zlens = zlens
         self.DEGREE = self.nlens ** 2 + 1
         self.correct_parity = -self.nlens + 1
+
+
+
+
 
     def get_closest_idx(self, preProv_x, preProv_y, Prov_x, Prov_y):
         # Hungarian Algorithm ?
@@ -94,9 +113,11 @@ class pyTriple:
         return 1 if mu > 0 else -1
 
 
-    def outputTracks_v2_savehalf(self, xsCenter, ysCenter, rs, PHI, prevstore = None, prevstore_x = None, prevstore_y = None, prevstore_srcx = None, prevstore_srcy = None, prevstore_mu = None, prevstore_flag = None, prevstore_absdzs = None, mindphi = None):
+    #def outputTracks_v2_savehalf(self, xsCenter, ysCenter, rs, PHI, prevstore = None, prevstore_x = None, prevstore_y = None, prevstore_srcx = None, prevstore_srcy = None, prevstore_mu = None, prevstore_flag = None, prevstore_absdzs = None, mindphi = None):
+    def outputTracks_v2_savehalf(self, xsCenter, ysCenter, rs, PHI, prevstore, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, nphi, mindphi = None):
+
         # prevstore is the solution arrays from previous step
-        nphi = len(PHI)
+        # nphi = len(PHI)
 
         if not mindphi:
             mindphi = np.min(PHI[1:] - PHI[:-1]) # positive
@@ -108,29 +129,27 @@ class pyTriple:
 
         if VERBOSE: print(nphi)
 
-        allSolutions_x = np.zeros((self.DEGREE, nphi)) # 1 row = 1 mixed image track
-        allSolutions_y = np.zeros((self.DEGREE, nphi))
-        allSolutions_flag = np.zeros((self.DEGREE, nphi)).astype(int)
-        allSolutions_phiindex = np.zeros((self.DEGREE, nphi)).astype(int)
-        allSolutions_srcx = np.zeros((self.DEGREE, nphi)) 
-        allSolutions_srcy = np.zeros((self.DEGREE, nphi)) 
-        allSolutions_absdzs = np.zeros((self.DEGREE, nphi)) 
-        allSolutions_mu = np.zeros((self.DEGREE, nphi)) 
+        # define outside
+        # allSolutions_x = np.zeros((self.DEGREE, nphi)) # 1 row = 1 mixed image track
+        # allSolutions_y = np.zeros((self.DEGREE, nphi))
+        # allSolutions_flag = np.zeros((self.DEGREE, nphi)).astype(int)
+        # #allSolutions_phiindex = np.zeros((self.DEGREE, nphi)).astype(int)
+        # allSolutions_srcx = np.zeros((self.DEGREE, nphi)) 
+        # allSolutions_srcy = np.zeros((self.DEGREE, nphi)) 
+        # allSolutions_absdzs = np.zeros((self.DEGREE, nphi)) 
+        # allSolutions_mu = np.zeros((self.DEGREE, nphi)) 
 
-        Prov_x = np.zeros(self.DEGREE) # store the current image point of the i-th image track
-        Prov_y = np.zeros(self.DEGREE)
-        Prov_flag = np.zeros(self.DEGREE).astype(int)
-        Prov_srcx = np.zeros(self.DEGREE)
-        Prov_srcy = np.zeros(self.DEGREE)
-        Prov_absdzs = np.zeros(self.DEGREE)
-        Prov_mu = np.zeros(self.DEGREE)
-
-        preProv_x = np.zeros(self.DEGREE) # store the last image point of the i-th image track
-        preProv_y = np.zeros(self.DEGREE)
-
-        attach_idx = np.zeros(self.DEGREE)
-
-        posflagnums = np.zeros(self.DEGREE) # how many true image points in this image Track
+        # Prov_x = np.zeros(self.DEGREE) # store the current image point of the i-th image track
+        # Prov_y = np.zeros(self.DEGREE)
+        # Prov_flag = np.zeros(self.DEGREE).astype(int)
+        # Prov_srcx = np.zeros(self.DEGREE)
+        # Prov_srcy = np.zeros(self.DEGREE)
+        # Prov_absdzs = np.zeros(self.DEGREE)
+        # Prov_mu = np.zeros(self.DEGREE)
+        # preProv_x = np.zeros(self.DEGREE) # store the last image point of the i-th image track
+        # preProv_y = np.zeros(self.DEGREE)
+        # attach_idx = np.zeros(self.DEGREE)
+        # posflagnums = np.zeros(self.DEGREE) # how many true image points in this image Track
 
         #onebyone_prev = False
         curr_total_parity = 0 # total parity
@@ -157,7 +176,7 @@ class pyTriple:
                         allSolutions_srcx[i, j] = xs
                         allSolutions_srcy[i, j] = ys
                         allSolutions_absdzs[i, j] = flag[2]
-                        allSolutions_phiindex[i, j] = j
+                        #allSolutions_phiindex[i, j] = j
                         posflagnums[i] += flag[0]
 
 
@@ -611,7 +630,8 @@ class pyTriple:
         if VERBOSE: print("nfinal_closed_image = ", nfinal_closed_image)
         if VERBOSE: print(closed_image_info[:nfinal_closed_image,:].astype(int))
 
-        return allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info[:ntrue_segments,:].astype(int), closed_image_info[:nfinal_closed_image,:].astype(int)
+        #return allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info[:ntrue_segments,:].astype(int), closed_image_info[:nfinal_closed_image,:].astype(int)
+        return true_segments_info[:ntrue_segments,:].astype(int), closed_image_info[:nfinal_closed_image,:].astype(int)
 
     # def select_connect_segments(self, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs):
 
@@ -1050,17 +1070,33 @@ class pyTriple:
 
     # 现在在调用 mainMag 之前就要把 array 定义好且有足够的长度
     # 这么改的话，outputTracks_v2_savehalf 只需 return true_segments_info, closed_image_info 这俩，areaFunc 需要知道当前所用的 nphi 的长度
-    def mainMag(self, xsCenter, ysCenter, rs, PHI, relTol = 1e-2):
+    def mainMag(self, xsCenter, ysCenter, rs, PHI, relTol = 1e-2, maxiter = 10):
         # initphi: the initial sampled phis
         # when relative mu difference is below relTol, we break the iteration
         # iteratively calculate the magnification
         mindphi = np.min(PHI[1:] - PHI[:-1]) # positive
-        for iteri in range(10):
+
+
+        nphi = len(PHI)
+        nphimax = nphi * 2**(maxiter-1)
+
+        # 这些之后是在 header 文件里就定义，class Triplelensing 的 public 域
+        allSolutions_x = np.zeros((self.DEGREE, nphimax)) # 1 row = 1 mixed image track
+        allSolutions_y = np.zeros((self.DEGREE, nphimax))
+        allSolutions_flag = np.zeros((self.DEGREE, nphimax)).astype(int)
+        #allSolutions_phiindex = np.zeros((self.DEGREE, nphi)).astype(int)
+        allSolutions_srcx = np.zeros((self.DEGREE, nphimax)) 
+        allSolutions_srcy = np.zeros((self.DEGREE, nphimax)) 
+        allSolutions_absdzs = np.zeros((self.DEGREE, nphimax)) 
+        allSolutions_mu = np.zeros((self.DEGREE, nphimax)) 
+
+
+        for iteri in range(maxiter):
             if VERBOSE: print("<<<<<<<< iteri = ", iteri)
             if iteri == 0:
-                nphi = len(PHI)
+                
                 prevstore = False
-                allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, mindphi = mindphi)
+                true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, nphi, mindphi = mindphi)
             else:
                 mindphi /= 2
                 prevstore = True
@@ -1171,19 +1207,32 @@ if __name__ == "__main__":
     xsCenter -= minmass_pos[0]
     ysCenter -= minmass_pos[1]
 
-    if 1:
+    DEGREE = (len(mlens))**2 + 1
+
+    if 0:
         # call mainMag
         mu = pyTRIL.mainMag(xsCenter, ysCenter, rs, PHI, relTol = 1e-3)
         print("mu = ", mu)
 
-    if 0: # show static
-        for iteri in range(2):
+    if 1: # show static
+        maxiter = 2
+        nphi = len(PHI)
+        nphimax = nphi * 2**(maxiter-1)
+
+
+        allSolutions_x = np.zeros((DEGREE, nphimax)) # 1 row = 1 mixed image track
+        allSolutions_y = np.zeros((DEGREE, nphimax))
+        allSolutions_flag = np.zeros((DEGREE, nphimax)).astype(int)
+        allSolutions_srcx = np.zeros((DEGREE, nphimax)) 
+        allSolutions_srcy = np.zeros((DEGREE, nphimax)) 
+        allSolutions_absdzs = np.zeros((DEGREE, nphimax)) 
+        allSolutions_mu = np.zeros((DEGREE, nphimax)) 
+
+        for iteri in range(1):
             if VERBOSE: print("<<<<<<<< iteri = ", iteri)
-            input()
             if iteri == 0:
                 prevstore = False
-
-                allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, mindphi = mindphi)
+                true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, nphi, mindphi = mindphi)
             else:
                 prevstore = True
 

@@ -127,7 +127,7 @@ class pyTriple:
         mindsource = mindsource*mindsource
         if VERBOSE: print("mindsource ** 2 = %e"%mindsource)
 
-        if VERBOSE: print(nphi)
+        if VERBOSE: print("nphi = ", nphi)
 
         # define outside
         # allSolutions_x = np.zeros((self.DEGREE, nphi)) # 1 row = 1 mixed image track
@@ -228,20 +228,36 @@ class pyTriple:
                             allSolutions_flag[saveindex, j] = 1
                             posflagnums[saveindex] += 1
 
-        else: # use previously calculated result
-            scan_prev_j = 0
-            for j in range(0, nphi, 2):
-                for i in range(self.DEGREE):
-                    allSolutions_x[i, j] = prevstore_x[i, scan_prev_j]
-                    allSolutions_y[i, j] = prevstore_y[i, scan_prev_j]
-                    allSolutions_flag[i, j] = prevstore_flag[i, scan_prev_j]
-                    allSolutions_mu[i, j] = prevstore_mu[i, scan_prev_j]
-                    allSolutions_srcx[i, j] = prevstore_srcx[i, scan_prev_j]
-                    allSolutions_srcy[i, j] = prevstore_srcy[i, scan_prev_j]
-                    allSolutions_absdzs[i, j] = prevstore_absdzs[i, scan_prev_j]
+        else: # re-use previously obtained solutions
 
-                    posflagnums[i] += prevstore_flag[i, scan_prev_j]
-                scan_prev_j += 1
+            ## allSolutions_#[i, k*2] <-- prevstore_#[i, k], where k = 0, 1, 2, ...
+            if 0:
+                scan_prev_j = 0
+                for j in range(0, nphi, 2):
+                    for i in range(self.DEGREE):
+                        allSolutions_x[i, j] = prevstore_x[i, scan_prev_j]
+                        allSolutions_y[i, j] = prevstore_y[i, scan_prev_j]
+                        allSolutions_flag[i, j] = prevstore_flag[i, scan_prev_j]
+                        allSolutions_mu[i, j] = prevstore_mu[i, scan_prev_j]
+                        allSolutions_srcx[i, j] = prevstore_srcx[i, scan_prev_j]
+                        allSolutions_srcy[i, j] = prevstore_srcy[i, scan_prev_j]
+                        allSolutions_absdzs[i, j] = prevstore_absdzs[i, scan_prev_j]
+
+                        posflagnums[i] += prevstore_flag[i, scan_prev_j]
+                    scan_prev_j += 1
+            else:
+                #print("nphi = ", nphi, "(nphi-1)//2 = ", (nphi-1)//2)
+                for j in range( (nphi-1)//2, -1, -1 ):
+                    #input("assign %d to %d"%(j, j*2))
+                    for i in range(self.DEGREE):
+                        allSolutions_x[i, j*2] = allSolutions_x[i, j]
+                        allSolutions_y[i, j*2] = allSolutions_y[i, j]
+                        allSolutions_flag[i, j*2] = allSolutions_flag[i, j]
+                        allSolutions_mu[i, j*2] = allSolutions_mu[i, j]
+                        allSolutions_srcx[i, j*2] = allSolutions_srcx[i, j]
+                        allSolutions_srcy[i, j*2] = allSolutions_srcy[i, j]
+                        allSolutions_absdzs[i, j*2] = allSolutions_absdzs[i, j]
+                        posflagnums[i] += allSolutions_flag[i, j]
 
             for j in range(1, nphi, 2):
                 phi = PHI[j]
@@ -1090,23 +1106,23 @@ class pyTriple:
         allSolutions_absdzs = np.zeros((self.DEGREE, nphimax)) 
         allSolutions_mu = np.zeros((self.DEGREE, nphimax)) 
 
-
         for iteri in range(maxiter):
             if VERBOSE: print("<<<<<<<< iteri = ", iteri)
             if iteri == 0:
-                
                 prevstore = False
                 true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, nphi, mindphi = mindphi)
             else:
                 mindphi /= 2
                 prevstore = True
                 nphi = len(PHI)
+                newnphi = nphi + nphi - 1
                 midPHI = 0.5*(PHI[:-1] + PHI[1:])
-                newPHI = np.zeros( nphi + nphi - 1 )
+                newPHI = np.zeros( newnphi )
                 newPHI[::2] = PHI
                 newPHI[1::2] = midPHI
                 PHI = newPHI
-                allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, prevstore_x = allSolutions_x, prevstore_y = allSolutions_y, prevstore_srcx = allSolutions_srcx, prevstore_srcy = allSolutions_srcy, prevstore_mu = allSolutions_mu, prevstore_flag = allSolutions_flag, prevstore_absdzs = allSolutions_absdzs, mindphi = mindphi)
+                nphi = newnphi
+                true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, nphi, mindphi = mindphi)
             mu = pyTRIL.areaFunc(allSolutions_x, allSolutions_y, closed_image_info, rs)
             if iteri == 0:
                 mu0 = mu
@@ -1153,8 +1169,6 @@ if __name__ == "__main__":
     xsCenter = -0.034747426672208
     ysCenter = -0.026627816352184
 
-    #source radius
-    rs = 0.005
     rs = 0.1
 
     zlens0 = []
@@ -1177,35 +1191,6 @@ if __name__ == "__main__":
     PHI = np.linspace(0, 2*np.pi, 300)
     mindphi = np.min(PHI[1:] - PHI[:-1]) # positive
 
-    xsCenter = -0.12
-    xsCenter = 0.6777777777777777777777777777
-    ysCenter = 0
-
-
-    #source center
-    xsCenter = -0.034747426672208
-    ysCenter = -0.026627816352184
-    #source radius
-    rs = 0.005
-
-    rs = 0.1
-    xsCenter =  -0.1171717171717172
-    xsCenter = -0.13131313131313133
-    ysCenter = 0
-    # xsCenter = -0.4
-    rs = 0.05
-    # xsCenter = -0.004040404040404066
-    # xsCenter = 0.010101010101010055
-    # xsCenter = -0.018181818181818243
-    xsCenter = -0.02131313131313133
-
-    xsCenters = np.linspace(-0.4, 1, 100)
-    # xsCenter = xsCenters[47]
-    # xsCenter = xsCenters[50]
-    xsCenter = xsCenters[78]
-
-    xsCenter -= minmass_pos[0]
-    ysCenter -= minmass_pos[1]
 
     DEGREE = (len(mlens))**2 + 1
 
@@ -1219,7 +1204,6 @@ if __name__ == "__main__":
         nphi = len(PHI)
         nphimax = nphi * 2**(maxiter-1)
 
-
         allSolutions_x = np.zeros((DEGREE, nphimax)) # 1 row = 1 mixed image track
         allSolutions_y = np.zeros((DEGREE, nphimax))
         allSolutions_flag = np.zeros((DEGREE, nphimax)).astype(int)
@@ -1228,7 +1212,7 @@ if __name__ == "__main__":
         allSolutions_absdzs = np.zeros((DEGREE, nphimax)) 
         allSolutions_mu = np.zeros((DEGREE, nphimax)) 
 
-        for iteri in range(1):
+        for iteri in range(2):
             if VERBOSE: print("<<<<<<<< iteri = ", iteri)
             if iteri == 0:
                 prevstore = False
@@ -1237,12 +1221,14 @@ if __name__ == "__main__":
                 prevstore = True
 
                 nphi = len(PHI)
+                newnphi = nphi + nphi - 1
                 midPHI = 0.5*(PHI[:-1] + PHI[1:])
-                newPHI = np.zeros( nphi + nphi - 1 )
+                newPHI = np.zeros( newnphi )
                 newPHI[::2] = PHI
                 newPHI[1::2] = midPHI
                 PHI = newPHI
-                allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, prevstore_x = allSolutions_x, prevstore_y = allSolutions_y, prevstore_srcx = allSolutions_srcx, prevstore_srcy = allSolutions_srcy, prevstore_mu = allSolutions_mu, prevstore_flag = allSolutions_flag, prevstore_absdzs = allSolutions_absdzs)
+                nphi = newnphi
+                true_segments_info, closed_image_info = pyTRIL.outputTracks_v2_savehalf(xsCenter, ysCenter, rs, PHI, prevstore, allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, nphi, mindphi = mindphi)
         if 0:
             colors = cm.rainbow(np.linspace(0,1,allSolutions_x.shape[0]))
             colors = cm.rainbow(np.linspace(0,1,true_segments_info.shape[0]))

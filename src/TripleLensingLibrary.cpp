@@ -16,7 +16,7 @@ TripleLensing::TripleLensing() {
     relerr_mag = 1e-3;
     TINY = 1.0e-20;
     NLENS = 3;
-    DEGREE = NLENS*NLENS + 1;
+    DEGREE = NLENS * NLENS + 1;
 }
 
 TripleLensing::TripleLensing(double mlens[], complex zlens[]) {
@@ -145,43 +145,78 @@ TripleLensing::TripleLensing(double mlens[], double Zlens[]) {
 void TripleLensing::setnlens(int nlens) {
     // later you need a destructor for the arrays created here
     NLENS = nlens;
-    DEGREE = NLENS*NLENS + 1;
+    DEGREE = NLENS * NLENS + 1;
 
     // https://blog.csdn.net/r_e_d_h_a_t/article/details/78178196
 
     // complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS], temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1], ctemp[DEGREE + 1], qtemp[DEGREE + 1], qtemp2[NLENS + 1], ptemp[DEGREE + 1], zr[DEGREE], coefficients[DEGREE + 1];
 
-    temp  = new   complex [NLENS+1];  
-    temp_const22  = new   complex [NLENS+1];  
-    ctemp  = new   complex [DEGREE+1];  
-    qtemp  = new   complex [DEGREE+1];  
-    qtemp2  = new   complex [NLENS+1];  
-    ptemp  = new   complex [DEGREE+1];  
-    zr  = new   complex [DEGREE];  
-    zc  = new   complex [NLENS];  
-    coefficients  = new   complex [DEGREE+1];  
+    temp  = new   complex [NLENS + 1];
+    temp_const22  = new   complex [NLENS + 1];
+    ctemp  = new   complex [DEGREE + 1];
+    qtemp  = new   complex [DEGREE + 1];
+    qtemp2  = new   complex [NLENS + 1];
+    ptemp  = new   complex [DEGREE + 1];
+    zr  = new   complex [DEGREE];
+    zc  = new   complex [NLENS];
+    coefficients  = new   complex [DEGREE + 1];
 
-    p   =   new   complex*[NLENS+1];
-    q   =   new   complex*[NLENS+1];
-    p_const   =   new   complex*[NLENS+1];
-    temp_const1   =   new   complex*[NLENS+1];
+    p   =   new   complex*[NLENS + 1];
+    q   =   new   complex*[NLENS + 1];
+    p_const   =   new   complex*[NLENS + 1];
+    temp_const1   =   new   complex*[NLENS + 1];
 
-    for(int  i=0;   i<NLENS + 1;   ++i){
-      p[i]   =   new   complex[NLENS]; 
-      q[i]   =   new   complex[NLENS]; 
-      p_const[i]   =   new   complex[NLENS]; 
-      temp_const1[i]   =   new   complex[NLENS+1]; 
+    for (int  i = 0;   i < NLENS + 1;   ++i) {
+        p[i]   =   new   complex[NLENS];
+        q[i]   =   new   complex[NLENS];
+        p_const[i]   =   new   complex[NLENS];
+        temp_const1[i]   =   new   complex[NLENS + 1];
     }
 
-    temp_const2 = new   complex**[NLENS+1];
-    for(int  i=0;   i<NLENS + 1;   ++i){
-        temp_const2[i] = new   complex*[NLENS+1];
-            for (int  j=0;   j<NLENS + 1;   ++j){
-                temp_const2[i][j] = new   complex[NLENS+1];
-            }
+    temp_const2 = new   complex**[NLENS + 1];
+    for (int  i = 0;   i < NLENS + 1;   ++i) {
+        temp_const2[i] = new   complex*[NLENS + 1];
+        for (int  j = 0;   j < NLENS + 1;   ++j) {
+            temp_const2[i][j] = new   complex[NLENS + 1];
+        }
     }
     // complex p[NLENS + 1][NLENS], q[NLENS + 1][NLENS], p_const[NLENS + 1][NLENS], temp[NLENS + 1], temp_const1[NLENS + 1][NLENS + 1], temp_const2[NLENS + 1][NLENS + 1][NLENS + 1], temp_const22[NLENS + 1], ctemp[DEGREE + 1], qtemp[DEGREE + 1], qtemp2[NLENS + 1], ptemp[DEGREE + 1], zr[DEGREE], coefficients[DEGREE + 1];
 }
+
+TripleLensing::~TripleLensing() {
+    // destructor
+    delete [] temp;
+    delete [] temp_const22;
+    delete [] ctemp;
+    delete [] qtemp;
+    delete [] qtemp2;
+    delete [] ptemp;
+    delete [] zr;
+    delete [] zc;
+    delete [] coefficients;
+
+    for (int  i = 0;   i < NLENS + 1;   ++i) {
+        delete [] p[i];
+        delete [] q[i] ;
+        delete [] p_const[i];
+        delete [] temp_const1[i];
+    }
+    delete [] p;
+    delete [] q;
+    delete [] p_const;
+    delete [] temp_const1;
+
+    for (int  i = 0;   i < NLENS + 1;   ++i) {
+        for (int  j = 0;   j < NLENS + 1;   ++j) {
+            delete [] temp_const2[i][j];
+        }
+        delete [] temp_const2[i];
+    }
+    delete [] temp_const2;
+
+}
+
+
 
 
 void TripleLensing::reset2(double mlens[],  double Zlens[]) {
@@ -402,83 +437,83 @@ void TripleLensing::tripleFSLimb2py(double mlens[], double Zlens[], double xsCen
 //
 void TripleLensing::newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z, complex *dz, double *mu)
 {
-  complex zs;
-  complex dzs;
-  complex dzsdz;
+    complex zs;
+    complex dzs;
+    complex dzsdz;
 
-  int i;
-  // int flag = 0;     //
+    int i;
+    // int flag = 0;     //
 
-  double r2_1;//, r2_2;
-  double x, y;
-  double dx, dy;
-  double Jxx = 1.0, Jyy = 0.0, Jxy = 0.0, Jyx; // Jxx + Jyy = 2.0, Jxy = Jyx
-  // double sum2 = 0.0, sq = 0.0;
-  static double TINY = 1.0e-20;
-  double dxs, dys;
+    double r2_1;//, r2_2;
+    double x, y;
+    double dx, dy;
+    double Jxx = 1.0, Jyy = 0.0, Jxy = 0.0, Jyx; // Jxx + Jyy = 2.0, Jxy = Jyx
+    // double sum2 = 0.0, sq = 0.0;
+    static double TINY = 1.0e-20;
+    double dxs, dys;
 
-  zs = complex(xs, ys);
-  dzs = zs - ( z - mlens[0] / conj(z - zlens[0]) - mlens[1] / conj(z - zlens[1]) - mlens[2] / conj(z - zlens[2]) );
+    zs = complex(xs, ys);
+    dzs = zs - ( z - mlens[0] / conj(z - zlens[0]) - mlens[1] / conj(z - zlens[1]) - mlens[2] / conj(z - zlens[2]) );
 
-  dxs = real(dzs);
-  dys = imag(dzs);
+    dxs = real(dzs);
+    dys = imag(dzs);
 
 
-  // calculate the Jacobian 2x2 matrix (Jxx, Jxy, Jyx, Jyy)
-  x = real(z);
-  y = imag(z);
+    // calculate the Jacobian 2x2 matrix (Jxx, Jxy, Jyx, Jyy)
+    x = real(z);
+    y = imag(z);
 
-  for (i = 0; i < NLENS; i++) {
-    dx = x - real(zlens[i]);
-    dy = y - imag(zlens[i]);
+    for (i = 0; i < NLENS; i++) {
+        dx = x - real(zlens[i]);
+        dy = y - imag(zlens[i]);
 
-    r2_1 = dx * dx + dy * dy + TINY; // avoid zero in the denominator
+        r2_1 = dx * dx + dy * dy + TINY; // avoid zero in the denominator
 
-    Jxx += mlens[i] * (dx * dx - dy * dy) / (r2_1 * r2_1);
-    Jxy += 2.0 * mlens[i] * dx * dy / (r2_1 * r2_1);
-  }
+        Jxx += mlens[i] * (dx * dx - dy * dy) / (r2_1 * r2_1);
+        Jxy += 2.0 * mlens[i] * dx * dy / (r2_1 * r2_1);
+    }
 
-  //
-  //analytical results for the other components of the Jacobian
-  //
-  Jyy = 2.0 - Jxx;
-  Jyx = Jxy;
-  *mu = 1.0 / (Jxx * Jyy - Jxy * Jyx);
+    //
+    //analytical results for the other components of the Jacobian
+    //
+    Jyy = 2.0 - Jxx;
+    Jyx = Jxy;
+    *mu = 1.0 / (Jxx * Jyy - Jxy * Jyx);
 
-  // now calculate the change we need to make using Newton's iteration
-  dx = (*mu) * ( Jyy * dxs - Jxy * dys);
-  dy = (*mu) * (-Jxy * dxs + Jxx * dys);
+    // now calculate the change we need to make using Newton's iteration
+    dx = (*mu) * ( Jyy * dxs - Jxy * dys);
+    dy = (*mu) * (-Jxy * dxs + Jxx * dys);
 
-  *dz = complex(dx, dy);
+    *dz = complex(dx, dy);
 }
 
 
 //     find the images close to a initial guess
 void TripleLensing::findCloseImages(double mlens[], complex zlens[], double xs, double ys, complex *z, bool *imageFound)
 {
-  int i;
-  complex dz;
-  double mu;
+    int i;
+    complex dz;
+    double mu;
 
     *imageFound = false;
 
 
     for (i = 0; i < 50; i++) {
-      newtonStep(mlens, zlens, xs, ys, *z, &dz, &mu);
+        newtonStep(mlens, zlens, xs, ys, *z, &dz, &mu);
 
-      *z = *z + dz;
+        *z = *z + dz;
 
-      if (abs(dz) < EPS_CLOSE) {
-        *imageFound = true;
-        break;      // we are done in the iteration
-      }
+        if (abs(dz) < EPS_CLOSE) {
+            *imageFound = true;
+            break;      // we are done in the iteration
+        }
     }
 
 #ifdef VERBOSE
     if (*imageFound) {
-      fprintf(stderr, "image found at position: %le %le with magnification %le\n", real(*z), imag(*z), mu);
+        fprintf(stderr, "image found at position: %le %le with magnification %le\n", real(*z), imag(*z), mu);
     } else {
-      fprintf(stderr, "failed to find image \n");
+        fprintf(stderr, "failed to find image \n");
     }
 #endif
 
@@ -510,14 +545,14 @@ void TripleLensing::tripleFS2py(double mlens[], double Zlens[], double xsCenters
     //     mags[i] = TripleMag(xsCenters[i], ysCenters[i], rs);
     // }
 
-    if (rs>1e-10){
+    if (rs > 1e-10) {
         for (int i = 0; i < Np; i++) {
             mags[i] = TripleMag(xsCenters[i], ysCenters[i], rs);
         }
-    }else{
+    } else {
         for (int i = 0; i < Np; i++) {
             mags[i] = TriplePS(xsCenters[i], ysCenters[i]);
-        }        
+        }
     }
 
 }
@@ -528,7 +563,7 @@ void TripleLensing::tripleGould2py(double mlens[], double Zlens[], double xsCent
 
 
     double A2rho2, A4rho4;
-    int Np2 = 2*Np;
+    int Np2 = 2 * Np;
     complex zlens[NLENS];
     for (int i = 0; i < NLENS ; i++) {
         zlens[i] = complex( Zlens[i * 2], Zlens[i * 2 + 1] );
@@ -536,8 +571,8 @@ void TripleLensing::tripleGould2py(double mlens[], double Zlens[], double xsCent
     reset3(mlens, zlens);
     for (int i = 0; i < Np; i++) {
         mags[i] = gould(xsCenters[i], ysCenters[i], rs, Gamma, &A2rho2, &A4rho4);
-        mags[Np+i] = A2rho2;
-        mags[Np2+i] = A4rho4;
+        mags[Np + i] = A2rho2;
+        mags[Np2 + i] = A4rho4;
     }
 }
 
@@ -632,14 +667,14 @@ void TripleLensing::TriLightCurve(double *pr, double *mags, double *y1s, double 
     zlens[1] = complex( inv1andq2 * s2 , 0);
     zlens[2] = complex(zlens[0].re + s3 * cos(psi), s3 * sin(psi));
 
-    if (rs>1e-10){
+    if (rs > 1e-10) {
         for (int i = 0; i < np; i++) {
             mags[i] = TripleMag(y1s[i], y2s[i], rs);
         }
-    }else{
+    } else {
         for (int i = 0; i < np; i++) {
             mags[i] = TriplePS(y1s[i], y2s[i]);
-        }        
+        }
     }
 
 }
@@ -653,9 +688,9 @@ void TripleLensing::outputCriticalTriple_list(double allxys[], double mlens[], d
     VBBL.outputCriticalTriple_list(allxys, mlens, zlens, nlens, NPS);
 }
 
-void TripleLensing::outputCriticalBinary_list(double resxy[], double s, double q, int NPS){
+void TripleLensing::outputCriticalBinary_list(double resxy[], double s, double q, int NPS) {
     VBBinaryLensing VBBL;
-    VBBL.outputCriticalBinary_list(resxy, s, q, NPS);    
+    VBBL.outputCriticalBinary_list(resxy, s, q, NPS);
 }
 
 
@@ -687,6 +722,223 @@ double TripleLensing::angcos(_point *p1, _point *p2, _point *p3, _point *p4) {
 
 }
 
+
+double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) {
+    VBBinaryLensing VBBL;
+
+    finalNPS = 0;
+    rho2 = rs * rs;
+    areaSource = M_PI * rho2;
+    ftime = 1;
+    relerr_priv = this->relerr_mag;
+    secnum_priv = this->secnum;
+    quad_err = this->quaderr_Tol;
+    basenum_priv = this->basenum;
+    finalnphi = 0;
+
+    int area_quality_local = 1;
+
+    double _curr_relerr_priv = relerr_priv;
+    // 2021.06.08
+
+    for (int jj = 0; jj < DEGREE; jj++) {
+        zr[jj] = complex(0, 0);
+    }
+
+    muPS = tripleQuatrapoleTest(xsCenter, ysCenter, rs); // this is not robust, didn't check the number of true solution is 4, 6, 8, or 10
+    // scanf("%d", &ftime);
+
+
+
+
+//     if (CQ * quad_err <= quaderr_Tol) {
+//         muPS = gould(xsCenter, ysCenter, rs, 0);
+// #ifdef VERBOSE
+//         fprintf(stderr, "quad_err %f, using gould approximation, mu gould = %f\n", quad_err, muPS);
+// #endif
+//         ifFinite = 0;
+//         return muPS;
+//     }
+
+    if ( CQ * quad_err <= 1e-1 * quaderr_Tol) {
+#ifdef VERBOSE
+        fprintf(stderr, "quad_err %f,using point source magnification, muPS = %f\n", quad_err, muPS);
+#endif
+        ifFinite = 0;
+        return muPS;
+    }
+    else if (CQ * quad_err <= quaderr_Tol) {
+        muPS = gould(xsCenter, ysCenter, rs, 0);
+#ifdef VERBOSE
+        fprintf(stderr, "quad_err %f, using gould approximation, mu gould = %f\n", quad_err, muPS);
+#endif
+        ifFinite = 0;
+        return muPS;
+    } else {
+        ifFinite = 1;
+#ifdef VERBOSE
+        fprintf(stderr, "quad_err %f,using caustics crossing computation\n", quad_err);
+#endif
+        mu0 = muPS;
+        secnum_priv = fmax(fmin((int)(2 * secnum_priv * ( abs(log10(quad_err * 1e4)) * mu0 * mu0) / abs(log10(rs))) , 45), secnum_priv);
+        _curr_relerr_priv = fmax( _curr_relerr_priv , _curr_relerr_priv / fmax( quad_err, mu0 * mu0 ) * abs(log10(rs))  );
+
+
+#ifdef VERBOSE
+        printf("point magnification: %f, relerr_priv = %.3e\n", mu0, _curr_relerr_priv);
+#endif
+
+
+        // _sols *imageTracks;//  = new _sols;
+        // _sols *prevstore;// = new _sols;
+        // _linkedarray *phis;//
+        // phis = getphis_v3(  xsCenter,  ysCenter,  rs);
+
+        bool prevstore;
+        double mindphi = M_PI, tmpdouble;
+        get_arrphi(xsCenter, ysCenter, rs, &finalnphi); // ok
+        for (int i = 1; i < finalnphi; i++) {
+            tmpdouble = ARRPHI[i] - ARRPHI[i - 1];
+            if (mindphi > tmpdouble) mindphi = tmpdouble;
+        }
+
+        if (0) {
+            printf("nphi = %d, mindphi = %f\n", finalnphi, mindphi * 180 / M_PI); // nphi = 704, mindphi = 0.166667
+            for (int i = 0; i < finalnphi; i++) {
+                printf("i = %d, phi = %f\n", i, ARRPHI[i] * 180 / M_PI);
+            }
+            extend_arrphi(&finalnphi);
+            printf("after extend nphi = %d, mindphi = %f\n", finalnphi, mindphi * 180 / M_PI); // nphi = 704, mindphi = 0.166667
+            for (int i = 0; i < finalnphi; i++) {
+                printf("i = %d, phi = %f\n", i, ARRPHI[i] * 180 / M_PI);
+            }
+            // nphi = 16, mindphi = 22.500000
+            // i = 0, phi = 270.000000
+            // i = 1, phi = 292.500000
+            // i = 2, phi = 315.000000
+            // after extend nphi = 31,
+            // i = 0, phi = 270.000000
+            // i = 1, phi = 281.250000
+            // i = 2, phi = 292.500000
+            // i = 3, phi = 303.750000
+        }
+
+        // fprintf(stderr, "initial nphi = %d\n", finalnphi);
+        // for (int i = 0; i < finalnphi + 5; i++){
+        //     if (i<5 || ((i<finalnphi+2) && (i>finalnphi - 5))){
+        //         printf("i = %d, phi = %f\n", i, ARRPHI[i]*180/M_PI);
+        //     }
+        // }
+        // initial nphi = 1322
+        // i = 0, phi = 710.000000
+        // i = 1, phi = 710.400000
+        // i = 2, phi = 710.800000
+        // i = 1319, phi = 1069.111111
+        // i = 1320, phi = 1069.555556
+        // i = 1321, phi = 1070.000000
+        // i = 1322, phi = 0.000000
+
+
+#ifdef VERBOSE
+        char arr[1024];
+        fprintf(stderr, "please input >>> ");
+        scanf("%c%*c", &arr[0]);
+#endif
+
+//         for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 7; i++) { // 2022.06.05
+            if (i > 0) { // 2021.06.08
+#ifdef VERBOSE
+                fprintf(stderr, "i = %d, finalnphi = %d\n", i, finalnphi);
+#endif
+            }
+            prevstore = true;
+            if (i == 0) {prevstore = false;};
+            // imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
+            arroutputTracks(xsCenter, ysCenter, rs, prevstore, finalnphi, mindphi);
+
+            //finalnphi = phis->length;
+#ifdef VERBOSE
+            //saveTracks(imageTracks, finalnphi);// temp
+            fprintf(stderr, "\t\t\t imageTracks saved (temp). \n");
+#endif
+
+
+            // if (!imageTracks) {
+            if (0) {
+#ifdef VERBOSE
+                fprintf(stderr, "\n\nin tripleFS, i= %d, imageTracks = Null (be careful), nphi = %d, xsCenter=%f, ysCenter = %f\n\n", i, finalnphi, xsCenter, ysCenter);
+#endif
+                if (distype == 2) {
+                    maxmuidx = (int)(absint(maxmuidx + 1)) % secnum;
+                    basenum_priv *= 2;
+                    //phis = getphis_v3( xsCenter,  ysCenter, ys);
+                    get_arrphi(xsCenter, ysCenter, rs, &finalnphi);
+                } else {
+                    //phis->extend();
+                    extend_arrphi(&finalnphi); mindphi *= 0.5;
+                }
+                i -= 1;
+                ftime = 1;
+                continue;
+            }
+            ftime = 0;
+
+// #ifdef parabcorr
+            // area = areaFunc_parab(imageTracks, rs);
+// #else
+            //area = areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality_local);
+            area = 1; // areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality_local);
+// #endif
+            mu = area / areaSource;
+
+            area_quality = area_quality_local;
+            if (area_quality_local == 0) {
+                _curr_relerr_priv *= 2;
+            }
+
+#ifdef VERBOSE
+            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages (temp wrong) = %d, abs(mu - mu0) / mu = %.3e, errTol = %.3e, \n", i, mu0, mu, finalnphi, xsCenter, ysCenter, 10, abs(mu - mu0) / mu, _curr_relerr_priv);
+#endif
+#ifdef verbose
+            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length);
+#endif
+            if (abs(mu - mu0) / mu < _curr_relerr_priv) {
+                break;
+            } else if (abs(mu - mu0) / mu < _curr_relerr_priv * i  ||  finalnphi > 5e5 ) { // add "|  imageTracks->length > 1e6" on 2022.06.04, when logq is too small <~ -6, the memory usage increases due to he amount of sampling points on the source boundary
+#ifdef VERBOSE
+                fprintf(stderr, "return mu = %f, because mu0 = %f, mu = %f, relerr_priv*i = %.3e this might be a hard case, area_quality_local = %d\n", mu, mu0, mu, _curr_relerr_priv * i, area_quality_local);
+
+#endif
+
+                area_quality = 2; // return because of looser threshold, quality might be low
+                return (mu);
+//             } else if ( (i > 2 && (0.5 * ( abs(mu / mu0) + abs(mu0 / mu) > 2.1)) ) ) {
+            } else if ( (i > 2 && ( 0.5 * (abs(mu / mu0) + abs(mu0 / mu)) > 2.1 ) ) ) { // modified on 2022.06.04
+#ifdef VERBOSE
+                fprintf(stderr, "return muPS = %f, because mu0 = %f, mu = %f are too arbitrary, this might be a hard case, area_quality_local=%d\n", muPS, mu0, mu, area_quality_local);
+#endif
+
+                area_quality = 3; // return point source magnification
+                return (muPS);
+            }
+
+            mu0 = mu;
+            //phis->extend();
+            extend_arrphi(&finalnphi);  mindphi *= 0.5;
+        }
+#ifdef VERBOSE
+        printf("mu = %f\n", mu);
+        // saveTracks(imageTracks);
+#endif
+        finalNPS = finalnphi;
+        return (mu);
+    }
+
+}
+
+
+
 // tripleFS_v2_savehalf_quadtest(mlens, zlens, xsCenter, ysCenter, rs, nphi, &finalnphi, secnum, basenum, &quad_err, quaderr_Tol);
 double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
     // VBBinaryLensing VBBL;
@@ -709,7 +961,7 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
     for (int jj = 0; jj < DEGREE; jj++) {
         zr[jj] = complex(0, 0);
     }
-    
+
     muPS = tripleQuatrapoleTest(xsCenter, ysCenter, rs); // this is not robust, didn't check the number of true solution is 4, 6, 8, or 10
     // scanf("%d", &ftime);
 
@@ -727,7 +979,7 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
 // #endif
 //         ifFinite = 0;
 //         return muPS;
-//     } 
+//     }
 
     if ( CQ * quad_err <= 1e-1 * quaderr_Tol) {
 #ifdef VERBOSE
@@ -833,7 +1085,7 @@ double TripleLensing::TripleMag(double xsCenter, double ysCenter, double rs) {
                 area_quality = 2; // return because of looser threshold, quality might be low
                 return (mu);
 //             } else if ( (i > 2 && (0.5 * ( abs(mu / mu0) + abs(mu0 / mu) > 2.1)) ) ) {
-            } else if ( (i > 2 && ( 0.5*(abs(mu/mu0) + abs(mu0/mu)) > 2.1 ) ) ) { // modified on 2022.06.04
+            } else if ( (i > 2 && ( 0.5 * (abs(mu / mu0) + abs(mu0 / mu)) > 2.1 ) ) ) { // modified on 2022.06.04
 #ifdef VERBOSE
                 fprintf(stderr, "return muPS = %f, because mu0 = %f, mu = %f are too arbitrary, this might be a hard case, area_quality_local=%d\n", muPS, mu0, mu, area_quality_local);
 #endif
@@ -1316,7 +1568,7 @@ double TripleLensing::TriplePS(double xs, double ys) {
     double missing_sol_absdzs = 1e3, missing_sol_mu;
     double worst_tru_sol_absdzs = -1e1, worst_tru_sol_mu;
 
-// correction according to the number of true images and total parity
+    // correction according to the number of true images and total parity
     if ( (nimages - NLENS) % 2 != 1 || total_parity != -2) {
         for (k = 0 ; k < DEGREE; k++) {
             if ( flaglist[k] == 1 &&  absdzslist[k] > worst_tru_sol_absdzs) {
@@ -1533,7 +1785,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
     // double SD, MD, CD;
 
     // connect all images, including fake images, initialize ten _curve object to save solutions from polynomial solving
-    
+
     for (int i = 0; i < DEGREE; i++) {
         Prov = new _curve;
         allSolutions->append(Prov);
@@ -1567,16 +1819,16 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             flag = trueSolution(xs, ys, zr[i], &mu);
 
             // polish using Newton method, 2021.09.18
-            #ifdef POLISH_USE_NEWTON
-            if (flag == 0 && absdzs < SOLEPS1e2){  // we only polish when it is necessary
-             tmpz = complex(zr[i].re, zr[i].im);
-             findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
-             if (imageFound && abs(tmpz - zr[i])< SOLEPS1e3) {
-                zr[i] = tmpz;
-                flag = trueSolution(xs, ys, zr[i], &mu);
+#ifdef POLISH_USE_NEWTON
+            if (flag == 0 && absdzs < SOLEPS1e2) { // we only polish when it is necessary
+                tmpz = complex(zr[i].re, zr[i].im);
+                findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
+                if (imageFound && abs(tmpz - zr[i]) < SOLEPS1e3) {
+                    zr[i] = tmpz;
+                    flag = trueSolution(xs, ys, zr[i], &mu);
                 }
             }
-            #endif
+#endif
 
 
             nimages += flag;
@@ -1715,8 +1967,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             tempProv = new _curve;
             (*prevstore)->append(tempProv);// prevstore 在这只是用于保存以前解出来的解, 后续 phi->extend 之后不用再重新解这些 lens equations; 每次的 10 个解作为一条curve 保存
 
-        // tempProv = nullptr;
-        // delete tempProv;
+            // tempProv = nullptr;
+            // delete tempProv;
 
             nimages = 0;
             total_parity = 0;
@@ -1724,17 +1976,17 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
                 flag = trueSolution(xs, ys, zr[i], &mu);
 
-            // polish using Newton method, 2021.09.18
-            #ifdef POLISH_USE_NEWTON
-            if (flag == 0 && absdzs < SOLEPS1e2){  // we only polish when it is necessary
-             tmpz = complex(zr[i].re, zr[i].im);
-             findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
-             if (imageFound && abs(tmpz - zr[i])< SOLEPS1e3) {
-                zr[i] = tmpz;
-                flag = trueSolution(xs, ys, zr[i], &mu);
+                // polish using Newton method, 2021.09.18
+#ifdef POLISH_USE_NEWTON
+                if (flag == 0 && absdzs < SOLEPS1e2) { // we only polish when it is necessary
+                    tmpz = complex(zr[i].re, zr[i].im);
+                    findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
+                    if (imageFound && abs(tmpz - zr[i]) < SOLEPS1e3) {
+                        zr[i] = tmpz;
+                        flag = trueSolution(xs, ys, zr[i], &mu);
+                    }
                 }
-            }
-            #endif
+#endif
 
                 nimages += flag;
 
@@ -1871,8 +2123,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov->append(pisso);
                 if (pisso->flag == 1) {Prov->posflagnum += 1;}
             }
-                delete Prov2;
-                Prov2 = nullptr; // 2021.09.26
+            delete Prov2;
+            Prov2 = nullptr; // 2021.09.26
         }
 #ifdef VERBOSE
         fprintf(stderr, "*prevstore->length %d\n", (*prevstore)->length);
@@ -1962,8 +2214,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov2 = new _curve;
                 tempProv = new _curve;
                 tempcurrstore->append(tempProv);
-        // tempProv = nullptr;
-        // delete tempProv;
+                // tempProv = nullptr;
+                // delete tempProv;
 
                 nimages = 0;
                 total_parity = 0;
@@ -1971,17 +2223,17 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                     // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
                     flag = trueSolution(xs, ys, zr[i], &mu);
 
-            // polish using Newton method, 2021.09.18
-            #ifdef POLISH_USE_NEWTON
-            if (flag == 0 && absdzs < SOLEPS1e2){  // we only polish when it is necessary
-             tmpz = complex(zr[i].re, zr[i].im);
-             findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
-             if (imageFound && abs(tmpz - zr[i])< SOLEPS1e3) {
-                zr[i] = tmpz;
-                flag = trueSolution(xs, ys, zr[i], &mu);
-                }
-            }
-            #endif
+                    // polish using Newton method, 2021.09.18
+#ifdef POLISH_USE_NEWTON
+                    if (flag == 0 && absdzs < SOLEPS1e2) { // we only polish when it is necessary
+                        tmpz = complex(zr[i].re, zr[i].im);
+                        findCloseImages(this->mlens, this->zlens, xs, ys, &tmpz, &imageFound);
+                        if (imageFound && abs(tmpz - zr[i]) < SOLEPS1e3) {
+                            zr[i] = tmpz;
+                            flag = trueSolution(xs, ys, zr[i], &mu);
+                        }
+                    }
+#endif
 
                     nimages += flag;
                     Prov2->append(zr[i].re, zr[i].im);
@@ -3405,8 +3657,8 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             // fprintf(stderr, "can not jump, reversing final and then check if connectWithHead or connectWithTail, or jump over caustics\n");
             fprintf(stderr, "1933, 1st connect null, check head\n");
 #endif
-            if (imageTracks->length > 0 ){ifkeep_connect = 1;}
-            else{
+            if (imageTracks->length > 0 ) {ifkeep_connect = 1;}
+            else {
                 // we should stop here, 2021.09.14
                 _final_parity
 #ifdef VERBOSE
@@ -3420,7 +3672,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
                 Prov = NULL;
                 delete Prov;
                 delete tempProv;
-                delete Prov2;                                
+                delete Prov2;
                 return connected;
             }
             while (ifkeep_connect) {
@@ -4021,7 +4273,7 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
         // 2021.06.11, actually, if you can jump, you should have exactlly the same source positions.
 
         // if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(muPrevious / mu) ) < 2.5 ) ) { // connected with the head with opposite parity
-        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(mu/muPrevious) ) < 2.5 ) ) { // 2021.10.07
+        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(mu / muPrevious) ) < 2.5 ) ) { // 2021.10.07
             // if (abs(dzs) < EPS) { // connected with the head with opposite parity // remove on 2020.07.17
             ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
             //  printf("head - ratio, ratioMin=%f %f\n", ratio, ratioMin);
@@ -4039,7 +4291,7 @@ _curve *jump_over_caustics(_curve * final, _sols * imageTracks, int *head, int *
         dzs = zs - zsPrevious;
 
         disimg = abs(complex(Prov2->last->x1, Prov2->last->x2) - imgPrevious);
-        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(mu/muPrevious) ) < 2.5 ) ) {
+        if (abs(dzs) < EPS && muPrevious * mu < 0.0 && ( ( abs(muPrevious / mu) + abs(mu / muPrevious) ) < 2.5 ) ) {
             ratio = abs( log10( abs(muPrevious / mu)) ) * disimg;
             //  printf("tail - ratio, ratioMin=%f %f\n", ratio, ratioMin);
             if (ratio < ratioMin) {
@@ -5060,7 +5312,7 @@ void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], 
                 allxys[2 * count_critical + 1 + 2 * count_caustic] = p->x2;
             }
         } else {
-            numcnt_at_each_single_caus[ncurves-1] = c->length;
+            numcnt_at_each_single_caus[ncurves - 1] = c->length;
             // first half, critical curves
             for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
                 count_critical ++;
@@ -5075,7 +5327,7 @@ void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], 
 
     // save ncritical the and number of points at each critical points // 2021.10.05
     allxys[2 * count_critical + 1 + 2 * count_caustic + 1] = ncritical;
-    for(int i = 0; i<ncritical; i++){
+    for (int i = 0; i < ncritical; i++) {
         allxys[2 * count_critical + 2 * count_caustic + 3 + i] = numcnt_at_each_single_caus[i];
     }
 
@@ -5505,8 +5757,11 @@ double TripleLensing::areaFunc_parab(_sols * track, double rs)
 
 }
 
-// _linkedarray *getphis_v3
+// _linkedarray *getphis_v3, phi should also be long enough?
 _linkedarray *TripleLensing::getphis_v3(double xsCenter, double ysCenter, double rs) {
+    secnum_priv = this->secnum;
+    basenum_priv = this->basenum;
+
     _linkedarray *PHI;
     PHI = new _linkedarray;
 #ifdef VERBOSE
@@ -5602,6 +5857,149 @@ _linkedarray *TripleLensing::getphis_v3(double xsCenter, double ysCenter, double
 
     return PHI;
 }
+
+
+void TripleLensing::get_arrphi(double xsCenter, double ysCenter, double rs, int *retnphi) {
+    // calculate phis and save to ARRPHI
+    secnum_priv = this->secnum;
+    basenum_priv = this->basenum;
+
+    distype = 2;
+
+    double phi[secnum_priv]; // secnum_priv is specified by user, can also be fixed at compile
+    double mus[secnum_priv];
+    double offset[secnum_priv];
+    int npmus[secnum_priv];
+    int secnum_privlist[secnum_priv];
+    double dphi, scanphi = 0;
+    double minmu = 1e9;
+    double maxmu = -1e9;
+    dphi = 2 * M_PI / secnum_priv;
+    for (int i = 0; i < secnum_priv; i++) {
+        phi[i] = scanphi;
+        xs = xsCenter + rs * cos(scanphi);
+        ys = ysCenter + rs * sin(scanphi);
+        mus[i] = TriplePS(xs, ys);
+        if (mus[i] <= minmu) {
+            minmu = mus[i];
+            maxmuidx = i; // the name is not important
+        }
+        if (mus[i] >= maxmu) {
+            maxmu = mus[i];
+        }
+        scanphi += dphi;
+    }
+
+#ifdef VERBOSE
+    fprintf(stderr, "at get_arrphi secnum_priv %d,basenum %d,  maxmuidx: %d, minmu = %f, maxmu = %f\n", secnum_priv, basenum_priv, maxmuidx, minmu, maxmu);
+#endif
+    for (int i = 0; i < secnum_priv; i++) {
+        mus[i] = (mus[i] / minmu);
+    }
+
+    double psf[3] = {1, 2, 1};
+    npmus[0] = ceil(psf[0] * mus[secnum_priv - 1] + psf[1] * mus[0] + psf[2] * mus[1]) + 1;
+    npmus[secnum_priv - 1] = ceil(psf[0] * mus[secnum_priv - 2] + psf[1] * mus[secnum_priv - 1] + psf[2] * mus[0]) + 1;
+
+    if (0 < maxmuidx) {
+        offset[0] = 2 * M_PI;
+    } else {
+        offset[0] = 0;
+    }
+    if (0 < secnum_priv - maxmuidx) {
+        secnum_privlist[0] = maxmuidx;
+    } else {secnum_privlist[0] = 0 - secnum_priv + maxmuidx;}
+
+    for (int i = 1; i < secnum_priv - 1; i++) {
+        npmus[i] = floor(psf[0] * mus[i - 1] + psf[1] * mus[i] + psf[2] * mus[i + 1]
+                        ) + 1;
+        if (i < maxmuidx) {
+            offset[i] = 2 * M_PI;
+        } else {
+            offset[i] = 0;
+        }
+        if (i < secnum_priv - maxmuidx) {
+            secnum_privlist[i] = i + maxmuidx;
+        } else {secnum_privlist[i] = i - secnum_priv + maxmuidx;}
+    }
+    if (secnum_priv - 1 < maxmuidx) {
+        offset[secnum_priv - 1] = 2 * M_PI;
+    } else {
+        offset[secnum_priv - 1] = 0;
+    }
+    if ( 1 >  maxmuidx) {
+        secnum_privlist[secnum_priv - 1] = secnum_priv - 1 + maxmuidx;
+    } else {secnum_privlist[secnum_priv - 1] = - 1 + maxmuidx;}
+    dphi = M_PI / secnum_priv;
+    int tempidx = 0;
+    tempidx = secnum_privlist[0];
+
+    //PHI->linspace(offset[tempidx] + phi[tempidx] - dphi + M_PI2, offset[tempidx] + phi[tempidx] + dphi + M_PI2, npmus[tempidx]*basenum_priv, 0);
+    *retnphi = 0;
+    arrlinspace(ARRPHI, offset[tempidx] + phi[tempidx] - dphi + M_PI2, offset[tempidx] + phi[tempidx] + dphi + M_PI2, *retnphi, npmus[tempidx]*basenum_priv, 0);
+    *retnphi += npmus[tempidx] * basenum_priv;
+    for (int i = 1; i < secnum_priv - 1; i++) {
+        tempidx = secnum_privlist[i];
+        // PHI->linspace(offset[tempidx] + phi[tempidx] - dphi + M_PI2, offset[tempidx] + phi[tempidx] + dphi + M_PI2, npmus[tempidx]*basenum_priv, 0);
+        arrlinspace(ARRPHI, offset[tempidx] + phi[tempidx] - dphi + M_PI2, offset[tempidx] + phi[tempidx] + dphi + M_PI2, *retnphi, npmus[tempidx]*basenum_priv, 0);
+        *retnphi += npmus[tempidx] * basenum_priv;
+    }
+    tempidx = secnum_privlist[secnum_priv - 1];
+    // PHI->linspace(offset[tempidx] + phi[tempidx] - dphi + M_PI2, offset[tempidx] + phi[tempidx] + dphi + M_PI2, npmus[tempidx]*basenum_priv, 1);
+    arrlinspace(ARRPHI, offset[tempidx] + phi[tempidx] - dphi + M_PI2, offset[tempidx] + phi[tempidx] + dphi + M_PI2, *retnphi, npmus[tempidx]*basenum_priv, 1);
+    *retnphi += npmus[tempidx] * basenum_priv;
+
+    // return PHI;
+}
+
+
+void TripleLensing::arrlinspace(double *arr, double phi0, double phiend, int insertidx, int nphi, int endpoint) {
+    // insertidx: the index to be insert point
+    double dphi;
+    double scanphi = phi0;
+    if (endpoint) {
+        dphi = (phiend - phi0) / (nphi - 1);
+    } else {
+        dphi = (phiend - phi0) / (nphi);
+    }
+    for (int i = insertidx; i < nphi + insertidx; i++) {
+        arr[i] = scanphi;
+        scanphi += dphi;
+    }
+}
+
+void TripleLensing::extend_arrphi(int *retnphi) {
+
+    for (int i = *retnphi - 1; i > -1; i--) {
+        ARRPHI[i * 2] = ARRPHI[i];
+    }
+
+    *retnphi = (*retnphi + *retnphi - 1);
+
+    for (int i = 1; i < *retnphi - 1; i += 2) {
+        ARRPHI[i] = (ARRPHI[i - 1] + ARRPHI[i + 1]) * 0.5;
+    }
+
+}
+
+
+
+void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs, bool prevstore, int nphi, double mindphi) {
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 double myatan(double x, double y) {
@@ -6025,7 +6423,7 @@ void TripleLensing::polynomialCoefficients(double xs, double ys, complex c[])
     for (i = 0; i < NLENS; i++) {
         degrees = 0;
         qtemp[0] = 1.0;
-    
+
 
         for (j = 0; j < NLENS; j++) {
             if (j == i) continue;

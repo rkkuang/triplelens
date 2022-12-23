@@ -40,7 +40,7 @@ PYBIND11_MODULE(TripleLensing, m) {
                    "Tolerance of quadrupole test.")
     .def_readwrite("AbsTolLimb", &TripleLensing::AbsTolLimb,
                    "Tolerance of quadrupole test.")
-    
+
     .def( "setnlens", &TripleLensing::setnlens)
 
     // .def("TripleMag",
@@ -77,7 +77,7 @@ PYBIND11_MODULE(TripleLensing, m) {
     .def("outputCriticalTriple_list",
          [](TripleLensing & self, std::vector<double> mlens, std::vector<double> zlens, int nlens, int NPS )
     {
-        std::vector<double> allxys(NPS * 40);
+        std::vector<double> allxys(NPS * 10 * nlens);
         // std::vector<double> allxys(NPS*4+2);
         self.outputCriticalTriple_list(allxys.data(), mlens.data(), zlens.data(), nlens, NPS);
         return allxys;

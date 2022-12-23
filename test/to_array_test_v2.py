@@ -1,4 +1,5 @@
 ### this is a new version (version 2) that use pre-defined arraies with enough length, i.e., the arraies is defined once during compilation
+# to be transfered to cpp version and then debug in python and refine the code
 
 # implement a version that use array, rather than linked list, to represent the source/image boundaries.
 # then transfer this part of python code to C++ version
@@ -312,7 +313,7 @@ class pyTriple:
         # i.e., the i-th track, the index of head, the index of tail, (the length of the segments, this is not necessary)
         ntrue_segments = 0
         # true_segments_info = np.zeros((10 * self.DEGREE, 3 )).astype(int)
-        true_segments_info = np.zeros((self.DEGREE * self.DEGREE, 3 )).astype(int)
+        true_segments_info = np.zeros((self.DEGREE * self.DEGREE, 3 )).astype(int) ## 这个也可以事先定义好一定长度的 array
         # each row contains where this segments is, a, b, c,
         npure_close_segments = 0
 
@@ -1165,11 +1166,8 @@ if __name__ == "__main__":
         minmass_pos = 0, 0
 
 
-    #source center
-    xsCenter = -0.034747426672208
-    ysCenter = -0.026627816352184
-
-    rs = 0.1
+    #source
+    xsCenter, ysCenter, rs = -0.034747426672208, -0.026627816352184, 0.1 # even initial nphi = 30 is enough
 
     zlens0 = []
     for i in range(len(mlens)):
@@ -1188,7 +1186,7 @@ if __name__ == "__main__":
 
     # self, xsCenter, ysCenter, rs, PHI, prevstore = None
 
-    PHI = np.linspace(0, 2*np.pi, 300)
+    PHI = np.linspace(0, 2*np.pi, 30)
     mindphi = np.min(PHI[1:] - PHI[:-1]) # positive
 
 

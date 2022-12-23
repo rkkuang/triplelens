@@ -5,7 +5,7 @@
 // output an image
 #define TRUE_IMAGE 1
 #define FALSE_IMAGE -1
-// #define VERBOSE
+#define VERBOSE
 #define _PRINT_ERRORS2
 
 // #define verbose
@@ -42,6 +42,11 @@
 
 #define EPS_CLOSE 1.0e-10   // how accurate the root should be
 #define MAXIT_NEWTON 50     // maximum steps in the Newton-Raphson method
+
+
+#define MAXARRLEN 5120 // 512000 = 1000 * 2**9 
+#define DEGREEFIX 10
+
 
 class _linkedarray {
 public:
@@ -99,6 +104,7 @@ public:
 
 
     TripleLensing();
+    ~TripleLensing();
     TripleLensing(double mlens[], complex zlens[]);
     TripleLensing(double mlens[], double Zlens[]);
 
@@ -157,6 +163,18 @@ public:
     void findCloseImages(double mlens[], complex zlens[], double xs, double ys, complex *z, bool *imageFound);
     void newtonStep(double mlens[], complex zlens[], double xs, double ys, complex z, complex *dz, double *mu);
     void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter);
+
+
+    double ARRPHI[MAXARRLEN];
+    double allSolutions_x[DEGREEFIX][MAXARRLEN], allSolutions_y[DEGREEFIX][MAXARRLEN], allSolutions_srcx[DEGREEFIX][MAXARRLEN], allSolutions_srcy[DEGREEFIX][MAXARRLEN], allSolutions_mu[DEGREEFIX][MAXARRLEN], allSolutions_absdzs[DEGREEFIX][MAXARRLEN];
+    bool allSolutions_flag[DEGREEFIX][MAXARRLEN];
+
+    double arrTripleMag(double xsCenter, double ysCenter, double rs);
+    void get_arrphi(double xsCenter, double ysCenter, double rs, int *retnphi);
+    void arrlinspace(double *arr, double phi0, double phiend, int insertidx, int nphi, int endpoint);
+    void arroutputTracks(double xsCenter, double ysCenter, double rs, bool prevstore, int nphi, double mindphi);//allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs
+    void extend_arrphi(int *retnphi);
+
 };
 
 

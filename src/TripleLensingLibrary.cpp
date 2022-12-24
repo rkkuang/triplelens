@@ -723,6 +723,87 @@ double TripleLensing::angcos(_point *p1, _point *p2, _point *p3, _point *p4) {
 }
 
 
+
+void TripleLensing::arrareaFunc(double *area){
+        // nfinal_closed_image = closed_image_info.shape[0]
+        // area_array = np.zeros(nclosed_image)
+        *area = 0;
+        double tmparea, x1, y1, x2, y2, tmpdb;
+        unsigned short int jj , kk , offset, nsegs;
+        int parity, NPT, j, npts, isgn, scanpnt, hj, tj;
+
+        for (jj=0; jj<nfinal_closed_image; jj++){
+            parity = closed_image_info[jj][0]; nsegs = closed_image_info[jj][1];
+            #ifdef VERBOSE
+                printf("%d, nsegs = %d, \n", jj, nsegs);
+                for (kk=0; kk< nsegs; kk++){
+                    offset = kk*3;
+                    j = closed_image_info[jj][2+offset]; hid = closed_image_info[jj][3+offset]; tid = closed_image_info[jj][4+offset];
+                    printf("\t, %d, %d, %d\n", j, hid, tid);
+                }
+            #endif
+
+            NPT = 0;
+            tmparea = 0;
+            for (kk=0; kk< nsegs; kk++){
+                offset = kk*3;
+                // j, hid, tid = closed_image_info[jj, 2+offset: 5+offset]
+                j = closed_image_info[jj][2+offset]; hid = closed_image_info[jj][3+offset]; tid = closed_image_info[jj][4+offset];
+                npts = fabs(tid - hid) + 1;
+                if (npts < 2){
+                    // print(jj, kk, "this segment has only %d point"%npts)
+                    continue; // # just in case 
+                }
+                NPT += npts;
+                if (hid < tid){
+                    isgn = 1;
+                }else{
+                    isgn = -1;                    
+                }
+                scanpnt = hid;
+                x1 = allSolutions_x[j][scanpnt]; y1 = allSolutions_y[j][scanpnt];
+                scanpnt += isgn;
+                while (scanpnt != tid+isgn){
+                    x2 = allSolutions_x[j][scanpnt]; y2 = allSolutions_y[j][scanpnt];
+                    tmparea += 0.5 * (y1 + y2) * (x2 - x1);
+                    x1 = x2; y1 = y2; // x1, y1 = x2, y2
+                    scanpnt += isgn;
+                }
+            }
+            if (nsegs > 1){ //# if nsegs > 1, you need to add the area between two segments
+                for (kk = 0; kk < nsegs - 1; kk++){
+                    offset = kk*3;
+                    // j, hid, tid = closed_image_info[jj, 2+offset: 5+offset]
+                    j = closed_image_info[jj][2+offset]; hid = closed_image_info[jj][3+offset]; tid = closed_image_info[jj][4+offset];
+                    x1 = allSolutions_x[j][tid]; y1 = allSolutions_y[j][tid];
+
+                    offset = kk*3 + 3;
+                    // j, hid, tid = closed_image_info[jj, 2+offset: 5+offset]
+                    j = closed_image_info[jj][2+offset]; hid = closed_image_info[jj][3+offset]; tid = closed_image_info[jj][4+offset];
+                    x2 = allSolutions_x[j][hid]; y2 = allSolutions_y[j][hid];
+                    tmparea += 0.5 * (y1 + y2) * (x2 - x1);
+                }
+            }
+            //# the tail and head
+            hj = closed_image_info[jj][2]; hid = closed_image_info[jj][3];
+            tj = closed_image_info[jj][2+3*nsegs-3]; tid = closed_image_info[jj][2+3*nsegs-1];            
+            x1 = allSolutions_x[tj][tid]; y1 = allSolutions_y[tj][tid];
+            x2 = allSolutions_x[hj][hid]; y2 = allSolutions_y[hj][hid];
+            tmparea += 0.5 * (y1 + y2) * (x2 - x1);
+#ifdef VERBOSE
+            printf("%d, track total length = %d, parity = %d, nsegs = %d, area = %f\n", jj, NPT, parity, nsegs, tmparea);
+#endif
+            tmparea *= parity;
+            if (NPT > finalnphi*0.25){
+                *area += tmparea;
+            }
+        }
+        *area = fabs(*area);
+        // #area_array[jj] = area
+        // return abs(total_area/ (np.pi * rs * rs) )
+}
+
+
 double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) {
     VBBinaryLensing VBBL;
 
@@ -838,13 +919,6 @@ double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) 
         // i = 1321, phi = 1070.000000
         // i = 1322, phi = 0.000000
 
-
-#ifdef VERBOSE
-        char arr[1024];
-        fprintf(stderr, "please input >>> ");
-        scanf("%c%*c", &arr[0]);
-#endif
-
 //         for (int i = 0; i < 10; i++) {
         for (int i = 0; i < 7; i++) { // 2022.06.05
             if (i > 0) { // 2021.06.08
@@ -856,6 +930,13 @@ double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) 
             if (i == 0) {prevstore = false;};
             // imageTracks = outputTracks_v2_savehalf(xsCenter,  ysCenter,  rs, phis, &prevstore);
             arroutputTracks(xsCenter, ysCenter, rs, prevstore, finalnphi, mindphi);
+            arrareaFunc(&area);
+
+// #ifdef VERBOSE
+//         char arr[1024];
+//         fprintf(stderr, "please input, area = %f >>> ", area);
+//         scanf("%c%*c", &arr[0]);
+// #endif
 
             //finalnphi = phis->length;
 #ifdef VERBOSE
@@ -888,7 +969,7 @@ double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) 
             // area = areaFunc_parab(imageTracks, rs);
 // #else
             //area = areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality_local);
-            area = 1; // areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality_local);
+            // areaFunc(imageTracks, rs, finalnphi, muPS, mu0, &area_quality_local);
 // #endif
             mu = area / areaSource;
 
@@ -898,7 +979,7 @@ double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) 
             }
 
 #ifdef VERBOSE
-            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages (temp wrong) = %d, abs(mu - mu0) / mu = %.3e, errTol = %.3e, \n", i, mu0, mu, finalnphi, xsCenter, ysCenter, 10, abs(mu - mu0) / mu, _curr_relerr_priv);
+            fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d, abs(mu - mu0) / mu = %.3e, errTol = %.3e, \n", i, mu0, mu, finalnphi, xsCenter, ysCenter, nfinal_closed_image, abs(mu - mu0) / mu, _curr_relerr_priv);
 #endif
 #ifdef verbose
             fprintf(stderr, "in tripleFS, i= %d, mu0= %f, mu= %f, nphi = %d, xsCenter=%f, ysCenter = %f, nimages = %d\n", i, mu0, mu, finalnphi, xsCenter, ysCenter, imageTracks->length);
@@ -5451,6 +5532,9 @@ double TripleLensing::areaFunc(_sols * track, double rs, int finalnphi, double m
 
         // // after 2021.06.08
         if ( c->length < finalnphi * 0.25 ) { // ignore tracks that are short than the expected value
+            #ifdef VERBOSE
+            fprintf(stderr ,"c->length < finalnphi * 0.25, c->length = %d, finalnphi = %d\n", c->length, finalnphi);
+            #endif
             continue;
         }
 
@@ -5992,6 +6076,18 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
         unsigned short int curr_nimages = 0; //# how many true solutions for a certain source position
         bool ifsave;
 
+        for(i = 0; i<DEGREE; i++){posflagnums[i] = 0;}
+        for(i=0; i<DEGREE; i++){
+            for (j=0; j< 2+3*(DEGREE*DEGREE+1); j++){
+                closed_image_info[i][j] = 0;
+            }
+        }
+        for(i=0; i<DEGREE*DEGREE; i++){
+            for (j=0; j< 3; j++){
+                true_segments_info[i][j] = 0;
+            }
+        }
+            
 
         if (!prevstore){ //# equavalent to cpp code: if (ftime)
             // # solve lens equations for the first time 
@@ -6029,6 +6125,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                             posflagnums[saveindex] += 1;
                         }
                     }
+
                 }else{
                     // # for j > 0, you need to attached the closest solution to the existing allSolutions
                     curr_total_parity = 0; curr_nimages = 0;
@@ -6148,7 +6245,12 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
         npure_close_segments = 0;
 
         //imgTrack_type = np.zeros(DEGREE) // # 0: pure false, 1: pure true, 2: mixed
-        for (i=0; i<DEGREE; i++){ imgTrack_type[i] = 0; }
+        for (i=0; i<DEGREE; i++){
+            imgTrack_type[i] = 0; 
+            #ifdef VERBOSE
+            printf("i = %d, posflagnums[i] = %d\n", i, posflagnums[i]);
+            #endif
+        }
 
         for (i=0; i<DEGREE; i++){
             // # iter over each image Track, which may contains only true images, false images, or mixed
@@ -6168,6 +6270,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                 imgTrack_type[i] = 2;
             }
         }
+
         // # now for each of the type == 2 image Tracks, select out all true image segments
         for (i=0; i<DEGREE; i++){
             if (imgTrack_type[i] == 2){
@@ -6192,6 +6295,9 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                 }
             }
         }
+#ifdef VERBOSE
+        fprintf(stderr, "can you 6200, ntrue_segments = %d\n", ntrue_segments);
+#endif
         // # now, connect segments into closed track
         //# if a segment has length == npoints, then pass, do not need to handle this, we just need to add this segment to the closed_image_info
         // # otherwise, you need to connect the current segment
@@ -6222,6 +6328,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
         for (i=0;i<ntrue_segments;i++){
             tmp_segments_length[i] = (true_segments_info[i][2] - true_segments_info[i][1]) + 1;
         }
+
 
         //################################### rewrite below two lines
         //sorted_lenidx = np.argsort(tmp_segments_length)[::-1]
@@ -6270,6 +6377,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
             }
         }
 
+
         if_creat_new = true;
         continue_left = 1;
         while (open_seg_leftover > 0){
@@ -6298,14 +6406,18 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                         already_done_segments[i] = 1;
                         open_seg_leftover -= 1;
 
-                        //if if_creat_new and VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", i, "open_seg_leftover = ", open_seg_leftover, "hid, tid = ", hid, tid)
+                        if (if_creat_new){
+                            #ifdef VERBOSE
+                            printf(">>>>>> initialize new segments, start from seg %d, open_seg_leftover = %d, hid, tid = %d %d", i, open_seg_leftover, hid, tid);
+                            #endif
+                        }
                         if_creat_new = false;
                     }
                 }
                 // # if hid == 0 and tid == nphi - 1 and self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS_2:
-                if (head_tail_close(head1, tail1)<EPS2 && connectEPS == EPS2){
+                if ((head_tail_close(head1, tail1)<EPS2) && (connectEPS == EPS2)){
                     // # to check whether a track is closed or not
-                    //if VERBOSE: print(i, "close track", "head", allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]], allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]],)
+                    // printf("%d, close track head %f %f %f %f", i, allSolutions_x[head1[0]][head1[1]], allSolutions_y[head1[0]][head1[1]], allSolutions_x[tail1[0]][tail1[1]], allSolutions_y[tail1[0]][tail1[1]]);
                     nfinal_closed_image += 1;
                     if_creat_new = true;
                     continue;
@@ -6324,7 +6436,9 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                             head2[0] = j2; head2[1] = hid2; tail2[0] = j2; tail2[1] = tid2;// head2, tail2 = [j2, hid2], [j2, tid2]
                             // # call a function to test whether these two segments can be connected
                             // itype, connectdis = self.if_two_segments_connect(head1, tail1, head2, tail2, allSolutions_x, allSolutions_y, connectEPS)
+                            // printf("in 6341 before check connect\n");
                             if_two_segments_connect(head1, tail1, head2, tail2, connectEPS, &itype, &connectdis);
+                            // printf("in 6343 after check connect, %d, %f \n", itype, connectdis);
                             if (itype > 0){
                                 bestconnect_type = itype;
                                 bestconnect_dis = connectdis;
@@ -6346,10 +6460,11 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                     if (canweconnect && ((bestconnect_type > 0) || ((bestconnect_type<0) && open_seg_leftover == 1 ))){
                         //j2, hid2, tid2 = true_segments_info[bestconnect_i2, :]
                         j2 = true_segments_info[bestconnect_i2][0]; hid2 = true_segments_info[bestconnect_i2][1]; tid2 = true_segments_info[bestconnect_i2][2];
-                        //head2, tail2 = [j2, hid2], [j2, tid2]
                         head2[0] = j2; head2[1] = hid2; tail2[0] = j2; tail2[1] = tid2;
 
-                        // if VERBOSE: print("\t canweconnect %s, bestconnect_type %d, bestconnect_dis = %e, bestconnect_i2 = %d"%(canweconnect, bestconnect_type, bestconnect_dis, bestconnect_i2))
+#ifdef VERBOSE
+                    printf("\t canweconnect %d, bestconnect_type %d, bestconnect_dis = %e, bestconnect_i2 = %d\n", canweconnect, bestconnect_type, bestconnect_dis, bestconnect_i2);
+#endif
                         // if VERBOSE: print("\t head2 = ", allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], "tail2 = ", allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]])
 
                         // # we can connect seg_i with seg_i2
@@ -6383,6 +6498,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                             closed_image_info[nfinal_closed_image][4] = hid2;
                             head1[0] = tail2[0]; head1[1] = tail2[1]; //head1 = tail2;
                         }
+
                         closed_image_info[nfinal_closed_image][1] += 1;
                         already_done_segments[i2] = 1;
                         open_seg_leftover -= 1;
@@ -6398,6 +6514,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                             // # break
                         }
                     }
+
                     if (ifcontinue){continue;} //# if connected above, then continue, otherwise try jump
 
                     // if VERBOSE: print("330 continue")
@@ -6563,6 +6680,8 @@ void TripleLensing::if_head_tail_jump(int head1[], int tail1[], bool *ifjumpbool
 }
 
 void TripleLensing::if_two_segments_jump(int head1[], int tail1[],int head2[], int tail2[], int *itype, double *bestjump_fac_mu, double *bestjump_dis){
+    //printf("in 6581, if_two_segments_jump \n");
+
         *itype = 0;
         // # we prefer connect, rather than jump, so, first test image connectivity; if we cannot connect, then try whether we can "jump"
         // # besides, you need to have a seperate function for jump
@@ -6619,6 +6738,7 @@ double TripleLensing::head_tail_close(int head1[], int tail1[]){
 }
 
 void TripleLensing::if_two_segments_connect(int head1[], int tail1[],int head2[], int tail2[], double EPS_2, int *itype, double *dis){
+    // printf("in 6637, if_two_segments_connect \n");
         // # head1 = [head1_j, head1_idx]
         // #print(head1, tail1, head2, tail2)
         // # connect seg1 and seg2

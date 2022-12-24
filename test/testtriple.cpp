@@ -98,9 +98,9 @@ int main()
   }
 
   TRIL.reset3(mlens, zlens);
-  TRIL.secnum = 2;
+  TRIL.secnum = 45;
   TRIL.quaderr_Tol = 1e-3;
-  TRIL.basenum = 1;
+  TRIL.basenum = 2;
   // simply call TripleMag function to get the magnification of the source at (xsCenter, ysCenter)
   // muTri = TRIL.TripleMag(xsCenter, ysCenter, rs);
   muTri = TRIL.arrTripleMag(xsCenter, ysCenter, rs);
@@ -115,6 +115,37 @@ int main()
   // outputCaustics_for_crossSection(mlens, zlens, NLENS,  3000);
 
 
+
+
+/*
+muTri = TRIL.TripleMag(xsCenter, ysCenter, rs);
+  track->length 7, c->length: 1407, c->parity = -1, c->first->mu = -1.15040e+01, subArea = 0.004890 , subArea * parity: -4.88972e-03
+  track->length 7, c->length: 1407, c->parity = -1, c->first->mu = -9.35785e-04, subArea = 0.000000 , subArea * parity: -2.71164e-07
+  track->length 7, c->length: 1407, c->parity = 1, c->first->mu = 7.38730e+00, subArea = -0.002921 , subArea * parity: -2.92132e-03
+  track->length 7, c->length: 1407, c->parity = -1, c->first->mu = -2.95803e-03, subArea = 0.000001 , subArea * parity: -8.84611e-07
+  track->length 7, c->length: 1407, c->parity = -1, c->first->mu = -2.65049e+00, subArea = 0.000828 , subArea * parity: -8.28239e-04
+  track->length 7, c->length: 1407, c->parity = 1, c->first->mu = 5.79319e+00, subArea = -0.002133 , subArea * parity: -2.13302e-03
+  track->length 7, c->length: 1446, c->parity = -1, c->first->mu = -2.66663e+02, subArea = 0.002221 , subArea * parity: -2.22060e-03
+
+muTri = TRIL.arrTripleMag(xsCenter, ysCenter, rs); // calculate magnification with array data structure
+0, track total length = 1407, parity = -1, nsegs = 1, area = 0.004890
+1, track total length = 1407, parity = -1, nsegs = 1, area = 0.000000
+2, track total length = 1407, parity = 1, nsegs = 1, area = -0.002921
+3, track total length = 1407, parity = -1, nsegs = 1, area = 0.000001
+4, track total length = 1407, parity = -1, nsegs = 1, area = 0.000828
+5, track total length = 1407, parity = 1, nsegs = 1, area = -0.002133
+6, track total length = 1448, parity = -1, nsegs = 2, area = 0.002221
+
+in tripleFS, i= 1, mu0= 41.362840, mu= 41.361941, nphi = 1407, xsCenter=0.000000, ysCenter = 0.000000, nimages = 7, abs(mu - mu0) / mu = 2.174e-05, errTol = 1.000e-03, 
+mu = 41.361941
+
+*/
+
+
+
+
+
+
 if(0){
   double salpha = sin(alpha), calpha = cos(alpha), tn, tE_inv = 1 / tE;
   // // test at certain time on a light curve
@@ -124,9 +155,31 @@ if(0){
   tn = (test_t - t0) * tE_inv;
   xsCenter = u0 * salpha + tn * calpha;
   ysCenter = u0 * calpha - tn * salpha;
-  mu = TRIL.TripleMag(xsCenter, ysCenter, rs);
+  // mu = TRIL.TripleMag(xsCenter, ysCenter, rs); //muFS = 16.590836, xsCenter = -0.034726489352938, ysCenter = -0.028207818026520
+  mu = TRIL.arrTripleMag(xsCenter, ysCenter, rs); //
   fprintf(stderr, "\t\t muFS = %f, xsCenter = %.15f, ysCenter = %.15f\n", mu, xsCenter, ysCenter);
 }
+
+/*
+mu = TRIL.TripleMag(xsCenter, ysCenter, rs);
+track->length 5, c->length: 907, c->parity = 1, c->first->mu = 1.17352e+01, subArea = -0.001028 , subArea * parity: -1.02841e-03
+track->length 5, c->length: 907, c->parity = -1, c->first->mu = -2.41588e-03, subArea = 0.000000 , subArea * parity: -1.85793e-07
+track->length 5, c->length: 907, c->parity = -1, c->first->mu = -4.12222e+00, subArea = 0.000274 , subArea * parity: -2.74374e-04
+track->length 5, c->length: 907, c->parity = -1, c->first->mu = -9.22439e-04, subArea = 0.000000 , subArea * parity: -6.86559e-08
+c->length < finalnphi * 0.25, c->length = 22, finalnphi = 907
+muFS = 16.590836, xsCenter = -0.034726489352938, ysCenter = -0.028207818026520
+
+0, track total length = 907, parity = 1, nsegs = 1, area = -0.001028
+1, track total length = 907, parity = -1, nsegs = 1, area = 0.000000
+2, track total length = 907, parity = -1, nsegs = 1, area = 0.000274
+3, track total length = 907, parity = -1, nsegs = 1, area = 0.000000
+muFS = 16.590836, xsCenter = -0.034726489352938, ysCenter = -0.028207818026520
+
+*/
+
+
+
+
 
 //###########################################################################################
 //###########################################################################################

@@ -6,7 +6,7 @@
 // output an image
 #define TRUE_IMAGE 1
 #define FALSE_IMAGE -1
-#define VERBOSE
+// #define VERBOSE
 #define _PRINT_ERRORS2
 
 // #define verbose
@@ -169,9 +169,10 @@ public:
 
     double ARRPHI[MAXARRLEN], allSolutions_x[DEGREEFIX][MAXARRLEN], allSolutions_y[DEGREEFIX][MAXARRLEN], allSolutions_srcx[DEGREEFIX][MAXARRLEN], allSolutions_srcy[DEGREEFIX][MAXARRLEN], allSolutions_mu[DEGREEFIX][MAXARRLEN], allSolutions_absdzs[DEGREEFIX][MAXARRLEN], Prov_x[DEGREEFIX], Prov_y[DEGREEFIX], Prov_srcx[DEGREEFIX], Prov_srcy[DEGREEFIX], Prov_absdzs[DEGREEFIX], Prov_mu[DEGREEFIX], preProv_x[DEGREEFIX], preProv_y[DEGREEFIX], connectEPS, bestconnect_dis, connectdis, bestjump_fac_mu, bestjump_dis, how_close, jumpdis, srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost, currx, curry;
     bool allSolutions_flag[DEGREEFIX][MAXARRLEN], has_removed[DEGREEFIX],already_done_segments[DEGREEFIX * DEGREEFIX], if_creat_new, canweconnect, ifcontinue, canwejump, ifjumpbool;
-    unsigned short int Prov_flag[DEGREEFIX], attach_idx[DEGREEFIX], res_idx[DEGREEFIX], nclosed_image, ntrue_segments, open_seg_leftover, npure_close_segments, nfinal_closed_image, imgTrack_type[DEGREEFIX],true_segments_info[DEGREEFIX * DEGREEFIX][3], closed_image_info[DEGREEFIX][2+3*(DEGREEFIX*DEGREEFIX+1)], *temp_true_segments_info[DEGREEFIX*DEGREEFIX], bestconnect_type, bestconnect_i2, i2, j2, existing_seg_n, i3, i4;
-    int posflagnums[DEGREEFIX], tmp_segments_length[DEGREEFIX*DEGREEFIX], hid, tid, hid2, tid2, head1[2], tail1[2], head2[2], tail2[2], itype, scan_true_idx, continue_left, sorted_lenidx[DEGREEFIX*DEGREEFIX], bestjumptype, bestjump_i2;
+    unsigned short int Prov_flag[DEGREEFIX], attach_idx[DEGREEFIX], res_idx[DEGREEFIX], nclosed_image, ntrue_segments, open_seg_leftover, npure_close_segments, nfinal_closed_image, imgTrack_type[DEGREEFIX],true_segments_info[DEGREEFIX * DEGREEFIX][3], *temp_true_segments_info[DEGREEFIX*DEGREEFIX], bestconnect_type, bestconnect_i2, i2, j2, existing_seg_n, i3, i4;
+    int posflagnums[DEGREEFIX], tmp_segments_length[DEGREEFIX*DEGREEFIX], hid, tid, hid2, tid2, head1[2], tail1[2], head2[2], tail2[2], itype, scan_true_idx, continue_left, sorted_lenidx[DEGREEFIX*DEGREEFIX], bestjumptype, bestjump_i2, closed_image_info[DEGREEFIX][2+3*(DEGREEFIX*DEGREEFIX+1)];
 
+    // closed_image_info[DEGREEFIX][2+3*(DEGREEFIX*DEGREEFIX+1)] must be int type, because may save -1 parity
     // closed_image_info = np.zeros(( min(DEGREE, ntrue_segments), 2 + 3 * (ntrue_segments + 1) ));
     // already_done_segments = np.zeros(ntrue_segments)
 
@@ -189,6 +190,7 @@ public:
     void if_head_tail_jump(int head1[], int tail1[], bool *ifjumpbool, double *how_close, double *dis);
     void if_two_segments_jump(int head1[], int tail1[],int head2[], int tail2[], int *itype, double *bestjump_fac_mu, double *bestjump_dis);
     double head_tail_close(int head1[], int tail1[]);
+    void arrareaFunc(double *area);
 };
 
 

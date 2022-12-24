@@ -5976,7 +5976,7 @@ void TripleLensing::extend_arrphi(int *retnphi) {
 
     *retnphi = (*retnphi + *retnphi - 1);
 
-    for (int i = 1; i < *retnphi - 1; i += 2) {
+    for (int i = 1; i < *retnphi - 1; i = i+2) {
         ARRPHI[i] = (ARRPHI[i - 1] + ARRPHI[i + 1]) * 0.5;
     }
 
@@ -5985,17 +5985,803 @@ void TripleLensing::extend_arrphi(int *retnphi) {
 
 
 void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs, bool prevstore, int nphi, double mindphi) {
+        double mindsource;
+        mindsource = rs*2*sin((0.5*mindphi));// # minimum distance between two sampled points at the source boundary
+        mindsource = mindsource*mindsource;
+        int curr_total_parity = 0, i, j, offset, saveindex;
+        unsigned short int curr_nimages = 0; //# how many true solutions for a certain source position
+        bool ifsave;
+
+
+        if (!prevstore){ //# equavalent to cpp code: if (ftime)
+            // # solve lens equations for the first time 
+            for (j = 0; j<nphi; j++){
+                phi = ARRPHI[j];
+                xs = xsCenter + rs * cos(phi);
+                ys = ysCenter + rs * sin(phi);
+
+                //res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens, DEGREE)
+                polynomialCoefficients(xs, ys, coefficients);
+                VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+
+                if (j == 0){
+                    curr_total_parity = 0; curr_nimages = 0;
+                    for(i=0; i<DEGREE;i++){
+                        //flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False, NLENS = self.nlens);// # [flag, mu, absdzs, xxx]
+                        flag = trueSolution(xs, ys, zr[i], &mu);
+                        allSolutions_x[i][j] = zr[i].re;
+                        allSolutions_y[i][j] = zr[i].im;
+                        allSolutions_flag[i][j] = flag==1?true:false;
+                        allSolutions_mu[i][j] = mu;
+                        allSolutions_srcx[i][j] = xs;
+                        allSolutions_srcy[i][j] = ys;
+                        allSolutions_absdzs[i][j] = absdzs;
+                        posflagnums[i] += flag;
+
+                        if (flag){curr_total_parity += one_parity(mu);}
+                        curr_nimages += flag;
+                    }
+                    if (((curr_nimages - NLENS)%2 != 1) || (curr_total_parity != CORRECT_PARITY) ) {
+                        // # there might be some true images being classified as false images
+                        saveimage(curr_nimages, curr_total_parity, j, &ifsave, &saveindex);
+                        if (ifsave){
+                            allSolutions_flag[saveindex][j] = 1;
+                            posflagnums[saveindex] += 1;
+                        }
+                    }
+                }else{
+                    // # for j > 0, you need to attached the closest solution to the existing allSolutions
+                    curr_total_parity = 0; curr_nimages = 0;
+                    for(i=0; i<DEGREE;i++){
+                        // flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False, NLENS = self.nlens) #
+                        flag = trueSolution(xs, ys, zr[i], &mu);
+                        Prov_x[i] = zr[i].re;
+                        Prov_y[i] = zr[i].im;
+                        Prov_flag[i] = flag==1?true:false;
+                        Prov_mu[i] = mu;
+                        Prov_srcx[i] = xs;
+                        Prov_srcy[i] = ys;
+                        Prov_absdzs[i] = absdzs;
+                        preProv_x[i] = allSolutions_x[i][j-1];// # the last point in the i-th image track
+                        preProv_y[i] = allSolutions_y[i][j-1];
+                        if (flag){ curr_total_parity += one_parity(mu); }
+                        curr_nimages += flag;
+                    }
+
+                    //attach_idx = self.get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y)
+                    get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y, attach_idx);
+
+                    for(i=0; i<DEGREE;i++){
+                        allSolutions_x[i][j] = Prov_x[attach_idx[i]];
+                        allSolutions_y[i][j] = Prov_y[attach_idx[i]];
+                        allSolutions_flag[i][j] = Prov_flag[attach_idx[i]];
+                        allSolutions_mu[i][j] = Prov_mu[attach_idx[i]];
+                        allSolutions_srcx[i][j] = Prov_srcx[attach_idx[i]];
+                        allSolutions_srcy[i][j] = Prov_srcy[attach_idx[i]];
+                        allSolutions_absdzs[i][j] = Prov_absdzs[attach_idx[i]];
+                        posflagnums[i] += Prov_flag[attach_idx[i]]?1:0;
+                    }
+                    if ( ((curr_nimages - NLENS)%2 != 1) || (curr_total_parity != CORRECT_PARITY) ){
+                        // # there might be some true images being classified as false images
+                        saveimage(curr_nimages, curr_total_parity, j, &ifsave, &saveindex);
+                        if (ifsave){
+                            allSolutions_flag[saveindex][j] = 1;
+                            posflagnums[saveindex] += 1;
+                        }
+                    }
+                }
+            }
+        }else{ //# re-use previously obtained solutions
+            //## allSolutions_#[i, k*2] <-- prevstore_#[i, k], where k = 0, 1, 2, ...
+            //for j in range( (nphi-1)//2, -1, -1 ):
+            for (j = (int)((nphi-1)*0.5); j>-1; j--){
+                for (i=0; i<DEGREE; i++){
+                    allSolutions_x[i][j*2] = allSolutions_x[i][j];
+                    allSolutions_y[i][j*2] = allSolutions_y[i][j];
+                    allSolutions_flag[i][j*2] = allSolutions_flag[i][j];
+                    allSolutions_mu[i][j*2] = allSolutions_mu[i][j];
+                    allSolutions_srcx[i][j*2] = allSolutions_srcx[i][j];
+                    allSolutions_srcy[i][j*2] = allSolutions_srcy[i][j];
+                    allSolutions_absdzs[i][j*2] = allSolutions_absdzs[i][j];
+                    posflagnums[i] += allSolutions_flag[i][j];
+                }
+            }
+
+            // for j in range(1, nphi, 2):
+            for (j=1; j<nphi; j=j+2){
+                phi = ARRPHI[j];
+                xs = xsCenter + rs * cos(phi);
+                ys = ysCenter + rs * sin(phi);             
+                // res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens, DEGREE)
+                polynomialCoefficients(xs, ys, coefficients);
+                VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+
+                //# for j > 0, you need to attached the closest solution to the existing allSolutions
+                curr_total_parity = 0; curr_nimages = 0;
+                for(i=0; i<DEGREE;i++){
+                    // flag = trueSolution(self.mlens, self.zlens, xs, ys, res[i], cal_ang = False, NLENS = self.nlens)
+                    flag = trueSolution(xs, ys, zr[i], &mu);
+                    Prov_x[i] = zr[i].re;
+                    Prov_y[i] = zr[i].im;
+                    Prov_flag[i] = flag==1?true:false;
+                    Prov_mu[i] = mu;
+                    Prov_srcx[i] = xs;
+                    Prov_srcy[i] = ys;
+                    Prov_absdzs[i] = absdzs;
+                    preProv_x[i] = allSolutions_x[i][j-1];// # the last point in the i-th image track
+                    preProv_y[i] = allSolutions_y[i][j-1];
+                    if (flag){ curr_total_parity += one_parity(mu); }
+                    curr_nimages += flag;
+                }
+                // attach_idx = self.get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y)
+                get_closest_idx(preProv_x, preProv_y, Prov_x, Prov_y, attach_idx);
+
+                for(i=0; i<DEGREE;i++){
+                    allSolutions_x[i][j] = Prov_x[attach_idx[i]];
+                    allSolutions_y[i][j] = Prov_y[attach_idx[i]];
+                    allSolutions_flag[i][j] = Prov_flag[attach_idx[i]];
+                    allSolutions_mu[i][j] = Prov_mu[attach_idx[i]];
+                    allSolutions_srcx[i][j] = Prov_srcx[attach_idx[i]];
+                    allSolutions_srcy[i][j] = Prov_srcy[attach_idx[i]];
+                    allSolutions_absdzs[i][j] = Prov_absdzs[attach_idx[i]];
+                    posflagnums[i] += Prov_flag[attach_idx[i]]?1:0;
+                }
+                if (((curr_nimages - NLENS)%2 != 1) || (curr_total_parity != CORRECT_PARITY)){
+                    // # there might be some true images being classified as false images
+                    saveimage(curr_nimages, curr_total_parity, j, &ifsave, &saveindex);
+                    if (ifsave){
+                        allSolutions_flag[saveindex][j] = 1;
+                        posflagnums[saveindex] += 1;
+                    }
+                }
+            }
+        }
+        // # return allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs, None, None
+
+        // # now, select and connect true segments
+        // # initialize array to store the information of true image segments:
+        // # i.e., the i-th track, the index of head, the index of tail, (the length of the segments, this is not necessary)
+        ntrue_segments = 0;
+        // # true_segments_info = np.zeros((10 * DEGREE, 3 )).astype(int)
+        // true_segments_info = np.zeros((DEGREE * DEGREE, 3 )).astype(int) // ## 这个也可以事先定义好一定长度的 array
+        // # each row contains where this segments is, a, b, c,
+        npure_close_segments = 0;
+
+        //imgTrack_type = np.zeros(DEGREE) // # 0: pure false, 1: pure true, 2: mixed
+        for (i=0; i<DEGREE; i++){ imgTrack_type[i] = 0; }
+
+        for (i=0; i<DEGREE; i++){
+            // # iter over each image Track, which may contains only true images, false images, or mixed
+            if (posflagnums[i] <= 1 || ( (1.0 * posflagnums[i] / nphi < 0.5) && fabs(allSolutions_mu[i][0]) < EPS  && fabs(allSolutions_mu[i][nphi-1]) < EPS ) ){
+                    // if VERBOSE: print(i, "pure false");
+                            }
+                // pass # pure false image Track
+            else if (posflagnums[i] == nphi) { //: #(1.0 * posflagnums[i] / nphi) > 0.99){
+                imgTrack_type[i] = 1;
+                //if VERBOSE: print(i, "pure true")
+                true_segments_info[ntrue_segments][0] = i;
+                true_segments_info[ntrue_segments][1] = 0;
+                true_segments_info[ntrue_segments][2] = nphi - 1;// # index 0, 1, ..., nphi - 1 are true image points
+                ntrue_segments += 1;
+                npure_close_segments += 1;
+            }else{
+                imgTrack_type[i] = 2;
+            }
+        }
+        // # now for each of the type == 2 image Tracks, select out all true image segments
+        for (i=0; i<DEGREE; i++){
+            if (imgTrack_type[i] == 2){
+                // # select true image tracks
+                //if VERBOSE: print(i, "now you only need to proceed this posflagnum %d, posflagnum/length %f, first->flag %d, mu %f, x1 x2 = %f, %f"%(posflagnums[i], 1.0 * posflagnums[i] / nphi, allSolutions_flag[i][0], allSolutions_mu[i][0], allSolutions_x[i][0], allSolutions_y[i][0]))
+                // # iter over this mixed track, record the indexes
+                scan_true_idx = 0;
+                while (scan_true_idx < nphi){
+                    if (allSolutions_flag[i][scan_true_idx]){
+                        true_segments_info[ntrue_segments][0] = i;
+                        true_segments_info[ntrue_segments][1] = scan_true_idx;
+                        while (scan_true_idx < nphi && allSolutions_flag[i][scan_true_idx] == 1){
+                            scan_true_idx += 1;   
+                        }
+                        true_segments_info[ntrue_segments][2] = scan_true_idx - 1;
+                        ntrue_segments += 1;                        
+                    }else{
+                        while (scan_true_idx < nphi && allSolutions_flag[i][scan_true_idx] == 0){
+                            scan_true_idx += 1;
+                        }
+                    }
+                }
+            }
+        }
+        // # now, connect segments into closed track
+        //# if a segment has length == npoints, then pass, do not need to handle this, we just need to add this segment to the closed_image_info
+        // # otherwise, you need to connect the current segment
+        // # by the way, you need to record how many segments left, to be connected.
+
+        // # initialize array to store the information of true-close-image boundaries
+        // # there are at most DEGREE true-close-image boundaries
+        nclosed_image = 0;
+        // # closed_image_info = np.zeros(( min(DEGREE, ntrue_segments), 2 + 3 * (ntrue_segments - npure_close_segments + 1) )) # at most DEGREE closed-images, #### npure_close_segments is wrong number, not all segments with length nphi is closed
+        //closed_image_info = np.zeros(( min(DEGREE, ntrue_segments), 2 + 3 * (ntrue_segments + 1) ));// # at most DEGREE closed-images, 
+        // # each row contains how this closed-image is built from segments, i.e.,
+        // # (parity, from_n_segments, a, b, c, ...)
+        // # a is the allSolutions index where the segments belongs to
+        // # b, c is the head_index, tail_index (if b>c, then means this segment is actually reversed)
+        nfinal_closed_image = 0;
+        //already_done_segments = np.zeros(ntrue_segments)
+        for (i=0;i<DEGREE*DEGREE;i++){already_done_segments[i] = false;}
+
+        open_seg_leftover = ntrue_segments;
+
+        //if VERBOSE: print("true_segments_info before sort by length = ", true_segments_info[:ntrue_segments,:])
+        // # do we need to order by the length of the segments in ntrue_segments?
+        // # bubble sort? // pros: when create new image track, you always start with the longest one among the remaining segments
+        //tmp_segments_length = np.zeros(ntrue_segments);
+        for (i=0;i<DEGREE*DEGREE;i++){tmp_segments_length[i] = 0;}
+
+
+        for (i=0;i<ntrue_segments;i++){
+            tmp_segments_length[i] = (true_segments_info[i][2] - true_segments_info[i][1]) + 1;
+        }
+
+        //################################### rewrite below two lines
+        //sorted_lenidx = np.argsort(tmp_segments_length)[::-1]
+        // true_segments_info = true_segments_info[sorted_lenidx]
+        
+        // below is not neccessary
+        // for index from 0 to ntrue_segments-1, argsort by tmp_segments_length
+        if(false){
+        myargsort(tmp_segments_length, sorted_lenidx, ntrue_segments, 1);
+        for (i=0; i<ntrue_segments; i++){ temp_true_segments_info[i] = true_segments_info[sorted_lenidx[i]]; }
+        // for (i=0; i<ntrue_segments; i++){ true_segments_info[i] = temp_true_segments_info[i]; } // array type 'unsigned short [3]' is not assignable
+        }//###################################
+
+
+        // if VERBOSE: print("ntrue_segments = ", ntrue_segments)
+        // if VERBOSE: print(true_segments_info[:ntrue_segments,:])
+        // if VERBOSE: # print info of head tail at each segments
+        //     for iv in range(ntrue_segments):
+        //         print(">>>", iv, "true_segments_info: ", true_segments_info[iv, :], "x, y, mu, flag, absdzs")
+        //         jv, hidv, tidv = true_segments_info[iv, :]
+        //         print("head ", allSolutions_x[jv, hidv], allSolutions_y[jv, hidv], allSolutions_mu[jv, hidv], allSolutions_flag[jv, hidv], allSolutions_absdzs[jv, hidv])
+        //         print("tail ", allSolutions_x[jv, tidv], allSolutions_y[jv, tidv], allSolutions_mu[jv, tidv], allSolutions_flag[jv, tidv], allSolutions_absdzs[jv, tidv])
+
+
+        // ### first find all closed tracks
+        if_creat_new = true;
+        for (i=0; i<ntrue_segments; i++){
+            if (already_done_segments[i] || open_seg_leftover <= 0) {continue;}
+            j = true_segments_info[i][0]; hid = true_segments_info[i][1]; tid = true_segments_info[i][2];//j, hid, tid = true_segments_info[i, :]
+            head1[0] = j; head1[1] = hid; tail1[0] = j; tail1[1] = tid; //head1, tail1 = [j, hid], [j, tid]
+
+            if (hid == 0 && tid == nphi - 1 && head_tail_close(head1, tail1)<EPS2){
+                closed_image_info[nfinal_closed_image][0] = allSolutions_mu[j][hid] > 0?1:-1; //1 if allSolutions_mu[j, hid] > 0 else -1 // # final->first->mu > 0 ? 1 : -1;
+                closed_image_info[nfinal_closed_image][1] = 1; //# this closed image is originate from 1 segment
+                closed_image_info[nfinal_closed_image][2] = j; //# which allSolutions_x index this image belongs to
+                closed_image_info[nfinal_closed_image][3] = hid;
+                closed_image_info[nfinal_closed_image][4] = tid;
+
+                already_done_segments[i] = 1;
+                open_seg_leftover -= 1;
+                nfinal_closed_image += 1;
+
+                // if VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", i, "open_seg_leftover = ", open_seg_leftover, "hid, tid = ", hid, tid)
+                // // # to check whether a track is closed or not
+                // if VERBOSE: print(i, "close track", "head", allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]], allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]],)
+            }
+        }
+
+        if_creat_new = true;
+        continue_left = 1;
+        while (open_seg_leftover > 0){
+            connectEPS = EPS2;
+            for (i=0;i<ntrue_segments;i++){
+                if (already_done_segments[i] || open_seg_leftover <= 0){continue;}
+                j = true_segments_info[i][0]; hid = true_segments_info[i][1]; tid = true_segments_info[i][2]; //j, hid, tid = true_segments_info[i, :]
+
+                if (if_creat_new){
+                    if (hid == tid){ //# and open_seg_leftover > 1:
+                        //if VERBOSE: print("<<<<<< segment %d has only 1 data point, we do not start from this, continue_left = %d"%(i, continue_left))
+                        if (continue_left > 0){
+                            continue_left -= 1;
+                            break; //# because you have sorted segments by length, so length == 1 means there are only
+                        }else{ //# there are only length = 1 segments, you only need to attach them to the head/tail of the existing head1, tail1
+                            connectEPS = pow(allSolutions_x[head1[0]][head1[1]] - allSolutions_x[tail1[0]][tail1[1]], 2)+pow(allSolutions_y[head1[0]][head1[1]] - allSolutions_y[tail1[0]][tail1[1]], 2); }
+                    }else{
+                        head1[0] = j; head1[1] = hid; tail1[0] = j; tail1[1] = tid; //head1, tail1 = [j, hid], [j, tid]
+
+                        closed_image_info[nfinal_closed_image][0] = allSolutions_mu[j][hid] > 0?1:-1;// 1 if allSolutions_mu[j, hid] > 0 else -1 //# final->first->mu > 0 ? 1 : -1;
+                        closed_image_info[nfinal_closed_image][1] = 1;// # this closed image is originate from 1 segment
+                        closed_image_info[nfinal_closed_image][2] = j;// # which allSolutions_x index this image belongs to
+                        closed_image_info[nfinal_closed_image][3] = hid;
+                        closed_image_info[nfinal_closed_image][4] = tid;
+
+                        already_done_segments[i] = 1;
+                        open_seg_leftover -= 1;
+
+                        //if if_creat_new and VERBOSE: print(i, ">>>>>> initialize new segments, start from seg ", i, "open_seg_leftover = ", open_seg_leftover, "hid, tid = ", hid, tid)
+                        if_creat_new = false;
+                    }
+                }
+                // # if hid == 0 and tid == nphi - 1 and self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y)<EPS_2:
+                if (head_tail_close(head1, tail1)<EPS2 && connectEPS == EPS2){
+                    // # to check whether a track is closed or not
+                    //if VERBOSE: print(i, "close track", "head", allSolutions_x[head1[0], head1[1]], allSolutions_y[head1[0], head1[1]], allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]],)
+                    nfinal_closed_image += 1;
+                    if_creat_new = true;
+                    continue;
+                }else{
+                    ifcontinue = false;
+                    // # now, test whether we can connect segment i with "other segments"
+                    bestconnect_type = 0;
+                    bestconnect_dis = 1e10;
+                    bestconnect_i2 = 0;
+                    canweconnect = false;
+                    for (i2 =0; i2<ntrue_segments; i2++){
+                        if (open_seg_leftover > 0 && (!already_done_segments[i2]) ){
+                            // # # judge whether two segments (i, i2) can be connected together
+                            // j2, hid2, tid2 = true_segments_info[i2, :]
+                            j2 = true_segments_info[i2][0]; hid2 = true_segments_info[i2][1]; tid2 = true_segments_info[i2][2];
+                            head2[0] = j2; head2[1] = hid2; tail2[0] = j2; tail2[1] = tid2;// head2, tail2 = [j2, hid2], [j2, tid2]
+                            // # call a function to test whether these two segments can be connected
+                            // itype, connectdis = self.if_two_segments_connect(head1, tail1, head2, tail2, allSolutions_x, allSolutions_y, connectEPS)
+                            if_two_segments_connect(head1, tail1, head2, tail2, connectEPS, &itype, &connectdis);
+                            if (itype > 0){
+                                bestconnect_type = itype;
+                                bestconnect_dis = connectdis;
+                                bestconnect_i2 = i2;
+                                canweconnect = true;
+                                break;
+                            }else if (itype < 0){
+                                canweconnect = true;
+                                if (bestconnect_dis > connectdis){
+                                    bestconnect_dis = connectdis;
+                                    bestconnect_type = itype;
+                                    bestconnect_i2 = i2;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // if canweconnect and ((bestconnect_type > 0) or (bestconnect_type<0) and open_seg_leftover == 1 ):
+                    if (canweconnect && ((bestconnect_type > 0) || ((bestconnect_type<0) && open_seg_leftover == 1 ))){
+                        //j2, hid2, tid2 = true_segments_info[bestconnect_i2, :]
+                        j2 = true_segments_info[bestconnect_i2][0]; hid2 = true_segments_info[bestconnect_i2][1]; tid2 = true_segments_info[bestconnect_i2][2];
+                        //head2, tail2 = [j2, hid2], [j2, tid2]
+                        head2[0] = j2; head2[1] = hid2; tail2[0] = j2; tail2[1] = tid2;
+
+                        // if VERBOSE: print("\t canweconnect %s, bestconnect_type %d, bestconnect_dis = %e, bestconnect_i2 = %d"%(canweconnect, bestconnect_type, bestconnect_dis, bestconnect_i2))
+                        // if VERBOSE: print("\t head2 = ", allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], "tail2 = ", allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]])
+
+                        // # we can connect seg_i with seg_i2
+                        existing_seg_n = closed_image_info[nfinal_closed_image][1];
+                        offset = 3*existing_seg_n;
+
+                        if (fabs(bestconnect_type) == 3){ //# tail connect with head
+                            closed_image_info[nfinal_closed_image][2 + offset] = j2;
+                            closed_image_info[nfinal_closed_image][3 + offset] = hid2;
+                            closed_image_info[nfinal_closed_image][4 + offset] = tid2;
+                            tail1[0] = tail2[0]; tail1[1] = tail2[1]; //tail1 = tail2;
+                        }else if (fabs(bestconnect_type) == 4){ //# tail connect with tail
+                            closed_image_info[nfinal_closed_image][2 + offset] = j2;
+                            closed_image_info[nfinal_closed_image][3 + offset] = tid2;
+                            closed_image_info[nfinal_closed_image][4 + offset] = hid2;
+                            tail1[0] = head2[0]; tail1[1] = head2[1]; //tail1 = head2;
+                        }else if (fabs(bestconnect_type) == 2){ //# head connect with tail
+                            // # move prev segments behind
+                            // closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
+                            for(i4 = 1+offset; i4>1; i4--){closed_image_info[nfinal_closed_image][i4+3] = closed_image_info[nfinal_closed_image][i4];}
+                            closed_image_info[nfinal_closed_image][2] = j2;
+                            closed_image_info[nfinal_closed_image][3] = hid2;
+                            closed_image_info[nfinal_closed_image][4] = tid2;
+                            head1[0] = head2[0]; head1[1] = head2[1]; //head1 = head2;
+                        }else if (fabs(bestconnect_type) == 1){ //# head connect with head
+                            // # move prev segments behind
+                            // closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
+                            for(i4 = 1+offset; i4>1; i4--){closed_image_info[nfinal_closed_image][i4+3] = closed_image_info[nfinal_closed_image][i4];}
+                            closed_image_info[nfinal_closed_image][2] = j2;
+                            closed_image_info[nfinal_closed_image][3] = tid2;
+                            closed_image_info[nfinal_closed_image][4] = hid2;
+                            head1[0] = tail2[0]; head1[1] = tail2[1]; //head1 = tail2;
+                        }
+                        closed_image_info[nfinal_closed_image][1] += 1;
+                        already_done_segments[i2] = 1;
+                        open_seg_leftover -= 1;
+                        // #continue # you have connect seg2 with seg1, now proceed to the next segment
+                        // # check whether current is already closed
+                        if (head_tail_close(head1, tail1)<EPS2 || (open_seg_leftover<=0 && connectEPS == EPS2)){
+                            nfinal_closed_image += 1;
+                            if_creat_new = true;
+                            break;
+                        }else{
+                            //if VERBOSE: print("break 322, open_seg_leftover, nfinal_closed_image, if_creat_new = ", open_seg_leftover, nfinal_closed_image, if_creat_new)
+                            ifcontinue = true;// # connect once, then try whether we can connect again
+                            // # break
+                        }
+                    }
+                    if (ifcontinue){continue;} //# if connected above, then continue, otherwise try jump
+
+                    // if VERBOSE: print("330 continue")
+                    // # for i2 in range(ntrue_segments):
+                    // #     if open_seg_leftover > 0 and (not already_done_segments[i2]):
+                    // # now, test whether we can jump from segment i to "other segments"
+                    // # different from connect, jump is more trivial, need to find the best place to jump
+                    canwejump = false;
+                    bestjumptype = 0;
+                    bestjump_i2 = 0;
+                    bestjump_fac_mu = 1e10;// # find the minimum how_close, shoule be very close to 2.0
+                    bestjump_dis = 1e10;
+
+                    // if VERBOSE:
+                    //     print("\t before test jump, already_done_segments = ", already_done_segments)
+                    //     print("head1, tail1", head1, tail1)
+                    //     print("\tcurrent head: x, y, mu, flag, srcx, srcy = ", allSolutions_x[head1[0],head1[1]], allSolutions_y[head1[0],head1[1]],allSolutions_mu[head1[0],head1[1]],allSolutions_flag[head1[0],head1[1]],allSolutions_srcx[head1[0],head1[1]], allSolutions_srcy[head1[0],head1[1]])
+                    //     print("\tcurrent tail: x, y, mu, flag, srcx, srcy = ", allSolutions_x[tail1[0],tail1[1]], allSolutions_y[tail1[0],tail1[1]],allSolutions_mu[tail1[0],tail1[1]],allSolutions_flag[tail1[0],tail1[1]],allSolutions_srcx[tail1[0],tail1[1]], allSolutions_srcy[tail1[0],tail1[1]])  
+                    
+                    for (i3=0; i3<ntrue_segments;i3++){ // in range(ntrue_segments):
+                        if (open_seg_leftover > 0 && (!already_done_segments[i3])){
+                            // # # judge whether two segments (i, i2) can be connected together
+                            // j2, hid2, tid2 = true_segments_info[i3, :]
+                            // head2, tail2 = [j2, hid2], [j2, tid2]
+                            j2 = true_segments_info[i3][0]; hid2 = true_segments_info[i3][1]; tid2 = true_segments_info[i3][2];
+                            head2[0] = j2; head2[1] = hid2; tail2[0] = j2; tail2[1] = tid2;
+
+                            // # call a function to test whether these two segments can be connected
+                            // if VERBOSE: print(">>>>>> i3 = %d"%(i3))
+                            // itype, how_close, jumpdis = self.if_two_segments_jump(head1, tail1, head2, tail2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
+                            if_two_segments_jump(head1, tail1, head2, tail2, &itype, &how_close, &jumpdis);
+                            if (bestjump_fac_mu > how_close && bestjump_dis >= jumpdis){
+                                bestjump_fac_mu = how_close;
+                                bestjump_dis = jumpdis;
+                                bestjump_i2 = i3;
+                                bestjumptype = itype;
+                            }
+                            if (itype > 0 && jumpdis == 0){// # jumpdis has an upper limit: the mimimum distances between two sample points in the source limb, dphi
+                                bestjump_fac_mu = how_close;
+                                bestjump_dis = jumpdis;
+                                bestjump_i2 = i3;
+                                bestjumptype = itype;
+
+                                canwejump = true;
+                                break;
+                                // # if bestjump_fac_mu > how_close and bestjump_dis >= jumpdis:
+                                // #     bestjump_fac_mu = how_close
+                                // #     bestjump_dis = jumpdis
+                                // #     bestjump_i2 = i3
+                                // #     bestjumptype = itype
+                            }else{
+                                // if VERBOSE:
+                                //     print("\t440, we can not jump, itype = %d the bestjump_fac_mu = %f, bestjump_dis = %e"%(itype, bestjump_fac_mu, bestjump_dis))
+                                //     print("\thead2, tail2", head2, tail2)                               
+                                //     print("\ttmp seg %d head: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[head2[0],head2[1]], allSolutions_y[head2[0],head2[1]],allSolutions_mu[head2[0],head2[1]],allSolutions_flag[head2[0],head2[1]],allSolutions_srcx[head2[0],head2[1]], allSolutions_srcy[head2[0],head2[1]])
+                                //     print("\ttmp seg %d tail: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[tail2[0],tail2[1]], allSolutions_y[tail2[0],tail2[1]],allSolutions_mu[tail2[0],tail2[1]],allSolutions_flag[tail2[0],tail2[1]], allSolutions_srcx[tail2[0],tail2[1]], allSolutions_srcy[tail2[0],tail2[1]])
+                            }
+                        }
+                    }
+                    if (canwejump){
+                        // #print(i, "best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu)
+                        // # can find some place to jump, 
+                        j2 = true_segments_info[bestjump_i2][0]; hid2 = true_segments_info[bestjump_i2][1]; tid2 = true_segments_info[bestjump_i2][2];
+                        head2[0] = j2; head2[1] = hid2; tail2[0] = j2; tail2[1] = tid2;
+
+
+                        // if VERBOSE:
+                        //     print(">>> best jump to ", bestjump_i2, "bestjump_fac_mu = ", bestjump_fac_mu, 'type = ', bestjumptype, allSolutions_x[head2[0], head2[1]], allSolutions_y[head2[0], head2[1]], allSolutions_x[tail2[0], tail2[1]], allSolutions_y[tail2[0], tail2[1]], "bestjump_dis = ", bestjump_dis)           
+
+                        //     print("\thead2, tail2", head2, tail2)                               
+                        //     print("\ttmp seg %d head: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[head2[0],head2[1]], allSolutions_y[head2[0],head2[1]],allSolutions_mu[head2[0],head2[1]],allSolutions_flag[head2[0],head2[1]],allSolutions_srcx[head2[0],head2[1]], allSolutions_srcy[head2[0],head2[1]])
+                        //     print("\ttmp seg %d tail: x, y, mu, flag, srcx, srcy = "%i3, allSolutions_x[tail2[0],tail2[1]], allSolutions_y[tail2[0],tail2[1]],allSolutions_mu[tail2[0],tail2[1]],allSolutions_flag[tail2[0],tail2[1]], allSolutions_srcx[tail2[0],tail2[1]], allSolutions_srcy[tail2[0],tail2[1]])
+
+
+                        // # we can connect seg_i with seg_i2
+                        existing_seg_n = closed_image_info[nfinal_closed_image][1];
+                        offset = 3*existing_seg_n;
+
+                        if (fabs(bestjumptype) == 3){ //# tail connect with head
+                            closed_image_info[nfinal_closed_image][2 + offset] = j2;
+                            closed_image_info[nfinal_closed_image][3 + offset] = hid2;
+                            closed_image_info[nfinal_closed_image][4 + offset] = tid2;
+                            tail1[0] = tail2[0]; tail1[1] = tail2[1]; //tail1 = tail2;
+                        }else if (fabs(bestjumptype) == 4){ //# tail connect with tail
+                            closed_image_info[nfinal_closed_image][2 + offset] = j2;
+                            closed_image_info[nfinal_closed_image][3 + offset] = tid2;
+                            closed_image_info[nfinal_closed_image][4 + offset] = hid2;
+                            tail1[0] = head2[0]; tail1[1] = head2[1]; //tail1 = head2;
+                        }else if (fabs(bestjumptype) == 2){ //# head connect with tail
+                            // # move prev segments behind
+                            // closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
+                            for(i4 = 1+offset; i4>1; i4--){closed_image_info[nfinal_closed_image][i4+3] = closed_image_info[nfinal_closed_image][i4];}
+                            closed_image_info[nfinal_closed_image][2] = j2;
+                            closed_image_info[nfinal_closed_image][3] = hid2;
+                            closed_image_info[nfinal_closed_image][4] = tid2;
+                            head1[0] = head2[0]; head1[1] = head2[1]; //head1 = head2;
+                        }else if (fabs(bestjumptype) == 1){ //# head connect with head
+                            // # move prev segments behind
+                            // closed_image_info[nfinal_closed_image][5: 5+offset] = closed_image_info[nfinal_closed_image][2: 2+offset]
+                            for(i4 = 1+offset; i4>1; i4--){closed_image_info[nfinal_closed_image][i4+3] = closed_image_info[nfinal_closed_image][i4];}
+                            closed_image_info[nfinal_closed_image][2] = j2;
+                            closed_image_info[nfinal_closed_image][3] = tid2;
+                            closed_image_info[nfinal_closed_image][4] = hid2;
+                            head1[0] = tail2[0]; head1[1] = tail2[1]; //head1 = tail2;
+                        }
+                        closed_image_info[nfinal_closed_image][1] += 1;
+                        already_done_segments[bestjump_i2] = 1;
+                        open_seg_leftover -= 1;
+
+
+                        // # check whether current is already closed
+                        if (head_tail_close(head1, tail1)<EPS2 || open_seg_leftover<=0){
+                            nfinal_closed_image += 1;
+                            if_creat_new = true;
+                        }else{
+                            // if VERBOSE: print("break 398, open_seg_leftover, nfinal_closed_image", open_seg_leftover, nfinal_closed_image)
+                            // if VERBOSE: print(already_done_segments)
+                            continue;// # after jump, not close, and open_seg_leftover > 0
+                        }
+                    }else{
+                        // # we can not connect, and we can not jump, we need to test whether current
+                        // # we need to test whether it is closed, other wise, we regard this as a close image anyway
+                        // # new test whether head1, tail1 is close, and whether there is no open segments left
+                        // #if self.head_tail_close(head1, tail1, allSolutions_x, allSolutions_y, EPS_2):
+                        // if VERBOSE: print("410, open_seg_leftover", open_seg_leftover)
+                        if (open_seg_leftover > 0){
+                            nfinal_closed_image += 1;
+                            if_creat_new = true;
+                        }
+                    }
+                }
+            }
+        }
+        //if VERBOSE: print("nfinal_closed_image = ", nfinal_closed_image)
+        //if VERBOSE: print(closed_image_info[:nfinal_closed_image,:].astype(int))
+
+        //return true_segments_info[:ntrue_segments,:].astype(int), closed_image_info[:nfinal_closed_image,:].astype(int)
 
 }
 
 
+void TripleLensing::if_head_tail_jump(int head1[], int tail1[], bool *ifjumpbool, double *how_close, double *dis){
+        srcxprev = allSolutions_srcx[head1[0]][head1[1]];
+        srcyprev = allSolutions_srcy[head1[0]][head1[1]];
+        srcxpost = allSolutions_srcx[tail1[0]][tail1[1]];
+        srcypost = allSolutions_srcy[tail1[0]][tail1[1]];
+        muprev = allSolutions_mu[head1[0]][head1[1]];
+        mupost = allSolutions_mu[tail1[0]][tail1[1]];
+
+        *how_close = ( fabs(muprev / mupost) + fabs(mupost/muprev) );
+        *dis = pow(srcxprev - srcxpost, 2) + pow(srcyprev - srcypost, 2); //self.if_dis_close(srcxprev, srcyprev, srcxpost, srcypost);
+        *ifjumpbool = false;
+
+        if (muprev * mupost < 0.0){
+            if (head1[1] == tail1[1]){
+                *dis = 0;
+                *ifjumpbool = true;
+            }else{
+                *ifjumpbool = (*how_close < 2.5);
+            }
+        }
+        // return ifjump, how_close, dis
+}
+
+void TripleLensing::if_two_segments_jump(int head1[], int tail1[],int head2[], int tail2[], int *itype, double *bestjump_fac_mu, double *bestjump_dis){
+        *itype = 0;
+        // # we prefer connect, rather than jump, so, first test image connectivity; if we cannot connect, then try whether we can "jump"
+        // # besides, you need to have a seperate function for jump
+        // # we prefer to find the easiest scenario
+        *itype = 0;
+        *bestjump_fac_mu = 1e10;
+        *bestjump_dis= 1e10;
+        double dis;
+
+        // ifjump, how_close, dis = self.if_head_tail_jump( tail1, head2, allSolutions_srcx, allSolutions_srcy, allSolutions_mu)
+        if_head_tail_jump(tail1, head2, &ifjumpbool, &how_close, &dis);
+        if (dis == 0 || (ifjumpbool && (*bestjump_fac_mu > how_close) && (*bestjump_dis >= dis))){
+            *bestjump_fac_mu = how_close;
+            *bestjump_dis = dis;
+            *itype = 3;// # tail connect with head
+        }
+
+        if_head_tail_jump(tail1, tail2, &ifjumpbool, &how_close, &dis);
+        if (dis == 0 || (ifjumpbool && (*bestjump_fac_mu > how_close) && (*bestjump_dis >= dis))){
+            *bestjump_fac_mu = how_close;
+            *bestjump_dis = dis;
+            *itype = 4;// # tail connect with tail
+        }
+
+        if_head_tail_jump(head1, tail2, &ifjumpbool, &how_close, &dis);
+        if (dis == 0 || (ifjumpbool && (*bestjump_fac_mu > how_close) && (*bestjump_dis >= dis))){
+            *bestjump_fac_mu = how_close;
+            *bestjump_dis = dis;
+            *itype = 2;// # head connect with tail
+        }
+
+        if_head_tail_jump(head1, head2, &ifjumpbool, &how_close, &dis);
+        if (dis == 0 || (ifjumpbool && (*bestjump_fac_mu > how_close) && (*bestjump_dis >= dis))){
+            *bestjump_fac_mu = how_close;
+            *bestjump_dis = dis;
+            *itype = 1;// # head connect with head
+        }
+
+        // if besttype == 3 and VERBOSE: print("tail jump to head", besttype, tail1, head2, bestjump_fac_mu, bestjump_dis)
+        // if besttype == 4 and VERBOSE: print("tail jump to tail", besttype, tail1, tail2, bestjump_fac_mu,bestjump_dis)
+        // if besttype == 2 and VERBOSE: print("head jump to tail", besttype, head1, tail2, bestjump_fac_mu,bestjump_dis)
+        // if besttype == 1 and VERBOSE: print("head jump to head", besttype, head1, head2, bestjump_fac_mu,bestjump_dis)
+        // return besttype, bestjump_fac_mu, bestjump_dis
+}
+
+double TripleLensing::head_tail_close(int head1[], int tail1[]){
+    double x1, y1, x2, y2;
+    x1 = allSolutions_x[head1[0]][head1[1]];
+    y1 = allSolutions_y[head1[0]][head1[1]];
+    x2 = allSolutions_x[tail1[0]][tail1[1]];
+    y2 = allSolutions_y[tail1[0]][tail1[1]];
+    //#print("x1, y1, x2, y2", x1, y1, x2, y2)
+    return pow(x1 - x2, 2) + pow(y1 - y2, 2);
+}
+
+void TripleLensing::if_two_segments_connect(int head1[], int tail1[],int head2[], int tail2[], double EPS_2, int *itype, double *dis){
+        // # head1 = [head1_j, head1_idx]
+        // #print(head1, tail1, head2, tail2)
+        // # connect seg1 and seg2
+        // # itype 0 = can not connect
+        // # itype 1 = head head --> how to handle this? --> you need to insert seg2 into the front of seg1, and reverse seg2
+        // # itype 2 = head tail --> how to handle this? --> you need to insert seg2 into the front of seg1, do not need to reverse seg2
+        // # itype 3 = tail head --> how to handle this? --> the easiest scenerio, just add seg2 behind seg1
+        // # itype 4 = tail tail --> how to handle this? --> add seg2 behind seg1, and reverse seg2
+        *itype = 0;
+        // # we prefer connect, rather than jump, so, first test image connectivity; if we cannot connect, then try whether we can "jump"
+        // # besides, you need to have a seperate function for jump
+        int besttype = 0;
+        double bestdis = 1e10;
+
+        // # we prefer to find the easiest scenario
+        *dis = head_tail_close(tail1, head2);
+        if (*dis < EPS_2){ //# either they are overlapping or they are continuous in terms of phi
+            *itype = 3;// # tail connect with head
+            // if VERBOSE: print("tail connect with head", itype, tail1, head2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]] )
+            return;// itype, dis
+        }else if (fabs(tail1[1] - head2[1]) == 1){ //: ## if you can not connect by distance, you need to check whether the phi is continuous
+            if (bestdis > *dis){
+                bestdis = *dis;
+                besttype = -3;
+            }
+        }
+
+        *dis = head_tail_close( tail1, tail2);
+        if (*dis < EPS_2){ //# either they are overlapping or they are continuous in terms of phi
+            *itype = 4;// # tail connect with head
+            // if VERBOSE: print("tail connect with head", itype, tail1, head2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]] )
+            return;// itype, dis
+        }else if (fabs(tail1[1] - tail2[1]) == 1){ //: ## if you can not connect by distance, you need to check whether the phi is continuous
+            if (bestdis > *dis){
+                bestdis = *dis;
+                besttype = -4;
+            }
+        }
+
+        *dis = head_tail_close( head1, tail2);
+        if (*dis < EPS_2){ //# either they are overlapping or they are continuous in terms of phi
+            *itype = 2;// # tail connect with head
+            // if VERBOSE: print("tail connect with head", itype, tail1, head2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]] )
+            return;// itype, dis
+        }else if (fabs(head1[1] - tail2[1]) == 1){ //: ## if you can not connect by distance, you need to check whether the phi is continuous
+            if (bestdis > *dis){
+                bestdis = *dis;
+                besttype = -2;
+            }
+        }
+
+        *dis = head_tail_close( head1, head2);
+        if (*dis < EPS_2){ //# either they are overlapping or they are continuous in terms of phi
+            *itype = 1;// # tail connect with head
+            // if VERBOSE: print("tail connect with head", itype, tail1, head2, allSolutions_x[tail1[0], tail1[1]], allSolutions_y[tail1[0], tail1[1]] )
+            return;// itype, dis
+        }else if (fabs(head1[1] - head2[1]) == 1){ //: ## if you can not connect by distance, you need to check whether the phi is continuous
+            if (bestdis > *dis){
+                bestdis = *dis;
+                besttype = -1;
+            }
+        }
+
+        if (besttype == 0){
+            //# if we can not connect by overlapping, we still have chance to connect two points with abs(phi_index1 - phi_index2) == 1
+            *itype = 0; *dis = 1e10;
+            return;// itype, 1e10
+        }else{
+            //if VERBOSE: print("possible connect by continuous phi, besttype = %d, bestdis = %e"%(besttype, bestdis))
+            *itype = besttype; *dis = bestdis;
+            return;// besttype, bestdis
+        }
+}
 
 
+void myargsort(int arr[], int index[], int n, int mode){
+    //# mode 1 降序
+    //# n = len(arr)
+    // index = list(range(n))
+    int i, j;
+    for (i=0; i<n; i++){
+        index[i] = i;
+    }
+    for (i=0; i<n-1; i++){
+        for (j=i+1; j<n; j++){
+            if (mode == 1){
+                if (arr[i] < arr[j]){
+                    myswap(&arr[i], &arr[j]); //arr[i], arr[j] = arr[j], arr[i]
+                    myswap(&index[i], &index[j]); //index[i], index[j] = index[j], index[i]
+                }
+            } else if (mode == 0){
+                if (arr[i] > arr[j]){
+                    myswap(&arr[i], &arr[j]);             
+                    myswap(&index[i], &index[j]);             
+                }
+            }
+        }
+    }
+}
+
+void mydbswap(double *a, double *b){
+    double t;
+    t = *a;
+    *a = *b;
+    *b = t;
+}
+
+void myswap(int *a, int *b){
+    int t;
+    t = *a;
+    *a = *b;
+    *b = t;
+}
+
+void TripleLensing::saveimage(int curr_nimages, int curr_total_parity, int j, bool *ifsave, int *saveindex){
+        // # find one true solutions that has been classified as false solution (due to the simple criterion absdzs > EPS)
+        *ifsave = false;
+        *saveindex = 0;
+        double minabsdzs = 1e10; // this variable can be defined as a class member
+        for (int i=0; i<DEGREE; i++){
+            if (allSolutions_flag[i][j] == 0){ // and allSolutions_mu[i, j] != -1e10:
+                if (allSolutions_absdzs[i][j] < minabsdzs){
+                    minabsdzs = allSolutions_absdzs[i][j];
+                    *saveindex = i;
+                }
+            }
+        }
+        // # after save the solution, whether the nimages and parity are correct
+        if (((curr_nimages + 1 - NLENS)%2 == 1) && ((curr_total_parity+one_parity(allSolutions_mu[*saveindex][j])) == CORRECT_PARITY)){
+            *ifsave = true;
+        }
+}
 
 
+void TripleLensing::get_closest_idx(double preProv_x[], double preProv_y[], double Prov_x[], double Prov_y[], unsigned short int res_idx[]){
+    // # for each point i (Prov_x[i], Prov_y[i]), find the index in preProv_x, preProv_y so that the point j is closest to i
+    // has_removed = np.zeros(self.DEGREE)
+    // res_idx = np.zeros(self.DEGREE).astype(int)
+    // #return np.arange(0, 10).astype(int)
+    for(int i=0; i<DEGREE; i++){
+        has_removed[i] = false;
+    }
+    double mindis, dis;
+    unsigned short int minidx;
 
-
-
+    for (int i=0; i<DEGREE; i++){
+        currx = preProv_x[i];
+        curry = preProv_y[i];
+        mindis = 1e100;
+        minidx = 0;
+        for (int j=0; j<DEGREE; j++){
+            if (!has_removed[j]){
+                dis = pow(currx - Prov_x[j], 2) + pow(curry - Prov_y[j], 2);
+                if (dis<mindis){
+                    mindis = dis;
+                    minidx = j;
+                }
+            }
+        }
+        res_idx[i] = minidx;
+        has_removed[minidx] = 1;
+    }
+}
 
 
 
@@ -6515,3 +7301,11 @@ void multiply(complex a[], int na, complex b[], int nb, complex c[])
         }
     }
 }
+
+
+int one_parity(double mu){
+    if (mu == -1e10){
+        return 0;}
+    return mu>0?1:-1;
+}
+

@@ -37,8 +37,8 @@ Prov_absdzs = np.zeros(DEGREE)
 Prov_mu = np.zeros(DEGREE)
 preProv_x = np.zeros(DEGREE) # store the last image point of the i-th image track
 preProv_y = np.zeros(DEGREE)
-attach_idx = np.zeros(DEGREE)
-posflagnums = np.zeros(DEGREE) # how many true image points in this image Track
+attach_idx = np.zeros(DEGREE).astype(int)
+posflagnums = np.zeros(DEGREE).astype(int) # how many true image points in this image Track
 
 
 class pyTriple:

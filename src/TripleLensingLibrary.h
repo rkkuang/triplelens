@@ -1,5 +1,6 @@
 // #include<stdio.h>
 #include<memory>
+#include<math.h>
 #include "VBBinaryLensingLibrary.h"
 
 // output an image
@@ -17,7 +18,7 @@
 // #define NLENS 3 // NLENS and DEGREE should not be fixed ?
 // #define DEGREE (NLENS*NLENS+1)
 #define EPS 1.0e-5 // segment close threshold, 1.0e-5 is ok
-
+#define EPS2 1.0e-10 //(EPS*EPS)
 
 #define SOLEPS 1.0e-5 // true or false solution of lens equation solving, 1.0e-5 is a bit too strict at some cases
 // #define SOLEPS1e2 1e-3 // threshold used to judge whether we use Newton method to polish the root using the original lens equation instead of the polynomial
@@ -45,8 +46,9 @@
 
 
 #define MAXARRLEN 5120 // 512000 = 1000 * 2**9 
-#define DEGREEFIX 10
-
+#define NLENSFIX 3
+#define DEGREEFIX (NLENSFIX*NLENSFIX+1)
+#define CORRECT_PARITY (1-NLENSFIX)
 
 class _linkedarray {
 public:
@@ -84,8 +86,8 @@ class TripleLensing {
     int NPS;
     double *mlens, *Zlens;
 public:
-    int nphi, secnum, basenum, distype, maxmuidx, flag,  pntnum, CQ, finalNPS, ifFinite, area_quality=1, NLENS;
-    int DEGREE;
+    int nphi, secnum, maxmuidx,  pntnum, CQ, finalNPS;
+    unsigned short int NLENS, DEGREE, ifjump, flag, basenum, distype, ifFinite, area_quality = 1;
     // area_quality = 1 means this magnification is ok, otherwise (mainly caused by insufficient samples around the source edge)
     // if area_quality == 0, mean parity in areaFunc might be wrong
     // if area_quality == 2, means return from a looser threshold
@@ -96,7 +98,7 @@ public:
 
 
     double quad_err, quaderr_Tol, area, mu0, mu, relerr_mag, lambda1, lambda2, thetaJ, eacherr, muTotal, xs, ys, phi, SD, MD, CD, muPS, ds, dJ2, RelTolLimb = 1e-3, AbsTolLimb = 1e-4;
-    unsigned short int ifjump;
+    
     complex *zlens;
     // complex zr[DEGREE];
     // complex coefficients[DEGREE + 1];
@@ -165,16 +167,28 @@ public:
     void outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter);
 
 
-    double ARRPHI[MAXARRLEN];
-    double allSolutions_x[DEGREEFIX][MAXARRLEN], allSolutions_y[DEGREEFIX][MAXARRLEN], allSolutions_srcx[DEGREEFIX][MAXARRLEN], allSolutions_srcy[DEGREEFIX][MAXARRLEN], allSolutions_mu[DEGREEFIX][MAXARRLEN], allSolutions_absdzs[DEGREEFIX][MAXARRLEN];
-    bool allSolutions_flag[DEGREEFIX][MAXARRLEN];
+    double ARRPHI[MAXARRLEN], allSolutions_x[DEGREEFIX][MAXARRLEN], allSolutions_y[DEGREEFIX][MAXARRLEN], allSolutions_srcx[DEGREEFIX][MAXARRLEN], allSolutions_srcy[DEGREEFIX][MAXARRLEN], allSolutions_mu[DEGREEFIX][MAXARRLEN], allSolutions_absdzs[DEGREEFIX][MAXARRLEN], Prov_x[DEGREEFIX], Prov_y[DEGREEFIX], Prov_srcx[DEGREEFIX], Prov_srcy[DEGREEFIX], Prov_absdzs[DEGREEFIX], Prov_mu[DEGREEFIX], preProv_x[DEGREEFIX], preProv_y[DEGREEFIX], connectEPS, bestconnect_dis, connectdis, bestjump_fac_mu, bestjump_dis, how_close, jumpdis, srcxprev, srcyprev, srcxpost, srcypost, muprev, mupost, currx, curry;
+    bool allSolutions_flag[DEGREEFIX][MAXARRLEN], has_removed[DEGREEFIX],already_done_segments[DEGREEFIX * DEGREEFIX], if_creat_new, canweconnect, ifcontinue, canwejump, ifjumpbool;
+    unsigned short int Prov_flag[DEGREEFIX], attach_idx[DEGREEFIX], res_idx[DEGREEFIX], nclosed_image, ntrue_segments, open_seg_leftover, npure_close_segments, nfinal_closed_image, imgTrack_type[DEGREEFIX],true_segments_info[DEGREEFIX * DEGREEFIX][3], closed_image_info[DEGREEFIX][2+3*(DEGREEFIX*DEGREEFIX+1)], *temp_true_segments_info[DEGREEFIX*DEGREEFIX], bestconnect_type, bestconnect_i2, i2, j2, existing_seg_n, i3, i4;
+    int posflagnums[DEGREEFIX], tmp_segments_length[DEGREEFIX*DEGREEFIX], hid, tid, hid2, tid2, head1[2], tail1[2], head2[2], tail2[2], itype, scan_true_idx, continue_left, sorted_lenidx[DEGREEFIX*DEGREEFIX], bestjumptype, bestjump_i2;
+
+    // closed_image_info = np.zeros(( min(DEGREE, ntrue_segments), 2 + 3 * (ntrue_segments + 1) ));
+    // already_done_segments = np.zeros(ntrue_segments)
 
     double arrTripleMag(double xsCenter, double ysCenter, double rs);
     void get_arrphi(double xsCenter, double ysCenter, double rs, int *retnphi);
     void arrlinspace(double *arr, double phi0, double phiend, int insertidx, int nphi, int endpoint);
     void arroutputTracks(double xsCenter, double ysCenter, double rs, bool prevstore, int nphi, double mindphi);//allSolutions_x, allSolutions_y, allSolutions_srcx, allSolutions_srcy, allSolutions_mu, allSolutions_flag, allSolutions_absdzs
-    void extend_arrphi(int *retnphi);
+    //return true_segments_info[:ntrue_segments,:].astype(int), closed_image_info[:nfinal_closed_image,:].astype(int)
 
+    void extend_arrphi(int *retnphi);
+    void saveimage(int curr_nimages, int curr_total_parity, int j, bool *ifsave, int *saveindex);
+    void get_closest_idx(double preProv_x[], double preProv_y[], double Prov_x[], double Prov_y[], unsigned short int res_idx[]);
+    void if_two_segments_connect(int head1[], int tail1[],int head2[], int tail2[], double EPS_2, int *itype, double *dis);
+
+    void if_head_tail_jump(int head1[], int tail1[], bool *ifjumpbool, double *how_close, double *dis);
+    void if_two_segments_jump(int head1[], int tail1[],int head2[], int tail2[], int *itype, double *bestjump_fac_mu, double *bestjump_dis);
+    double head_tail_close(int head1[], int tail1[]);
 };
 
 
@@ -204,3 +218,11 @@ void multiply_z(complex c[], complex a, int n);
 // void multiply_z_v2(complex c[][NLENS + 1], complex a, int n, int firstdim);
 void multiply_z_v2(complex **c, complex a, int n, int firstdim);
 void multiply_zSquare(complex c[], complex a, int n);
+
+
+int one_parity(double mu);
+void myargsort(int arr[], int index[], int n, int mode);
+void myswap(int *a, int *b);
+void mydbswap(double *a, double *b);
+
+

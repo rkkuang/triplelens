@@ -142,22 +142,20 @@ mu = 41.361941
 */
 
 
-
-
-
-
-if(0){
+if(1){
   double salpha = sin(alpha), calpha = cos(alpha), tn, tE_inv = 1 / tE;
   // // test at certain time on a light curve
   double test_t = 7490, mu;
   rs = 0.005;
   test_t = 7497.100830078125;//7496.488;//7496.044 54.714842 & muFS = 54.734133; //7496.868;
+  for (test_t = 7490; test_t<7500; test_t++){
   tn = (test_t - t0) * tE_inv;
   xsCenter = u0 * salpha + tn * calpha;
   ysCenter = u0 * calpha - tn * salpha;
   // mu = TRIL.TripleMag(xsCenter, ysCenter, rs); //muFS = 16.590836, xsCenter = -0.034726489352938, ysCenter = -0.028207818026520
   mu = TRIL.arrTripleMag(xsCenter, ysCenter, rs); //
   fprintf(stderr, "\t\t muFS = %f, xsCenter = %.15f, ysCenter = %.15f\n", mu, xsCenter, ysCenter);
+  }
 }
 
 /*

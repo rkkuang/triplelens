@@ -17,7 +17,7 @@ The output file can further be processed with provided python scripts (inside th
 #include <stdio.h>
 #include <math.h>
 #include <iostream>
-#include "../src/VBBinaryLensingLibrary.h"
+// #include "../src/VBBinaryLensingLibrary.h"
 #include "../src/TripleLensingLibrary.h"
 #include <time.h>
 #include <fstream>
@@ -32,7 +32,7 @@ The output file can further be processed with provided python scripts (inside th
 
 
 using namespace std;
-VBBinaryLensing vbbl;
+// VBBinaryLensing vbbl;
 
 
 int main()
@@ -110,7 +110,7 @@ int main()
   // outputCriticalTriple(mlens, zlens,NLENS, 10000);
 
   // output critical curves and caustics, and image positions corresponding to the source boundary
-  outputCriticalTriple(mlens, zlens, NLENS, 10000);
+  // outputCriticalTriple(mlens, zlens, NLENS, 10000);
   TRIL.outImgPoints(xsCenter, ysCenter, rs, 10001);
   // outputCaustics_for_crossSection(mlens, zlens, NLENS,  3000);
 

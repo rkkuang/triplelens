@@ -1,10 +1,10 @@
-#include "VBBinaryLensingLibrary.h"
+// #include "VBBinaryLensingLibrary.h"
 #include "TripleLensingLibrary.h"
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
 
-VBBinaryLensing VBBL;
+// VBBinaryLensing VBBL;
 
 TripleLensing::TripleLensing() {
     nphi = 32;
@@ -601,7 +601,7 @@ void TripleLensing::triple_num_real_sol2py(double mlens[], double Zlens[], doubl
         muTotal = 0.;
 
         polynomialCoefficients(xsCenters[i], ysCenters[i], coefficients);
-        VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+        cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
         true_imgnum_cnt = 0;
         for (int j = 0; j < DEGREE; j++) {
@@ -644,7 +644,7 @@ void TripleLensing::solv_lens_equation(double zrxy[], double mlens[], double zle
     }
     reset3(mlens, Zlens);
     polynomialCoefficients(xs, ys, coefficients);
-    VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+    cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
     for (i = 0; i < DEGREE; i++) {
         zrxy[i] = zr[i].re;
@@ -680,18 +680,18 @@ void TripleLensing::TriLightCurve(double *pr, double *mags, double *y1s, double 
 }
 
 
-//output in two files the triple critical curves and caustics
-void TripleLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS)
-// void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
-{
-    VBBinaryLensing VBBL;
-    VBBL.outputCriticalTriple_list(allxys, mlens, zlens, nlens, NPS);
-}
+// //output in two files the triple critical curves and caustics
+// void TripleLensing::outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS)
+// // void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int NLENS, int NPS)
+// {
+//     VBBinaryLensing VBBL;
+//     VBBL.outputCriticalTriple_list(allxys, mlens, zlens, nlens, NPS);
+// }
 
-void TripleLensing::outputCriticalBinary_list(double resxy[], double s, double q, int NPS) {
-    VBBinaryLensing VBBL;
-    VBBL.outputCriticalBinary_list(resxy, s, q, NPS);
-}
+// void TripleLensing::outputCriticalBinary_list(double resxy[], double s, double q, int NPS) {
+//     VBBinaryLensing VBBL;
+//     VBBL.outputCriticalBinary_list(resxy, s, q, NPS);
+// }
 
 
 void TripleLensing::outsys(double mlens[], complex zlens[], double t0, double u0, double tE, double s2, double q2, double alpha, double s3, double q3, double psi, double rs, double xsCenter, double ysCenter) {
@@ -805,7 +805,7 @@ void TripleLensing::arrareaFunc(double *area){
 
 
 double TripleLensing::arrTripleMag(double xsCenter, double ysCenter, double rs) {
-    VBBinaryLensing VBBL;
+    // VBBinaryLensing VBBL;
 
     finalNPS = 0;
     rho2 = rs * rs;
@@ -1534,7 +1534,7 @@ double TripleLensing::tripleQuatrapoleTest(double xs, double ys, double rs) {
     // printf("in tripleQuatrapoleTest, xs, ys = %f, %f\n", xs, ys);
     polynomialCoefficients(xs, ys, coefficients);
     // for (int i = 0; i<DEGREE; i++) printf("coe %d = %f %f\n", i, coefficients[i].re, coefficients[i].im);
-    VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+    cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
     // for (int i = 0; i<DEGREE; i++) printf("zr %d = %f %f\n", i, zr[i].re, zr[i].im);
 
 
@@ -1628,7 +1628,7 @@ double TripleLensing::TriplePS(double xs, double ys) {
     int total_parity = 0, flaglist[DEGREE], absdzslist[DEGREE];
 
     polynomialCoefficients(xs, ys, coefficients);
-    VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+    cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
     muTotal = 0.0;
     nimages = 0;
     for (int i = 0; i < DEGREE; i++) {
@@ -1707,7 +1707,7 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
     ys = ysCenter;
     // polynomialCoefficients(mlens, zlens, xs, ys, coefficients, NLENS, DEGREE);
     polynomialCoefficients(xs, ys, coefficients);
-    VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+    cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
     for (int i = 0; i < DEGREE; i++) {
         // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
         flag = trueSolution(xs, ys, zr[i], &mu);
@@ -1727,7 +1727,7 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
         ys = ysCenter + rs * sin(phi);
         // polynomialCoefficients(mlens, zlens, xs, ys, coefficients, NLENS, DEGREE);
         polynomialCoefficients(xs, ys, coefficients);
-        VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+        cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
         nimages = 0;
         for (int i = 0; i < DEGREE; i++) {
             // flag = trueSolution(mlens, zlens, xs, ys, zr[i], &mu, &lambda1, &lambda2, &thetaJ, NLENS, &J1, &J2, &dJ, &J3);
@@ -1745,31 +1745,29 @@ void TripleLensing::outImgPoints(double xsCenter, double ysCenter, double rs, in
     fprintf(stderr, " ... done.\n");
 }
 
-//output in two files the triple critical curves and caustics 2020.09.08
-void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens, int npnt)
-{
+// //output in two files the triple critical curves and caustics 2020.09.08
+// void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens, int npnt)
+// {
 
-    _sols *track;
+//     _sols *track;
 
-    track = VBBL.outCritTriple(mlens, zlens, npnt, nlens);
+//     track = outCritTriple(mlens, zlens, npnt, nlens);
 
-    FILE *fp;
+//     FILE *fp;
 
-    fp = fopen("data/_allTracks.dat", "w");
-    for (_curve *c = track->first; c; c = c->next) { //curves
-        fprintf(fp, "%d ", c->length);
-    }
-    fprintf(fp, "\n");
+//     fp = fopen("data/_allTracks.dat", "w");
+//     for (_curve *c = track->first; c; c = c->next) { //curves
+//         fprintf(fp, "%d ", c->length);
+//     }
+//     fprintf(fp, "\n");
 
-    for (_curve *c = track->first; c; c = c->next) { //curves
-        for (_point *p = c->first; p; p = p->next) { //point
-            fprintf(fp, "%f %f %f %f ", p->ds, p->dJ, p->x1, p->x2);// caustics x, caustics y, critical x, critical y
-        }
-    }
-    fclose(fp);
-
-
-}
+//     for (_curve *c = track->first; c; c = c->next) { //curves
+//         for (_point *p = c->first; p; p = p->next) { //point
+//             fprintf(fp, "%f %f %f %f ", p->ds, p->dJ, p->x1, p->x2);// caustics x, caustics y, critical x, critical y
+//         }
+//     }
+//     fclose(fp);
+// }
 
 
 // #define _c_parity \
@@ -1885,7 +1883,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
         ys = ysCenter + rs * sin(phi);
 
         polynomialCoefficients(xs, ys, coefficients);
-        VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+        cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
         // first point in all solution tracks
         tempProv = new _curve;
@@ -2041,7 +2039,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
 
             // polynomialCoefficients(mlens, zlens, xs, ys, coefficients, NLENS, DEGREE);
             polynomialCoefficients(xs, ys, coefficients);
-            VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+            cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
             delete Prov2;
             Prov2 = new _curve; // use to store the ten solutions in current phi
@@ -2290,7 +2288,7 @@ _sols *TripleLensing::outputTracks_v2_savehalf(double xsCenter, double ysCenter,
             if ( (j % 2) == 1 ) {
                 // polynomialCoefficients(mlens, zlens, xs, ys, coefficients, NLENS, DEGREE);
                 polynomialCoefficients(xs, ys, coefficients);
-                VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+                cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
                 delete Prov2;
                 Prov2 = new _curve;
                 tempProv = new _curve;
@@ -5319,148 +5317,148 @@ void saveTracks(_sols * track, int nphi)
 //     fclose(fileImage);
 // }
 
-void get_crit_caus(double mlens[], complex zlens[], int nlens, int NPS, double * criticalx, double * criticaly, double * causticsx, double * causticsy, int *numcritical) {
+// void get_crit_caus(double mlens[], complex zlens[], int nlens, int NPS, double * criticalx, double * criticaly, double * causticsx, double * causticsy, int *numcritical) {
 
-    // double resxy[4*NPS+2]; //wrong
-    double resxy[40 * NPS];
-    double Zlens[nlens * 2];
-    int i;
-    for (i = 0; i < nlens; i++) {
-        Zlens[i] = zlens[i].re;
-        Zlens[i + nlens] = zlens[i].im;
-    }
-    outputCriticalTriple_list(resxy, mlens, Zlens, nlens, NPS);
-    fprintf(stderr, "out of outputCriticalTriple_list\n");
-    int numcrit = (int)resxy[0];
-    *numcritical = numcrit;
-    fprintf(stderr, "%d numcrit\n", numcrit);
-    int offset = 2 * numcrit + 1;
-    for (i = 0; i < numcrit; i++) {
-        criticalx[i] = resxy[2 * i + 1];
-        criticaly[i] = resxy[2 * i + 2];
-        causticsx[i] = resxy[offset + 2 * i + 1];
-        causticsy[i] = resxy[offset + 2 * i + 2];
-    }
-}
-
-
-//output in two files the triple critical curves and caustics
-void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS)
-{
-    // VBBinaryLensing VBBL;
-    // double allxys[4*NPS+2];
-    complex Zlens[nlens];
-    int i;
-    for (i = 0; i < nlens; i++) {
-        Zlens[i] = complex(zlens[i], zlens[i + nlens]);
-    }
-
-    int ncurves = 0;
-    int ncritical = 0;
-    _sols *criticalCurves;
-
-    criticalCurves = VBBL.PlotCritTriple(mlens, Zlens, NPS, nlens);
-
-    // check how many closed critical curves we have
-    // first halfs are critical curves
-    ncritical = criticalCurves->length / 2; // number of closed critical curves
-    // allxys[0] = ncritical;
-    // fprintf(stderr, "ncritical %d \n", ncritical);
-
-    // int numcnt_at_each_single_caus[ncritical] = {0};
-    int* numcnt_at_each_single_caus = new int[ncritical];
-
-#ifdef VERBOSE
-    printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
-#endif
-
-    // write out the critical curves and caustics separately
-
-    ncurves = 0;
-    int count_critical = 0;
-    int count_caustic = 0;
-    for (_curve *c = criticalCurves->first; c; c = c->next) {
-        //int npoints = 0;
-        ncurves++;
-
-        // second half, caustics
-        if (ncurves > ncritical) {      // second halfs are caustics
-            for (_point *p = c->first; p; p = p->next) {
-                //npoints++;
-
-                count_caustic ++;
-                allxys[2 * count_critical + 1 + 2 * count_caustic - 1] = p->x1;
-                allxys[2 * count_critical + 1 + 2 * count_caustic] = p->x2;
-            }
-        } else {
-            numcnt_at_each_single_caus[ncurves - 1] = c->length;
-            // first half, critical curves
-            for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
-                count_critical ++;
-                allxys[count_critical * 2 - 1] = p->x1;
-                allxys[count_critical * 2] = p->x2;
-            }
-        }
-
-    }
-    allxys[0] = count_critical;
-    allxys[2 * count_critical + 1] = count_caustic;
-
-    // save ncritical the and number of points at each critical points // 2021.10.05
-    allxys[2 * count_critical + 1 + 2 * count_caustic + 1] = ncritical;
-    for (int i = 0; i < ncritical; i++) {
-        allxys[2 * count_critical + 2 * count_caustic + 3 + i] = numcnt_at_each_single_caus[i];
-    }
-
-    delete[] numcnt_at_each_single_caus;
-
-}
+//     // double resxy[4*NPS+2]; //wrong
+//     double resxy[40 * NPS];
+//     double Zlens[nlens * 2];
+//     int i;
+//     for (i = 0; i < nlens; i++) {
+//         Zlens[i] = zlens[i].re;
+//         Zlens[i + nlens] = zlens[i].im;
+//     }
+//     outputCriticalTriple_list(resxy, mlens, Zlens, nlens, NPS);
+//     fprintf(stderr, "out of outputCriticalTriple_list\n");
+//     int numcrit = (int)resxy[0];
+//     *numcritical = numcrit;
+//     fprintf(stderr, "%d numcrit\n", numcrit);
+//     int offset = 2 * numcrit + 1;
+//     for (i = 0; i < numcrit; i++) {
+//         criticalx[i] = resxy[2 * i + 1];
+//         criticaly[i] = resxy[2 * i + 2];
+//         causticsx[i] = resxy[offset + 2 * i + 1];
+//         causticsy[i] = resxy[offset + 2 * i + 2];
+//     }
+// }
 
 
-//output in two files the triple critical curves and caustics
-void outputCriticalTriple(double mlens[], complex zlens[], int nlens, int npnt)
-{
-    fprintf(stderr, "Generating critical curves and caustics ...");
-    // VBBinaryLensing VBBL;
-    int ncurves = 0;
-    int ncritical = 0;
-    _sols *criticalCurves;
-    FILE *fcritical, *fcaustics;
-    criticalCurves = VBBL.PlotCritTriple(mlens, zlens, npnt, nlens);
-    fcritical = fopen("./data/critical_curves.dat", "w");
-    fcaustics = fopen("./data/caustics.dat", "w");
+// //output in two files the triple critical curves and caustics
+// void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS)
+// {
+//     // VBBinaryLensing VBBL;
+//     // double allxys[4*NPS+2];
+//     complex Zlens[nlens];
+//     int i;
+//     for (i = 0; i < nlens; i++) {
+//         Zlens[i] = complex(zlens[i], zlens[i + nlens]);
+//     }
 
-    // check how many closed critical curves we have
-    // first halfs are critical curves
-    ncritical = criticalCurves->length / 2; // number of closed critical curves
-#ifdef VERBOSE
-    printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
-#endif
+//     int ncurves = 0;
+//     int ncritical = 0;
+//     _sols *criticalCurves;
 
-    // write out the critical curves and caustics separately
+//     criticalCurves = VBBL.PlotCritTriple(mlens, Zlens, NPS, nlens);
 
-    ncurves = 0;
-    for (_curve *c = criticalCurves->first; c; c = c->next) {
-        int npoints = 0;
+//     // check how many closed critical curves we have
+//     // first halfs are critical curves
+//     ncritical = criticalCurves->length / 2; // number of closed critical curves
+//     // allxys[0] = ncritical;
+//     // fprintf(stderr, "ncritical %d \n", ncritical);
 
-        ncurves++;
+//     // int numcnt_at_each_single_caus[ncritical] = {0};
+//     int* numcnt_at_each_single_caus = new int[ncritical];
 
-        if (ncurves > ncritical) {      // second halfs are caustics
-            for (_point *p = c->first; p; p = p->next) {
-                // fprintf(stderr,  "outputCriticalTriple, %.10lf %.10lf\n", p->x1, p->x2);
-                fprintf(fcaustics, "%.10lf %.10lf\n", p->x1, p->x2);
+// #ifdef VERBOSE
+//     printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
+// #endif
 
-                npoints++;
-            }
-        } else {
-            for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
-                fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
-            }
-        }
-    }
-    fclose(fcritical);  fclose(fcaustics);
-    fprintf(stderr, " ... done.\n");
-}
+//     // write out the critical curves and caustics separately
+
+//     ncurves = 0;
+//     int count_critical = 0;
+//     int count_caustic = 0;
+//     for (_curve *c = criticalCurves->first; c; c = c->next) {
+//         //int npoints = 0;
+//         ncurves++;
+
+//         // second half, caustics
+//         if (ncurves > ncritical) {      // second halfs are caustics
+//             for (_point *p = c->first; p; p = p->next) {
+//                 //npoints++;
+
+//                 count_caustic ++;
+//                 allxys[2 * count_critical + 1 + 2 * count_caustic - 1] = p->x1;
+//                 allxys[2 * count_critical + 1 + 2 * count_caustic] = p->x2;
+//             }
+//         } else {
+//             numcnt_at_each_single_caus[ncurves - 1] = c->length;
+//             // first half, critical curves
+//             for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
+//                 count_critical ++;
+//                 allxys[count_critical * 2 - 1] = p->x1;
+//                 allxys[count_critical * 2] = p->x2;
+//             }
+//         }
+
+//     }
+//     allxys[0] = count_critical;
+//     allxys[2 * count_critical + 1] = count_caustic;
+
+//     // save ncritical the and number of points at each critical points // 2021.10.05
+//     allxys[2 * count_critical + 1 + 2 * count_caustic + 1] = ncritical;
+//     for (int i = 0; i < ncritical; i++) {
+//         allxys[2 * count_critical + 2 * count_caustic + 3 + i] = numcnt_at_each_single_caus[i];
+//     }
+
+//     delete[] numcnt_at_each_single_caus;
+
+// }
+
+
+// //output in two files the triple critical curves and caustics
+// void outputCriticalTriple(double mlens[], complex zlens[], int nlens, int npnt)
+// {
+//     fprintf(stderr, "Generating critical curves and caustics ...");
+//     // VBBinaryLensing VBBL;
+//     int ncurves = 0;
+//     int ncritical = 0;
+//     _sols *criticalCurves;
+//     FILE *fcritical, *fcaustics;
+//     criticalCurves = VBBL.PlotCritTriple(mlens, zlens, npnt, nlens);
+//     fcritical = fopen("./data/critical_curves.dat", "w");
+//     fcaustics = fopen("./data/caustics.dat", "w");
+
+//     // check how many closed critical curves we have
+//     // first halfs are critical curves
+//     ncritical = criticalCurves->length / 2; // number of closed critical curves
+// #ifdef VERBOSE
+//     printf("I am in outputCriticalTriple, Number of closed critical curves: %d\n", ncritical);
+// #endif
+
+//     // write out the critical curves and caustics separately
+
+//     ncurves = 0;
+//     for (_curve *c = criticalCurves->first; c; c = c->next) {
+//         int npoints = 0;
+
+//         ncurves++;
+
+//         if (ncurves > ncritical) {      // second halfs are caustics
+//             for (_point *p = c->first; p; p = p->next) {
+//                 // fprintf(stderr,  "outputCriticalTriple, %.10lf %.10lf\n", p->x1, p->x2);
+//                 fprintf(fcaustics, "%.10lf %.10lf\n", p->x1, p->x2);
+
+//                 npoints++;
+//             }
+//         } else {
+//             for (_point *p = c->first; p; p = p->next) { // first halfs are critical curves
+//                 fprintf(fcritical, "%.10lf %.10lf\n", p->x1, p->x2);
+//             }
+//         }
+//     }
+//     fclose(fcritical);  fclose(fcaustics);
+//     fprintf(stderr, " ... done.\n");
+// }
 
 
 
@@ -6098,7 +6096,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
 
                 //res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens, DEGREE)
                 polynomialCoefficients(xs, ys, coefficients);
-                VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+                cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
                 if (j == 0){
                     curr_total_parity = 0; curr_nimages = 0;
@@ -6191,7 +6189,7 @@ void TripleLensing::arroutputTracks(double xsCenter, double ysCenter, double rs,
                 ys = ysCenter + rs * sin(phi);             
                 // res = sol_len_equ_cpp(self.mlens, self.zlens, xs, ys, self.nlens, DEGREE)
                 polynomialCoefficients(xs, ys, coefficients);
-                VBBL.cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
+                cmplx_roots_gen(zr, coefficients, DEGREE, true, true);
 
                 //# for j > 0, you need to attached the closest solution to the existing allSolutions
                 curr_total_parity = 0; curr_nimages = 0;
@@ -7429,3 +7427,1655 @@ int one_parity(double mu){
     return mu>0?1:-1;
 }
 
+
+
+
+void TripleLensing::cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_roots_after, bool use_roots_as_starting_points) {
+    //roots - array which will hold all roots that had been found.
+    //If the flag 'use_roots_as_starting_points' is set to
+    //.true., then instead of point(0, 0) we use value from
+    //this array as starting point for cmplx_laguerre
+
+    //poly - is an array of polynomial cooefs, length = degree + 1,
+    //poly[0] x ^ 0 + poly[1] x ^ 1 + poly[2] x ^ 2 + ...
+
+    //degree - degree of the polynomial and size of 'roots' array
+
+    //polish_roots_after - after all roots have been found by dividing
+    //original polynomial by each root found,
+    //you can opt in to polish all roots using full
+    //polynomial
+
+    //use_roots_as_starting_points - usually we start Laguerre's
+    //method from point(0, 0), but you can decide to use the
+    //values of 'roots' array as starting point for each new
+    //root that is searched for.This is useful if you have
+    //very rough idea where some of the roots can be.
+    //
+
+    complex poly2[MAXM];
+    static int i, j, n, iter;
+    bool success;
+    complex coef, prev;
+
+    if (!use_roots_as_starting_points) {
+        for (int jj = 0; jj < degree; jj++) {
+            roots[jj] = complex(0, 0);
+        }
+    }
+
+    for (j = 0; j <= degree; j++) poly2[j] = poly[j];
+
+    // Don't do Laguerre's for small degree polynomials
+    if (degree <= 1) {
+        if (degree == 1) roots[0] = -poly[0] / poly[1];
+        return;
+    }
+
+    for (n = degree; n >= 3; n--) {
+        cmplx_laguerre2newton(poly2, n, &roots[n - 1], iter, success, 2);
+        if (!success) {
+            roots[n - 1] = complex(0, 0);
+            cmplx_laguerre(poly2, n, &roots[n - 1], iter, success);
+        }
+
+        // Divide by root
+        coef = poly2[n];
+        for (i = n - 1; i >= 0; i--) {
+            prev = poly2[i];
+            poly2[i] = coef;
+            coef = prev + roots[n - 1] * coef;
+        }
+    }
+
+
+    //Find the to last 2 roots
+    solve_quadratic_eq(roots[1], roots[0], poly2);
+    //cmplx_laguerre2newton(poly2, 2, &roots[1], iter, success, 2);
+    //if (!success) {
+    //  solve_quadratic_eq(roots[1], roots[0], poly2);
+    //}
+    //else {
+    //  roots[0] = -(roots[1] + poly2[1] / poly2[2]); // Viete's Formula for the last root
+    //}
+
+
+
+    if (polish_roots_after) {
+        for (n = 0; n < degree; n++) {
+            cmplx_newton_spec(poly, degree, &roots[n], iter, success); // Polish roots with full polynomial
+        }
+    }
+
+    return;
+}
+
+void TripleLensing::solve_quadratic_eq(complex &x0, complex &x1, complex *poly) {
+    complex a, b, c, b2, delta;
+    a = poly[2];
+    b = poly[1];
+    c = poly[0];
+    b2 = b * b;
+    delta = sqrt(b2 - 4 * a * c);
+    if (real(conj(b)*delta) >= 0) {
+        x0 = -0.5 * (b + delta);
+    }
+    else {
+        x0 = -0.5 * (b - delta);
+    }
+    if (x0 == complex(0., 0.)) {
+        x1 = complex(0., 0.);
+    }
+    else { //Viete's formula
+        x1 = c / x0;
+        x0 = x0 / a;
+    }
+    return;
+
+}
+
+void TripleLensing::solve_cubic_eq(complex &x0, complex &x1, complex &x2, complex *poly) {
+    //Cubic equation solver for comples polynomial (degree=3)
+    //http://en.wikipedia.org/wiki/Cubic_function   Lagrange's method
+    // poly is an array of polynomial cooefs, length = degree+1, poly[0] is constant
+    //  0               1               2           3
+    //poly[0] x^0 + poly[1] x^1 + poly[2] x^2 + poly[3] x^3
+    complex zeta = complex(-0.5, 0.8660254037844386);
+    complex zeta2 = complex(-0.5, -0.8660254037844386);
+    double third = 0.3333333333333333;
+    complex s0, s1, s2;
+    complex E1; //x0+x1+x2
+    complex E2; //x0*x1+x1*x2+x2*x0
+    complex E3; //x0*x1*x2
+    complex A, B, a_1, E12, delta, A2;
+
+    complex val, x;
+    a_1 = 1 / poly[3];
+    E1 = -poly[2] * a_1;
+    E2 = poly[1] * a_1;
+    E3 = -poly[0] * a_1;
+
+    s0 = E1;
+    E12 = E1 * E1;
+    A = 2.0 * E1 * E12 - 9.0 * E1 * E2 + 27.0 * E3;
+    B = E12 - 3.0 * E2;
+    //quadratic equation z^2 - A * z + B^3 where roots are equal to s1^3 and s2^3
+    A2 = A * A;
+    delta = sqrt(A2 - 4.0 * (B * B * B));
+    if (real(conj(A) * delta) >= 0.0) { // scalar product to decide the sign yielding bigger magnitude
+        s1 = cbrt(0.5 * (A + delta));
+    }
+    else
+    {
+        s1 = cbrt(0.5 * (A - delta));
+    }
+    if (s1.re == 0.0 && s1.im == 0.0) {
+        s2 = complex(0, 0);
+    }
+    else {
+        s2 = B / s1;
+    }
+
+    x0 = third * (s0 + s1 + s2);
+    x1 = third * (s0 + s1 * zeta2 + s2 * zeta);
+    x2 = third * (s0 + s1 * zeta + s2 * zeta2);
+
+    return;
+
+}
+
+void TripleLensing::cmplx_laguerre(complex *poly, int degree, complex *root, int &iter, bool &success) {
+    //Subroutine finds one root of a complex polynomial using
+    //Laguerre's method. In every loop it calculates simplified
+    //Adams' stopping criterion for the value of the polynomial.
+    //
+    //Uses 'root' value as a starting point(!!!!!)
+    //Remember to initialize 'root' to some initial guess or to
+    //point(0, 0) if you have no prior knowledge.
+    //
+    //poly - is an array of polynomial cooefs
+    //
+    //length = degree + 1, poly(1) is constant
+    //  1              2                3
+    //poly(1) x ^ 0 + poly(2) x ^ 1 + poly(3) x ^ 2 + ...
+    //
+    //degree - a degree of the polynomial
+    //
+    //root - input: guess for the value of a root
+    //output : a root of the polynomial
+    //iter - number of iterations performed(the number of polynomial
+    //evaluations and stopping criterion evaluation)
+    //
+    //success - is false if routine reaches maximum number of iterations
+    //
+    //For a summary of the method go to :
+    //http://en.wikipedia.org/wiki/Laguerre's_method
+    //
+    static int FRAC_JUMP_EVERY = 10;
+    const int FRAC_JUMP_LEN = 10;
+    double FRAC_JUMPS[FRAC_JUMP_LEN] = { 0.64109297,
+                                         0.91577881, 0.25921289, 0.50487203,
+                                         0.08177045, 0.13653241, 0.306162,
+                                         0.37794326, 0.04618805, 0.75132137
+                                       }; // some random numbers
+
+    double faq; //jump length
+    // double FRAC_ERR = 2.0e-15; //Fractional Error for double precision
+    complex p, dp, d2p_half; //value of polynomial, 1st derivative, and 2nd derivative
+    // static int i, j, k;
+    static int i, k;
+    bool good_to_go;
+    complex denom, denom_sqrt, dx, newroot;
+    double ek, absroot, abs2p;
+    complex fac_newton, fac_extra, F_half, c_one_nth;
+    double one_nth, n_1_nth, two_n_div_n_1;
+    complex c_one = complex(1, 0);
+    complex zero = complex(0, 0);
+    double stopping_crit2;
+
+    //--------------------------------------------------------------------------------------------
+
+    // //EXTREME FAILSAFE! not usually needed but kept here just to be on the safe side. Takes care of first coefficient being 0
+    // if (false) {
+    //  if (degree < 0) {
+    //      printf("Error: cmplx_laguerre: degree<0");
+    //      return;
+    //  }
+    //  if (poly[degree] == complex(0, 0)) {
+    //      if (degree == 0) return;
+    //      cmplx_laguerre(poly, degree - 1, root, iter, success);
+    //  }
+    //  if (degree <= 1) {
+    //      if (degree == 0) {
+    //          success = false; // we just checked if poly[0] is zero and it isnt
+    //          printf("Warning: cmplx_laguerre: degree = 0 and poly[0] does not equal zero, no roots");
+    //          return;
+    //      }
+    //      else {
+    //          *root = -poly[0] / poly[1];
+    //          return;
+    //      }
+    //  }
+    // } // End of EXTREME failsafe
+
+    good_to_go = false;
+    one_nth = 1.0 / degree;
+    n_1_nth = (degree - 1.0) * one_nth;
+    two_n_div_n_1 = 2.0 / n_1_nth;
+    c_one_nth = complex(one_nth, 0.0);
+    for (i = 1; i <= MAXIT; i++) {
+        ek = abs(poly[degree]); // Preparing stopping criterion
+        absroot = abs(*root);
+        // Calculate the values of polynomial and its first and second derivatives
+        p = poly[degree];
+        dp = zero;
+        d2p_half = zero;
+        for (k = degree - 1; k >= 0; k--) {
+            d2p_half = dp + d2p_half * (*root);
+            dp = p + dp * *root;
+            p = poly[k] + p * (*root); // b_k
+            //Adams, Duane A., 1967, "A stopping criterion for polynomial root finding",
+            //Communications of the ACM, Volume 10 Issue 10, Oct. 1967, p. 655
+            //ftp://reports.stanford.edu/pub/cstr/reports/cs/tr/67/55/CS-TR-67-55.pdf
+            //Eq 8.
+            ek = absroot * ek + abs(p);
+        }
+        iter += 1;
+
+        abs2p = real(conj(p) * p);
+        if (abs2p == 0) return;
+        stopping_crit2 = pow(FRAC_ERR * ek, 2.0);
+        if (abs2p < stopping_crit2) {
+            //(simplified a little Eq. 10 of Adams 1967)
+            //do additional iteration if we are less than 10x from stopping criterion
+            if (abs2p < 0.01 * stopping_crit2) {
+                return; // we are at a good place!
+            }
+            else {
+                good_to_go = true;
+            }
+        }
+        else {
+            good_to_go = false;
+        }
+
+        faq = 1.0;
+        denom = zero;
+        if (dp != zero) {
+            fac_newton = p / dp;
+            fac_extra = d2p_half / dp;
+            F_half = fac_newton * fac_extra;
+            denom_sqrt = sqrt(c_one - two_n_div_n_1 * F_half);
+
+            //NEXT LINE PROBABLY CAN BE COMMENTED OUT. Check if compiler outputs positive real
+            if (real(denom_sqrt) >= 0.0) {
+                denom = c_one_nth + n_1_nth * denom_sqrt;
+            }
+            else {
+                denom = c_one_nth - n_1_nth * denom_sqrt;
+            }
+        }
+
+        if (denom == 0) {
+            dx = (absroot + 1.0) * expcmplx(complex(0.0, FRAC_JUMPS[i % FRAC_JUMP_LEN] * 2 * M_PI));
+        }
+        else {
+            dx = fac_newton / denom;
+        }
+
+
+        newroot = *root - dx;
+        if (newroot == *root) return; //nothing changes so return
+        if (good_to_go) {
+            *root = newroot;
+            return;
+        }
+        if (i % FRAC_JUMP_EVERY == 0) { //decide whether to do a jump of modified length (to break cycles)
+            faq = FRAC_JUMPS[(i / FRAC_JUMP_EVERY - 1) % FRAC_JUMP_LEN];
+            newroot = *root - faq * dx; // do jump of semi-random length
+        }
+        *root = newroot;
+    }
+    success = false; // too many iterations here
+    return;
+}
+
+void TripleLensing::cmplx_newton_spec(complex *poly, int degree, complex *root, int &iter, bool &success) {
+    //Subroutine finds one root of a complex polynomial
+    //Newton's method. It calculates simplified Adams' stopping
+    //criterion for the value of the polynomial once per 10 iterations (!),
+    //after initial iteration. This is done to speed up calculations
+    //when polishing roots that are known preety well, and stopping
+    // criterion does significantly change in their neighborhood.
+
+    //Uses 'root' value as a starting point (!!!!!)
+    //Remember to initialize 'root' to some initial guess.
+    //Do not initilize 'root' to point (0,0) if the polynomial
+    //coefficients are strictly real, because it will make going
+    //to imaginary roots impossible.
+
+    // poly - is an array of polynomial cooefs
+    //  length = degree+1, poly(1) is constant
+    //0                 1               2
+    //poly[0] x^0 + poly[1] x^1 + poly[2] x^2 + ...
+    //degree - a degree of the polynomial
+    // root - input: guess for the value of a root
+    //        output: a root of the polynomial
+    //iter - number of iterations performed (the number of polynomial evaluations)
+    //success - is false if routine reaches maximum number of iterations
+
+    //For a summary of the method go to:
+    //http://en.wikipedia.org/wiki/Newton's_method
+
+    int FRAC_JUMP_EVERY = 10;
+    const int FRAC_JUMP_LEN = 10;
+    double FRAC_JUMPS[FRAC_JUMP_LEN] = { 0.64109297, 0.91577881, 0.25921289, 0.50487203, 0.08177045, 0.13653241, 0.306162, 0.37794326, 0.04618805, 0.75132137 }; //some random numbers
+    double faq; //jump length
+    // double FRAC_ERR = 2e-15;
+    complex p; //value of polynomial
+    complex dp; //value of 1st derivative
+    int i, k;
+    bool good_to_go;
+    complex dx, newroot;
+    double ek, absroot, abs2p;
+    complex zero = complex(0, 0);
+    double stopping_crit2;
+
+    iter = 0;
+    success = true;
+
+    // //the next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version
+    // // if (false) { //change false to true if you would like to use caustion about haveing first coefficient == 0
+    //  if (degree < 0) {
+    //      printf("Error: cmplx_newton_spec: degree<0");
+    //      return;
+    //  }
+    //  if (poly[degree] == zero) {
+    //      if (degree == 0) return;
+    //      cmplx_newton_spec(poly, degree, root, iter, success);
+    //      return;
+    //  }
+    //  if (degree <= 1) {
+    //      if (degree == 0) {
+    //          success = false;
+    //          printf("Warning: cmplx_newton_spec: degree=0 and poly[0]!=0, no roots");
+    //          return;
+    //      }
+    //      else {
+    //          *root = -poly[0] / poly[1];
+    //          return;
+    //      }
+    //  }
+    // }
+    //end EXTREME Failsafe
+
+    good_to_go = false;
+
+    stopping_crit2 = 0.0; //value not important, will be initialized anyway on the first loop
+    for (i = 1; i <= MAXIT; i++) {
+        faq = 1.0;
+        //prepare stoping criterion
+        //calculate value of polynomial and its first two derivatives
+        p = poly[degree];
+        dp = zero;
+        if (i % 10 == 1) { //calculate stopping criterion every tenth iteration
+            ek = abs(poly[degree]);
+            absroot = abs(*root);
+            for (k = degree - 1; k >= 0; k--) {
+                dp = p + dp * (*root);
+                p = poly[k] + p * (*root); //b_k
+                //Adams, Duane A., 1967, "A stopping criterion for polynomial root finding",
+                //Communications of ACM, Volume 10 Issue 10, Oct. 1967, p. 655
+                //ftp://reports.stanford.edu/pub/cstr/reports/cs/tr/67/55/CS-TR-67-55.pdf
+                //Eq. 8
+                ek = absroot * ek + abs(p);
+            }
+            stopping_crit2 = pow(FRAC_ERR * ek, 2);
+        }
+        else { // calculate just the value and derivative
+            for (k = degree - 1; k >= 0; k--) { //Horner Scheme, see for eg. Numerical Recipes Sec. 5.3 how to evaluate polynomials and derivatives
+                dp = p + dp * (*root);
+                p = poly[k] + p * (*root);
+            }
+        }
+
+        iter = iter + 1;
+
+        abs2p = real(conj(p) * p);
+        if (abs2p == 0.0) return;
+        if (abs2p < stopping_crit2) { //simplified a little Eq. 10 of Adams 1967
+            if (dp == zero) return; //if we have problem with zero, but we are close to the root, just accept
+            //do additional iteration if we are less than 10x from stopping criterion
+            if (abs2p < 0.01 * stopping_crit2) return; //return immediatley because we are at very good place
+            else {
+                good_to_go = true; //do one iteration more
+            }
+        }
+
+        else {
+            good_to_go = false; //reset if we are outside the zone of the root
+        }
+        if (dp == zero) {
+            //problem with zero
+            dx = (abs(*root) + 1.0) * expcmplx(complex(0.0, FRAC_JUMPS[i % FRAC_JUMP_LEN] * 2 * M_PI));
+        }
+        else {
+            dx = p / dp; // Newton method, see http://en.wikipedia.org/wiki/Newton's_method
+        }
+        newroot = *root - dx;
+        if (newroot == *root) return; //nothing changes -> return
+        if (good_to_go) {//this was jump already after stopping criterion was met
+            *root = newroot;
+            return;
+        }
+        if (i % FRAC_JUMP_EVERY == 0) { // decide whether to do a jump of modified length (to break cycles)
+            faq = FRAC_JUMPS[(i / FRAC_JUMP_EVERY - 1) % FRAC_JUMP_LEN];
+            newroot = *root - faq * dx;
+        }
+        *root = newroot;
+    }
+    success = false;
+    return;
+    //too many iterations here
+}
+
+void TripleLensing::cmplx_laguerre2newton(complex *poly, int degree, complex *root, int &iter, bool &success, int starting_mode) {
+    //Subroutine finds one root of a complex polynomial using
+    //Laguerre's method, Second-order General method and Newton's
+    //method - depending on the value of function F, which is a
+    //combination of second derivative, first derivative and
+    //value of polynomial [F=-(p"*p)/(p'p')].
+
+    //Subroutine has 3 modes of operation. It starts with mode=2
+    //which is the Laguerre's method, and continues until F
+    //becames F<0.50, at which point, it switches to mode=1,
+    //i.e., SG method (see paper). While in the first two
+    //modes, routine calculates stopping criterion once per every
+    //iteration. Switch to the last mode, Newton's method, (mode=0)
+    //happens when becomes F<0.05. In this mode, routine calculates
+    //stopping criterion only once, at the beginning, under an
+    //assumption that we are already very close to the root.
+    //If there are more than 10 iterations in Newton's mode,
+    //it means that in fact we were far from the root, and
+    //routine goes back to Laguerre's method (mode=2).
+
+    //Uses 'root' value as a starting point (!!!!!)
+    //Remember to initialize 'root' to some initial guess or to
+    //point (0,0) if you have no prior knowledge.
+
+    //poly - is an array of polynomial cooefs
+    //  0                   1               2
+    //  poly[0] x^0 + poly[1] x^1 + poly[2] x^2
+    //degree - a degree of the polynomial
+    //root - input: guess for the value of a root
+    //      output: a root of the polynomial
+    //iter - number of iterations performed (the number of polynomial
+    //       evaluations and stopping criterion evaluation)
+    //success - is false if routine reaches maximum number of iterations
+    //starting_mode - this should be by default = 2. However if you
+    //                choose to start with SG method put 1 instead.
+    //                Zero will cause the routine to
+    //                start with Newton for first 10 iterations, and
+    //                then go back to mode 2.
+
+    //For a summary of the method see the paper: Skowron & Gould (2012)
+
+    int FRAC_JUMP_EVERY = 10;
+    const int FRAC_JUMP_LEN = 10;
+    double FRAC_JUMPS[FRAC_JUMP_LEN] = { 0.64109297, 0.91577881, 0.25921289, 0.50487203, 0.08177045, 0.13653241, 0.306162, 0.37794326, 0.04618805, 0.75132137 }; //some random numbers
+
+    double faq; //jump length
+    // double FRAC_ERR = 2.0e-15;
+
+    complex p; //value of polynomial
+    complex dp; //value of 1st derivative
+    complex d2p_half; //value of 2nd derivative
+    int i, j, k;
+    bool good_to_go;
+    //complex G, H, G2;
+    complex denom, denom_sqrt, dx, newroot;
+    double ek, absroot, abs2p, abs2_F_half;
+    complex fac_netwon, fac_extra, F_half, c_one_nth;
+    double one_nth, n_1_nth, two_n_div_n_1;
+    int mode;
+    complex c_one = complex(1, 0);
+    complex zero = complex(0, 0);
+    double stopping_crit2;
+
+    iter = 0;
+    success = true;
+    stopping_crit2 = 0; //value not important, will be initialized anyway on the first loop
+
+    // //next if block is an EXTREME failsafe, not usually needed, and thus turned off in this version.
+    // if (false) {//change false to true if you would like to use caution about having first coefficent == 0
+    //  if (degree < 0) {
+    //      printf("Error: cmplx_laguerre2newton: degree < 0");
+    //      return;
+    //  }
+    //  if (poly[degree] == zero) {
+    //      if (degree == 0) return;
+    //      cmplx_laguerre2newton(poly, degree, root, iter, success, starting_mode);
+    //      return;
+    //  }
+    //  if (degree <= 1) {
+    //      if (degree == 0) {//// we know from previous check that poly[0] not equal zero
+    //          success = false;
+    //          printf("Warning: cmplx_laguerre2newton: degree = 0 and poly[0] = 0, no roots");
+    //          return;
+    //      }
+    //      else {
+    //          *root = -poly[0] / poly[1];
+    //          return;
+    //      }
+    //  }
+    // }
+    // //end EXTREME failsafe
+
+    j = 1;
+    good_to_go = false;
+
+    mode = starting_mode; // mode = 2 full laguerre, mode = 1 SG, mode = 0 newton
+
+    for (;;) { //infinite loop, just to be able to come back from newton, if more than 10 iteration there
+
+        ////////////
+        ///mode 2///
+        ////////////
+
+        if (mode >= 2) {//Laguerre's method
+            one_nth = 1.0 / (degree); ///
+            n_1_nth = (degree - 1) * one_nth; ////
+            two_n_div_n_1 = 2.0 / n_1_nth;
+            c_one_nth = complex(one_nth, 0.0);
+
+            for (i = 1; i <= MAXIT; i++) {
+                faq = 1.0;
+
+                //prepare stoping criterion
+                ek = abs(poly[degree]);
+                absroot = abs(*root);
+                //calculate value of polynomial and its first two derivative
+                p = poly[degree];
+                dp = zero;
+                d2p_half = zero;
+                for (k = degree; k >= 1; k--) {//Horner Scheme, see for eg.  Numerical Recipes Sec. 5.3 how to evaluate polynomials and derivatives
+                    d2p_half = dp + d2p_half * (*root);
+                    dp = p + dp * (*root);
+                    p = poly[k - 1] + p * (*root); // b_k
+                    //Adams, Duane A., 1967, "A stopping criterion for polynomial root finding",
+                    //Communications of the ACM, Volume 10 Issue 10, Oct. 1967, p. 655
+                    //ftp://reports.stanford.edu/pub/cstr/reports/cs/tr/67/55/CS-TR-67-55.pdf
+                    //Eq 8.
+                    ek = absroot * ek + abs(p);
+                }
+                abs2p = real(conj(p) * p); // abs(p)
+                iter = iter + 1;
+                if (abs2p == 0) return;
+
+                stopping_crit2 = pow(FRAC_ERR * ek, 2);
+                if (abs2p < stopping_crit2) {//(simplified a little Eq. 10 of Adams 1967)
+                    //do additional iteration if we are less than 10x from stopping criterion
+                    if (abs2p < 0.01 * stopping_crit2) return; // ten times better than stopping criterion
+                    //return immediately, because we are at very good place
+                    else {
+                        good_to_go = true; //do one iteration more
+                    }
+                }
+                else {
+                    good_to_go = false; //reset if we are outside the zone of the root
+                }
+
+                denom = zero;
+                if (dp != zero) {
+                    fac_netwon = p / dp;
+                    fac_extra = d2p_half / dp;
+                    F_half = fac_netwon * fac_extra;
+
+                    abs2_F_half = real(conj(F_half) * F_half);
+                    if (abs2_F_half <= 0.0625) {//F<0.50, F/2<0.25
+                        //go to SG method
+                        if (abs2_F_half <= 0.000625) {//F<0.05, F/2<0.02
+                            mode = 0; //go to Newton's
+                        }
+                        else {
+                            mode = 1; //go to SG
+                        }
+                    }
+
+                    denom_sqrt = sqrt(c_one - two_n_div_n_1 * F_half);
+
+                    //NEXT LINE PROBABLY CAN BE COMMENTED OUT
+                    if (real(denom_sqrt) > 0.0) {
+                        //real part of a square root is positive for probably all compilers. You can ù
+                        //test this on your compiler and if so, you can omit this check
+                        denom = c_one_nth + n_1_nth * denom_sqrt;
+                    }
+                    else {
+                        denom = c_one_nth - n_1_nth * denom_sqrt;
+                    }
+                }
+                if (denom == zero) {//test if demoninators are > 0.0 not to divide by zero
+                    dx = (abs(*root) + 1.0) + expcmplx(complex(0.0, FRAC_JUMPS[i % FRAC_JUMP_LEN] * 2 * M_PI)); //make some random jump
+                }
+                else {
+                    dx = fac_netwon / denom;
+                }
+                newroot = *root - dx;
+                if (newroot == *root) return; // nothing changes -> return
+                if (good_to_go) {//this was jump already after stopping criterion was met
+                    *root = newroot;
+                    return;
+                }
+                if (mode != 2) {
+                    *root = newroot;
+                    j = i + 1; //remember iteration index
+                    break; //go to Newton's or SG
+                }
+                if ((i % FRAC_JUMP_EVERY) == 0) { //decide whether to do a jump of modified length (to break cycles)
+                    faq = FRAC_JUMPS[((i / FRAC_JUMP_EVERY - 1) % FRAC_JUMP_LEN)];
+                    newroot = *root - faq * dx; // do jump of some semi-random length (0 < faq < 1)
+                }
+                *root = newroot;
+            } //do mode 2
+
+            if (i >= MAXIT) {
+                success = false;
+                return;
+            }
+        }
+
+        ////////////
+        ///mode 1///
+        ////////////
+
+        if (mode == 1) {//SECOND-ORDER GENERAL METHOD (SG)
+
+            for (i = j; i <= MAXIT; i++) {
+                faq = 1.0;
+                //calculate value of polynomial and its first two derivatives
+                p = poly[degree];
+                dp = zero;
+                d2p_half = zero;
+                if ((i - j) % 10 == 0) {
+                    //prepare stopping criterion
+                    ek = abs(poly[degree]);
+                    absroot = abs(*root);
+                    for (k = degree; k >= 1; k--) {//Horner Scheme, see for eg.  Numerical Recipes Sec. 5.3 how to evaluate polynomials and derivatives
+                        d2p_half = dp + d2p_half * (*root);
+                        dp = p + dp * (*root);
+                        p = poly[k - 1] + p * (*root); //b_k
+                        //Adams, Duane A., 1967, "A stopping criterion for polynomial root finding",
+                        //Communications of the ACM, Volume 10 Issue 10, Oct. 1967, p. 655
+                        //ftp://reports.stanford.edu/pub/cstr/reports/cs/tr/67/55/CS-TR-67-55.pdf
+                        //Eq 8.
+                        ek = absroot * ek + abs(p);
+                    }
+                    stopping_crit2 = pow(FRAC_ERR * ek, 2);
+                }
+                else {
+                    for (k = degree; k >= 1; k--) {//Horner Scheme, see for eg.  Numerical Recipes Sec. 5.3 how to evaluate polynomials and derivatives
+                        d2p_half = dp + d2p_half * (*root);
+                        dp = p + dp * (*root);
+                        p = poly[k - 1] + p * (*root); //b_k
+                    }
+                }
+                abs2p = real(conj(p) * p); //abs(p)**2
+                iter = iter + 1;
+                if (abs2p == 0.0) return;
+
+                if (abs2p < stopping_crit2) {//(simplified a little Eq. 10 of Adams 1967)
+                    if (dp == zero) return;
+                    //do additional iteration if we are less than 10x from stopping criterion
+                    if (abs2p < 0.01 * stopping_crit2) return; //ten times better than stopping criterion
+                    //ten times better than stopping criterion
+                    else {
+                        good_to_go = true; //do one iteration more
+                    }
+                }
+                else {
+                    good_to_go = false; //reset if we are outside the zone of the root
+                }
+                if (dp == zero) {//test if denominators are > 0.0 not to divide by zero
+                    dx = (abs(*root) + 1.0) * expcmplx(complex(0.0, FRAC_JUMPS[i % FRAC_JUMP_LEN] * 2 * M_PI)); //make some random jump
+                }
+                else {
+                    fac_netwon = p / dp;
+                    fac_extra = d2p_half / dp;
+                    F_half = fac_netwon * fac_extra;
+
+                    abs2_F_half = real(conj(F_half) * F_half);
+                    if (abs2_F_half <= 0.000625) {//F<0.05, F/2<0.025
+                        mode = 0; //set Newton's, go there after jump
+                    }
+                    dx = fac_netwon * (c_one + F_half); //SG
+                }
+                newroot = *root - dx;
+                if (newroot == *root) return; //nothing changes -> return
+                if (good_to_go) {
+                    *root = newroot; //this was jump already after stopping criterion was met
+                    return;
+                }
+                if (mode != 1) {
+                    *root = newroot;
+                    j = i + 1; //remember iteration number
+                    break; //go to Newton's
+                }
+                if ((i % FRAC_JUMP_EVERY) == 0) { // decide whether to do a jump of modified length (to break cycles)
+                    faq = FRAC_JUMPS[(i / FRAC_JUMP_EVERY - 1) % FRAC_JUMP_LEN];
+                    newroot = *root - faq * dx; //do jump of some semi random lenth (0 < faq < 1)
+                }
+                *root = newroot;
+            }
+            if (i >= MAXIT) {
+                success = false;
+                return;
+            }
+
+        }
+        //------------------------------------------------------------------------------- mode 0
+        if (mode == 0) { // Newton's Method
+
+            for (i = j; i <= j + 10; i++) { // Do only 10 iterations the most then go back to Laguerre
+                faq = 1.0;
+
+                //calc polynomial and first two derivatives
+                p = poly[degree];
+                dp = zero;
+                if (i == j) { // Calculating stopping criterion only at the beginning
+                    ek = abs(poly[degree]);
+                    absroot = abs(*root);
+                    for (k = degree; k >= 1; k--) {
+                        dp = p + dp * (*root);
+                        p = poly[k - 1] + p * (*root);
+                        ek = absroot * ek + abs(p);
+                    }
+                    stopping_crit2 = pow(FRAC_ERR * ek, 2.0);
+                }
+                else {
+                    for (k = degree; k >= 1; k--) {
+                        dp = p + dp * (*root);
+                        p = poly[k - 1] + p * (*root);
+                    }
+                }
+                abs2p = real(conj(p) * p);
+                iter = iter + 1;
+                if (abs2p == 0.0) return;
+
+                if (abs2p < stopping_crit2) {
+                    if (dp == zero) return;
+                    // do additional iteration if we are less than 10x from stopping criterion
+                    if (abs2p < 0.01 * stopping_crit2) {
+                        return; // return immediately since we are at a good place
+                    }
+                    else {
+                        good_to_go = true; // do one more iteration
+                    }
+                }
+                else {
+                    good_to_go = false;
+                }
+
+                if (dp == zero) {
+                    dx = (abs(*root) + 1.0) * expcmplx(complex(0.0, 2 * M_PI * FRAC_JUMPS[i % FRAC_JUMP_LEN])); // make a random jump
+                }
+                else {
+                    dx = p / dp;
+                }
+
+                newroot = *root - dx;
+                if (newroot == *root) return;
+                if (good_to_go) {
+                    *root = newroot;
+                    return;
+                }
+                *root = newroot;
+            }
+            if (iter >= MAXIT) {
+                //too many iterations
+                success = false;
+                return;
+            }
+            mode = 2; //go back to Laguerre's. Happens when could not converge with 10 steps of Newton
+        }
+
+    }/// end of infinite loop
+}
+
+
+
+
+
+//////////////////////////////
+//////////////////////////////
+////////complex methods and operators
+//////////////////////////////
+//////////////////////////////
+
+
+complex::complex(double a, double b) {
+    re = a;
+    im = b;
+}
+
+complex::complex(double a) {
+    re = a;
+    im = 0;
+}
+
+complex::complex(void) {
+    re = 0;
+    im = 0;
+}
+
+double absf(double z) {
+    if (z < 0) {
+        return -z;
+    }
+    else {
+        return z;
+    }
+    // return sqrt(z.re * z.re + z.im * z.im);
+}
+
+double absint(int z) {
+    if (z < 0) {
+        return -z;
+    }
+    else {
+        return z;
+    }
+}
+
+double abs(complex z) {
+    return sqrt(z.re * z.re + z.im * z.im);
+}
+
+complex conj(complex z) {
+    return complex(z.re, -z.im);
+}
+
+complex sqrt(complex z) {
+    double md = sqrt(z.re * z.re + z.im * z.im);
+    return (md > 0) ? complex((sqrt((md + z.re) / 2) * ((z.im > 0) ? 1 : -1)) , sqrt((md - z.re) / 2)) : 0.0;
+}
+
+double real(complex z) {
+    return z.re;
+}
+
+double imag(complex z) {
+    return z.im;
+}
+
+complex operator+(complex p1, complex p2) {
+    return complex(p1.re + p2.re, p1.im + p2.im);
+}
+
+complex operator-(complex p1, complex p2) {
+    return complex(p1.re - p2.re, p1.im - p2.im);
+}
+
+complex operator*(complex p1, complex p2) {
+    return complex(p1.re * p2.re - p1.im * p2.im, p1.re * p2.im + p1.im * p2.re);
+}
+
+complex operator/(complex p1, complex p2) {
+    double md = p2.re * p2.re + p2.im * p2.im;
+    return complex((p1.re * p2.re + p1.im * p2.im) / md, (p1.im * p2.re - p1.re * p2.im) / md);
+}
+
+complex operator+(complex z, double a) {
+    return complex(z.re + a, z.im);
+}
+
+complex operator-(complex z, double a) {
+    return complex(z.re - a, z.im);
+}
+
+complex operator*(complex z, double a) {
+    return complex(z.re * a, z.im * a);
+}
+
+complex operator/(complex z, double a) {
+    return complex(z.re / a, z.im / a);
+}
+
+complex operator+(double a, complex z) {
+    return complex(z.re + a, z.im);
+}
+
+complex operator-(double a, complex z) {
+    return complex(a - z.re, -z.im);
+}
+
+complex operator*(double a, complex z) {
+    return complex(a * z.re, a * z.im);
+}
+
+complex operator/(double a, complex z) {
+    double md = z.re * z.re + z.im * z.im;
+    return complex(a * z.re / md, -a * z.im / md);
+}
+
+
+complex operator+(complex z, int a) {
+    return complex(z.re + a, z.im);
+}
+
+complex operator-(complex z, int a) {
+    return complex(z.re - a, z.im);
+}
+
+complex operator*(complex z, int a) {
+    return complex(z.re * a, z.im * a);
+}
+
+complex operator/(complex z, int a) {
+    return complex(z.re / a, z.im / a);
+}
+
+complex operator+(int a, complex z) {
+    return complex(z.re + a, z.im);
+}
+
+complex operator-(int a, complex z) {
+    return complex(a - z.re, -z.im);
+}
+
+complex operator*(int a, complex z) {
+    return complex(a * z.re, a * z.im);
+}
+
+complex operator/(int a, complex z) {
+    double md = z.re * z.re + z.im * z.im;
+    return complex(a * z.re / md, -a * z.im / md);
+}
+
+complex operator-(complex z) {
+    return complex(-z.re, -z.im);
+}
+
+bool operator==(complex p1, complex p2) {
+    if (p1.re == p2.re && p1.im == p2.im) return true;
+    return false;
+}
+
+bool operator!=(complex p1, complex p2) {
+    if (p1.re == p2.re && p1.im == p2.im) return false;
+    return true;
+}
+
+complex expcmplx(complex p1) {
+    double r = exp(p1.re);
+    double theta = atan2(p1.im, p1.re);
+    return complex(r * cos(theta), r * sin(theta));
+}
+
+complex cbrt(complex z) {
+    complex zout;
+    double r, r_cube, theta, theta_cube;
+    r = abs(z);
+    r_cube = pow(r, 0.333333333333);
+    theta = atan2(z.im, z.re);
+    theta_cube = theta / 3.;
+    return  complex(r_cube * cos(theta_cube), r_cube * sin(theta_cube));
+}
+
+Node::Node(double x) {
+    value = x;
+    nimages = 0;
+}
+
+double Node::operator-(Node node2) {
+    return value - node2.value;
+}
+
+
+_point::_point(double x, double y, _theta *theta1 ) {
+    x1 = x;
+    x2 = y;
+    theta = theta1;
+    ds = 0;
+    closepairparity = 0;
+    area = 0;
+    error = 0;
+
+    // nodephi = new Node(0);
+    // Node *nodephi;
+}
+_point::~_point(void) {
+    // delete this;
+    // delete next;
+    // delete prev;
+
+    // delete zs;
+    // delete d;
+    // delete J2;
+    // delete dz;
+    delete theta;
+
+    // free(this);
+}
+
+double _point::operator-(_point p2) {
+    return (x1 - p2.x1) * (x1 - p2.x1) + (x2 - p2.x2) * (x2 - p2.x2);
+}
+
+//////////////////////////////
+//////////////////////////////
+////////_curve methods
+//////////////////////////////
+//////////////////////////////
+
+_curve::_curve(void) {
+    length = 0;
+    parity = 0;
+    first = last = 0;
+    partneratstart = partneratend = 0;
+    jumped_flag = 0;
+    maxerr = 0;
+    second_maxerr = 0;
+    third_maxerr = 0;
+    posflagnum = 0;
+}
+
+_curve::_curve(_point *p1) {
+    length = 1;
+    first = last = p1;
+    p1->prev = p1->next = 0;
+    partneratstart = partneratend = 0;
+    jumped_flag = 0;
+    maxerr = 0;
+    second_maxerr = 0;
+    third_maxerr = 0;
+    posflagnum = 0;
+}
+
+// _curve::~_curve(void) {
+//  // fprintf(stderr, "\n deleting curve\n");
+//  _point *scan1, *scan2;
+//  _point *testp;
+//  scan1 = first;
+//  for (int i = 0; i < length; i++) {
+//      scan2 = scan1->next;
+//      testp = scan1;
+//      fprintf(stderr, "testp before delete x1 x2 = %f %f\n", testp->x1, testp->x2 );
+//      delete scan1;
+//      fprintf(stderr, "testp after delete x1 x2 mu= %f %f %f\n", testp->x1, testp->x2, testp->mu );
+//      fprintf(stderr, "testp after delete x1 x2 mu= %f %f %f\n", scan1->x1, scan1->x2, scan1->mu );
+//      scan1 = scan2;
+//  }
+// }
+
+_curve::~_curve(void) {
+    // fprintf(stderr, "\n deleting curve\n");
+    _point *scan1, *scan2;
+    scan1 = first;
+    while (scan1){
+        scan2 = scan1->next;
+        delete scan1;
+        scan1 = scan2;
+    }
+
+    // for (int i = 0; i < length; i++) {
+    //  scan2 = scan1->next;
+    //  delete scan1;
+    //  scan1 = scan2;
+    // }
+    // scan1 = NULL;
+    // scan2 = NULL;
+    // delete scan1;
+    // delete scan2; // 2021.09.26
+}
+
+_curve *_curve::divide(_point *ref) {
+    _point *scan;
+    _curve *nc;
+    int l1;
+
+    l1 = 1;
+    for (scan = first; scan != ref; scan = scan->next) l1++;
+    nc = new _curve();
+    nc->first = ref->next;
+    nc->first->prev = 0;
+    nc->last = last;
+    nc->length = length - l1;
+    nc->partneratend = partneratend;
+    if (partneratend) partneratend->partneratend = nc;
+
+    length = l1;
+    last = ref;
+    ref->next = 0;
+    partneratend = 0;
+    return nc;
+}
+
+
+void _curve::append(double x1, double x2) {
+    _point *pp;
+    pp = new _point(x1, x2, 0);
+    if (length == 0) {
+        first = pp;
+        last = pp;
+        pp->prev = 0;
+    }
+    else {
+        last->next = pp;
+        pp->prev = last;
+        last = pp;
+    }
+    pp->next = 0;
+    length++;
+    // pp = NULL;
+    // delete pp;
+}
+
+void _curve::append(_point *pp) {
+    if (length == 0) {
+        first = pp;
+        last = pp;
+        pp->prev = 0;
+    } else {
+        pp->next = last->next;
+        pp->prev = last;
+        last->next = pp;
+        last = pp;
+    }
+    length++;
+}
+
+
+void _curve::insert(_point *ref, _point *pp) {
+    _point *scan;
+    scan = first;
+    while (scan != ref) {
+        scan = scan->next;
+    }
+    pp->next = scan->next;
+    scan->next->prev = pp;
+    scan->next = pp;
+    pp->prev = scan;
+    length++;
+
+}
+
+
+void _curve::prepend(double x1, double x2) {
+    _point *pp;
+    pp = new _point(x1, x2, 0);
+    if (length == 0) {
+        first = pp;
+        last = pp;
+        pp->next = 0;
+    }
+    else {
+        first->prev = pp;
+        pp->next = first;
+        first = pp;
+    }
+    pp->prev = 0;
+    length++;
+}
+
+_curve *_curve::join(_curve *nc) {
+    if (length > 0) {
+        last->next = nc->first;
+    }
+    else {
+        first = nc->first;
+    };
+    if (nc->length > 0) {
+        nc->first->prev = last;
+        last = nc->last;
+    }
+    length += nc->length;
+    partneratend = nc->partneratend;
+    if (partneratend) partneratend->partneratend = this;
+    nc->first = 0;
+    nc->last = 0;
+    nc->length = 0;
+    // delete nc;
+    return this;
+}
+
+_curve *_curve::joinbefore(_curve *nc) {
+    if (length > 0) {
+        first->prev = nc->last;
+    }
+    else {
+        last = nc->last;
+    };
+    if (nc->length > 0) {
+        nc->last->next = first;
+        first = nc->first;
+    }
+    length += nc->length;
+    nc->first = 0;
+    nc->last = 0;
+    nc->length = 0;
+    delete nc;
+    return this;
+}
+
+_curve *_curve::reverse(void) {
+    _point *scan1, *scan2, *scambio;
+    if (length > 1) {
+        scan1 = first;
+        while (scan1) {
+            scan2 = scan1->next;
+            scambio = scan1->next;
+            scan1->next = scan1->prev;
+            scan1->prev = scambio;
+            scan1 = scan2;
+        }
+        scambio = first;
+        first = last;
+        last = scambio;
+    }
+    // scan1 = NULL;
+    // scan2 = NULL;
+    // scambio = NULL;
+    // delete scambio;
+    // delete scan1;
+    // delete scan2;
+    return this;
+}
+
+void _curve::drop(_point *ref, int del) {
+    _point *scan;
+    if (length) {
+        // for (scan = last; scan && (scan != ref); scan = scan->prev); //should delete dropped points here?
+        for (scan = last; scan && (scan != ref); scan = scan->prev) {
+            // delete scan.next;
+        } //should delete dropped points here?
+        if (scan) {
+            if (length == 1) {
+                first = last = 0;
+            }
+            else {
+                if (ref->prev) {
+                    ref->prev->next = ref->next;
+                    if (ref == last) {
+                        last = ref->prev;
+                    }
+                }
+                if (ref->next) {
+                    ref->next->prev = ref->prev;
+                    if (ref == first) {
+                        first = ref->next;
+                    }
+                }
+            }
+            length--; \
+            if (del) {
+                delete scan; // add on 2020.03.16
+            }
+
+        }
+    }
+    // scan = NULL;
+    // // fprintf(stderr, "deleting scan in _curve::drop\n");
+    // delete scan;
+}
+
+double _curve::closest2(_point *ref, _point **clos2) {
+    double mi = 1.e100, mi2 = 1.e100, FP;
+    _point *scan, *clos;
+    if (length > 1) {
+        clos = *clos2 = first;
+        for (scan = first; scan != 0; scan = scan->next) {
+            FP = *scan - *ref;
+            if (FP < mi) {
+                mi2 = mi;
+                mi = FP;
+                *clos2 = clos;
+                clos = scan;
+            }
+            else if (FP < mi2) {
+                mi2 = FP;
+                *clos2 = scan;
+            }
+        }
+    }
+    else {
+        *clos2 = 0;
+    }
+    return (**clos2 - *ref);
+}
+
+
+double _curve::closest(_point *ref, _point **clos) {
+    double mi = 1.e100, FP;
+    _point *scan;
+    for (scan = first; scan != 0; scan = scan->next) {
+        FP = *scan - *ref;
+        // fprintf(stderr, "FP = %.5e\n", FP);
+        if (FP < mi) {
+            mi = FP;
+            *clos = scan;
+            // scan 变量 = 一个地址值A，*scan 代表该地址A上存放的内容
+            // *clos 表示将 clos 内部存的值 设置为 A，那么之后用 *clos 就能获取A上存放的内容，即获得了最近点，why not *clos = &scan
+            //void func(int **p); *p = &b; q = &a;, func(& q);
+        }
+    }
+    // scan = NULL;
+    // delete scan;
+    return mi;
+}
+
+double _curve::closest3(_point *ref, _point **clos) {
+    double mi = 1.e200, FP;
+    _point *scan;
+    for (scan = first; scan != 0; scan = scan->next) {
+        // FP = *scan - *ref;
+        // FP = (*scan - *ref) * pow(2,( abs(scan->mu/ref->mu) + abs(ref->mu/scan->mu) ));
+        FP = (*scan - *ref) * ( abs(scan->mu / ref->mu) + abs(ref->mu / scan->mu) );
+        fprintf(stderr, "scan.mu = %.5f, FP = %.5e\n", scan->mu, FP);
+        if (FP < mi) {
+            mi = FP;
+            *clos = scan;
+            // scan 变量 = 一个地址值A，*scan 代表该地址A上存放的内容
+            // *clos 表示将 clos 内部存的值 设置为 A，那么之后用 *clos 就能获取A上存放的内容，即获得了最近点，why not *clos = &scan
+            //void func(int **p); *p = &b; q = &a;, func(& q);
+        }
+    }
+    // scan = NULL;
+    // delete scan;
+    return mi;
+}
+
+
+void _curve::complement(_point **sott, int lensott, _point **res, int lenres) {
+    int flag, i;
+    _point *scan;
+    i = 0;
+    for (scan = first; scan != 0; scan = scan->next) {
+        flag = 0;
+        for (int j = 0; (j < lensott) && (!flag); j++) {
+            if (scan == sott[j]) {
+                flag = 1;
+            }
+        }
+        if ((!flag) && (i < lenres)) {
+            res[i] = scan;
+            i++;
+        }
+    }
+}
+
+//////////////////////////////
+//////////////////////////////
+////////_sols methods
+//////////////////////////////
+//////////////////////////////
+
+
+_sols::_sols(void) {
+    length = 0;
+    first = last = 0;
+}
+
+_sols::~_sols(void) {
+    _curve *scan1, *scan2;
+    scan1 = first;
+    while (scan1) {
+        scan2 = scan1->next;
+        delete scan1;
+        scan1 = scan2;
+    }
+    // scan1 = NULL;
+    // scan2 = NULL;
+    // delete scan1;
+    // delete scan2;//2021.09.26
+}
+
+void _sols::removelen1track(void) {
+    _curve *scan;
+    if (length) {
+        scan = first;
+        // # print("self.first, self.last, ", self.first, self.last)
+        while (scan) {
+            // # print(" scan.prev, scan, scan.next, scan.length %s \n"%scan.length, scan.prev, scan, scan.next)
+            if (scan->length <= 3) {
+                drop(scan);
+            }
+            scan = scan->next;
+        }
+    }
+    // scan = NULL;
+    // delete scan;
+
+}
+
+void _sols::append(_curve *cc) {
+    if (length == 0) {
+        first = cc;
+        last = cc;
+        cc->prev = 0;
+    }
+    else {
+        last->next = cc;
+        cc->prev = last;
+        last = cc;
+    }
+    cc->next = 0;
+    length++;
+}
+
+void _sols::prepend(_curve *cc) {
+    if (length == 0) {
+        first = cc;
+        last = cc;
+        cc->next = 0;
+    }
+    else {
+        first->prev = cc;
+        cc->next = first;
+        first = cc;
+    }
+    cc->prev = 0;
+    length++;
+}
+
+void _sols::drop(_curve *ref, int del) {
+    _curve *scan;
+    if (length) {
+        // for (scan = last; scan && (scan != ref); scan = scan->prev);
+        for (scan = last; scan && (scan != ref); scan = scan->prev) {
+            // delete scan.next;
+        }
+        if (scan) {
+            if (length == 1) {
+                first = last = 0;
+            }
+            else {
+                if (ref->prev) {
+                    ref->prev->next = ref->next;
+                    if (ref == last) {
+                        last = ref->prev;
+                    }
+                }
+                if (ref->next) {
+                    ref->next->prev = ref->prev;
+                    if (ref == first) {
+                        first = ref->next;
+                    }
+                }
+            }
+            length--;
+            if (del) {
+                // fprintf(stderr, "deleting curve in sol\n");
+                delete scan;//add on 2020.03.16
+            }
+        }
+    }
+    // scan = NULL;
+    // delete scan;
+}
+
+void _sols::sort(void) {
+    // sort as larger to smaller according to the length of each _curve element
+    int i;//, j;
+    _curve *scan, *tmp_prev, *tmp_next, *tmp_next2;
+
+    if (length > 2) {
+
+        for (i = 0; i < length; i++) {
+            scan = first;
+            while (scan->next) {
+                if (scan->length < scan->next->length) {
+                    if (scan == first) {
+                        // update first
+                        tmp_prev = scan->prev;
+                        tmp_next = scan->next;
+                        tmp_next2 = scan->next->next;
+
+                        tmp_next2->prev = scan;
+                        scan->next = tmp_next2;
+
+                        first = tmp_next;
+                        tmp_next->prev = tmp_prev;
+
+                        scan->prev = tmp_next;
+                        tmp_next->next = scan;
+
+                    } else if (scan->next == last) {
+
+                        // update last
+                        tmp_prev = scan->prev;
+                        tmp_next = scan->next;
+                        tmp_next2 = 0;
+
+                        last = scan;
+                        scan->next = tmp_next2;
+
+                        tmp_prev->next = tmp_next;
+                        tmp_next->prev = tmp_prev;
+
+                        scan->prev = tmp_next;
+                        tmp_next->next = scan;
+
+
+                    } else {
+                        tmp_prev = scan->prev;
+                        tmp_next = scan->next;
+                        tmp_next2 = scan->next->next;
+
+                        tmp_next2->prev = scan;
+                        scan->next = tmp_next2;
+
+                        tmp_prev->next = tmp_next;
+                        tmp_next->prev = tmp_prev;
+
+                        scan->prev = tmp_next;
+                        tmp_next->next = scan;
+                    }
+
+
+                } else {
+                    scan = scan->next;
+                }
+            }
+        }
+    } else if (length == 2){
+        // length  2
+        if (first->length < last->length && first->length == 1){
+            // exchange first and last
+            tmp_next = last;
+            last = first;
+            first = tmp_next;
+            first->next = last;
+            last->prev = first;
+            first->prev = 0;
+            last->next = 0;
+        }
+
+    }
+
+
+
+
+}
+
+
+void _sols::join(_sols *nc) {
+    if (length > 0) {
+        last->next = nc->first;
+    }
+    else {
+        first = nc->first;
+    };
+    if (nc->length > 0) {
+        nc->first->prev = last;
+        last = nc->last;
+    }
+    length += nc->length;
+    nc->first = 0;
+    nc->last = 0;
+    nc->length = 0;
+    // delete nc;
+}
+
+
+
+//////////////////////////////
+//////////////////////////////
+////////_theta methods
+//////////////////////////////
+//////////////////////////////
+
+_theta::_theta(double th1) {
+    th = th1;
+}
+_thetas::_thetas(void) {
+    length = 0;
+}
+
+_thetas::~_thetas(void) {
+    _theta *scan, *scan2;
+    scan = first;
+    while (scan) {
+        scan2 = scan->next;
+        delete scan;
+        scan = scan2;
+    }
+}
+
+_theta *_thetas::insert(double th) {
+    _theta *scan, *scan2;
+
+    scan2 = new _theta(th);
+    if (length) {
+        if (th < first->th) {
+            first->prev = scan2;
+            scan2->next = first;
+            scan2->prev = 0;
+            first = scan2;
+        }
+        else {
+            if (th > last->th) {
+                last->next = scan2;
+                scan2->prev = last;
+                scan2->next = 0;
+                last = scan2;
+            }
+            else {
+                scan = first;
+                while (scan->th < th) scan = scan->next;
+                scan2->next = scan;
+                scan2->prev = scan->prev;
+                scan->prev->next = scan2;
+                scan->prev = scan2;
+            }
+        }
+    }
+    else {
+        first = scan2;
+        last = scan2;
+        scan2->next = 0;
+        scan2->prev = 0;
+    }
+    length++;
+    //  scan2->maxerr=0.;
+    return scan2;
+}

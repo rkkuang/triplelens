@@ -1,7 +1,7 @@
 // #include<stdio.h>
 #include<memory>
 #include<math.h>
-#include "VBBinaryLensingLibrary.h"
+// #include "VBBinaryLensingLibrary.h"
 
 // output an image
 #define TRUE_IMAGE 1
@@ -50,6 +50,128 @@
 #define DEGREEFIX (NLENSFIX*NLENSFIX+1)
 #define CORRECT_PARITY (1-NLENSFIX)
 
+
+struct annulus;
+
+
+struct annulus {
+    double bin;
+    double cum;
+    double Mag;
+    double err;
+    double f;
+    int nim;
+    annulus *prev, *next;
+};
+
+class complex {
+public:
+    double re;
+    double im;
+    complex(double, double);
+    complex(double);
+    complex(void);
+};
+class Node {
+public:
+    double value;
+    int nimages;
+    Node *next;
+    Node *prev;
+    Node(double);
+    double operator-(Node);
+};
+
+class _theta {
+public:
+    double th, maxerr, Mag, errworst;
+    _theta *prev, *next;
+
+    _theta(double);
+
+};
+
+class _thetas {
+public:
+    _theta *first, *last;
+    int length;
+
+    _thetas(void);
+    ~_thetas(void);
+    _theta *insert(double);
+
+
+};
+
+class _point {
+public:
+    double phi;     //angle phi on the source circle
+    // Node *nodephi;
+    double mu;  //signed magnification
+    short int flag;     // is this a true solution
+    complex zs;     // corresponding source position
+    double thetaJ;  // angle of the eigen matrix
+
+    double area;
+    double error;
+
+    double x1;
+    double x2;
+    double parab, absdzs, ds, dJ;
+    complex d, J2, dz;
+    _theta *theta;
+    int closepairparity;//add on 20200414, used to mark the critical points at creation and destroy of images.
+    _point(double , double, _theta *);
+    ~_point(void);
+    _point *next, *prev;
+    double operator-(_point);
+};
+
+class _curve {
+public:
+    int length, parity;
+    _point *first, *last;//, *maxerr_pnt, *second_maxerr_pnt, *third_maxerr_pnt;
+    unsigned short int jumped_flag;
+    _curve *next, *prev;
+    _curve *partneratstart, *partneratend;
+    double parabstart, maxerr, second_maxerr, third_maxerr;
+    int posflagnum;
+
+    _curve(_point *);
+    _curve(void);
+    ~_curve(void);
+
+    _curve *divide(_point *);
+    void drop(_point *, int del = 0);
+    void append(double, double);
+    void append(_point *);
+    void insert(_point *, _point*);
+    void prepend(double, double);
+//  void prepend(_point *);
+    _curve *join(_curve *);
+    _curve *joinbefore(_curve *);
+    _curve *reverse(void);
+    double closest(_point *, _point **);
+    double closest2(_point *, _point **);
+    double closest3(_point *, _point **);
+    void complement(_point **, int, _point **, int);
+};
+
+class _sols {
+public:
+    int length;
+    _curve *first, *last;
+
+    _sols(void);
+    ~_sols(void);
+    void drop(_curve *, int del = 0);
+    void append(_curve *);
+    void prepend(_curve *);
+    void join(_sols *);
+    void sort(void);
+    void removelen1track();
+};
+
 class _linkedarray {
 public:
     int length;
@@ -68,6 +190,12 @@ public:
     // Node *insert(double th);
 };
 
+#define MR 8
+#define MT 10
+#define MAXIT (MT*MR)
+#define MAXM 30
+#define FRAC_ERR 2.0e-17 //Fractional Error for double precision, 2.0e-15
+
 
 class TripleLensing {
     int finalnphi, nimages, ftime, FSflag, nsolution, trackcnt, parity, degrees, adanp0 = 2, MAXNPS = 2000, secnum_priv, basenum_priv, clpairparity1, clpairparity2, special_flag = 0;
@@ -85,6 +213,13 @@ class TripleLensing {
     double therr;
     int NPS;
     double *mlens, *Zlens;
+
+
+    void cmplx_laguerre(complex *, int, complex *, int &, bool &);
+    void cmplx_newton_spec(complex *, int, complex *, int &, bool &);
+    void solve_quadratic_eq(complex &, complex &, complex *);
+    void solve_cubic_eq(complex &, complex &, complex &, complex *);
+
 public:
     int nphi, secnum, maxmuidx,  pntnum, CQ, finalNPS;
     unsigned short int NLENS, DEGREE, ifjump, flag, basenum, distype, ifFinite, area_quality = 1;
@@ -123,7 +258,7 @@ public:
     double tripleFS2python(double xsCenter, double ysCenter, double rs);//core
 
     void solv_lens_equation(double *zrxy, double *mlens, double *zlens, double xs, double ys, int nlens);
-    void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
+    // void outputCriticalTriple_list(double resxy[], double mlens[], double Zlens[], int nlens, int NPS);
     void outputCriticalBinary_list(double resxy[], double s, double q, int NPS);
     void TriLightCurve(double *pr, double *mags, double *y1s, double *y2s, int np);
 
@@ -194,6 +329,11 @@ public:
     // variables and functions related to magnification calculations with array structure, end
     // ########################################################################################
 
+    // Skowron & Gould root calculator
+    void cmplx_roots_gen(complex *, complex *, int, bool, bool);
+    void cmplx_laguerre2newton(complex *, int, complex *, int &, bool &, int);
+
+
 };
 
 
@@ -214,7 +354,7 @@ void saveTracks_before(_sols *track, int nphi);
 void outputCriticalTriple(double mlens[], complex zlens[], int nlens, int npnt = 3000);
 void outputCaustics_for_crossSection(double mlens[], complex zlens[], int nlens, int npnt);
 
-void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS);
+// void outputCriticalTriple_list(double allxys[], double mlens[], double zlens[], int nlens, int NPS);
 
 void get_crit_caus(double mlens[], complex zlens[], int nlens, int NPS, double *criticalx, double *criticaly, double *causticsx, double *causticsy, int *numcritical);
 
@@ -231,3 +371,37 @@ void myswap(int *a, int *b);
 void mydbswap(double *a, double *b);
 
 
+
+
+double abs(complex);
+double absint(int);
+double absf(double);
+complex conj(complex);
+complex sqrt(complex);
+double real(complex);
+double imag(complex);
+complex expcmplx(complex);
+complex cbrt(complex);
+complex operator+(complex, complex);
+complex operator-(complex, complex);
+complex operator*(complex, complex);
+complex operator/(complex, complex);
+complex operator+(complex, double);
+complex operator-(complex, double);
+complex operator*(complex, double);
+complex operator/(complex, double);
+complex operator+(double, complex);
+complex operator-(double, complex);
+complex operator*(double, complex);
+complex operator/(double, complex);
+complex operator+(int, complex);
+complex operator-(int, complex);
+complex operator*(int, complex);
+complex operator/(int, complex);
+complex operator+(complex, int);
+complex operator-(complex, int);
+complex operator*(complex, int);
+complex operator/(complex, int);
+complex operator-(complex);
+bool operator==(complex, complex);
+bool operator!=(complex, complex);
